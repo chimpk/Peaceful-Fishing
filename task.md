@@ -15,13 +15,13 @@
 
 ## Sprint 3 — Về sau
 
-- [ ] **#1 Bản đồ / Địa điểm** — Ao làng / Biển / Hang tối — cá khác nhau mỗi vùng
+- [x] **#1 Bản đồ / Địa điểm** — Ao làng / Biển / Hang tối — cá khác nhau mỗi vùng
 - [ ] **#3 Cá Boss** — Sau 20 cá → xuất hiện Boss với mini-game đặc biệt
-- [ ] **#2 Combo & Streak** — Câu liên tiếp → nhân đôi vàng x1.5 → x3
+- [x] **#2 Combo & Streak** — Câu liên tiếp → nhân đôi vàng x1.5 → x3
 - [ ] **#9 Chế độ thi đấu** — Timer 3 phút, leaderboard cục bộ
 - [ ] **#14 Màn hình kết quả** — Thống kê sau mỗi phiên câu
 - [ ] **#16 Tutorial tương tác** — Step-by-step hướng dẫn lần đầu chơi
 - [ ] **#17 Notification đẹp hơn** — Animation riêng cho từng loại thông báo
-- [ ] **#4 Thời gian trong ngày** — Sáng/tối/đêm → cá khác nhau
+- [x] **#4 Thời gian trong ngày** — Sáng/tối/đêm → cá khác nhau
 - [ ] **#12 Fish Encyclopedia** — Sprite độc lập cho từng loài
 - [ ] **#13 Hiệu ứng mồi câu** — Mồi phát sáng theo rarity
