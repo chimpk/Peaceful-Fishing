@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest } from '../types';
-import { RODS, BAITS } from '../gameData';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills } from '../types';
+import { RODS, BAITS, FISH_TYPES } from '../gameData';
 
 interface UIOverlayProps {
   gameState: GameState;
@@ -26,17 +26,34 @@ interface UIOverlayProps {
   onResetData: () => void;
   onClaimQuest: (id: string) => void;
   weather: 'sunny' | 'rainy' | 'stormy';
+  onSellFish: (timestamp: number) => void;
+  epicCatch: { fish: { name: string; rarity: string; value: number }; isGolden: boolean } | null;
+  unlockedFish: string[];
+  skills: PlayerSkills;
+  dailyMarketBoosts: string[];
+  onBuySkill: (skillId: keyof PlayerSkills) => void;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
   gameState, activeView, setActiveView, gold, inventory, inventoryCapacity, notification,
   currentRod, currentBait, baitCounts, ownedRods, stats, achievements, quests,
-  onStart, onSellAll, onBuy, onSelect, onUpgradeCapacity, onResetData, onClaimQuest,
-  weather
+  onStart, onSellAll, onSellFish, onBuy, onSelect, onUpgradeCapacity, onResetData, onClaimQuest,
+  weather, epicCatch, unlockedFish, skills, dailyMarketBoosts, onBuySkill
 }) => {
   const [shopTab, setShopTab] = useState<'rod' | 'bait'>('rod');
   const [inventoryTab, setInventoryTab] = useState<'items' | 'upgrade'>('items');
   const [showTutorial, setShowTutorial] = useState(false);
+  const [confettiItems] = useState(() => 
+    Array.from({ length: 40 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      delay: Math.random() * 0.8,
+      duration: 1.2 + Math.random() * 1,
+      color: ['#fbbf24','#f87171','#34d399','#60a5fa','#a78bfa','#fb923c','#f472b6'][Math.floor(Math.random()*7)],
+      size: 6 + Math.random() * 8,
+      rotation: Math.random() * 360,
+    }))
+  );
 
   const levelData = useMemo(() => {
     const level = Math.floor(Math.sqrt(stats.totalFishCaught)) + 1;
@@ -99,6 +116,14 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         <button onClick={() => setActiveView(UIView.INVENTORY)} className={`flex flex-col items-center gap-1 transition-all ${activeView === UIView.INVENTORY ? 'text-blue-400 scale-110' : 'text-slate-500 opacity-60 hover:opacity-100 hover:translate-y--1'}`}>
           <div className="text-2xl">🎒</div>
           <span className="text-[10px] font-black uppercase tracking-widest">TÚI</span>
+        </button>
+        <button onClick={() => setActiveView(UIView.COLLECTION)} className={`flex flex-col items-center gap-1 transition-all ${activeView === UIView.COLLECTION ? 'text-blue-400 scale-110' : 'text-slate-500 opacity-60 hover:opacity-100 hover:translate-y--1'}`}>
+          <div className="text-2xl">📖</div>
+          <span className="text-[10px] font-black uppercase tracking-widest">SỔ TAY</span>
+        </button>
+        <button onClick={() => setActiveView(UIView.SKILLS)} className={`flex flex-col items-center gap-1 transition-all ${activeView === UIView.SKILLS ? 'text-blue-400 scale-110' : 'text-slate-500 opacity-60 hover:opacity-100 hover:translate-y--1'}`}>
+          <div className="text-2xl">⚡</div>
+          <span className="text-[10px] font-black uppercase tracking-widest">KỸ NĂNG</span>
         </button>
         <button onClick={() => setActiveView(UIView.PROFILE)} className={`flex flex-col items-center gap-1 transition-all ${activeView === UIView.PROFILE ? 'text-blue-400 scale-110' : 'text-slate-500 opacity-60 hover:opacity-100 hover:translate-y--1'}`}>
           <div className="text-2xl">👤</div>
@@ -189,9 +214,12 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             </div>
             
             {gameState === GameState.IDLE && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 bg-black/70 px-10 py-4 rounded-3xl border-2 border-white/10 backdrop-blur-xl animate-pulse pointer-events-none flex items-center gap-4">
-                <span className="bg-white text-black px-3 py-1 rounded-lg font-black text-xs shadow-white/50 shadow-lg">SPACE</span>
-                <span className="text-sm font-black tracking-wider uppercase opacity-80">GIỮ ĐỂ QUĂNG CẦN</span>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 bg-black/70 px-10 py-4 rounded-3xl border-2 border-white/10 backdrop-blur-xl pointer-events-none flex flex-col items-center gap-3">
+                <div className="flex items-center gap-4 animate-pulse">
+                  <span className="bg-white text-black px-3 py-1 rounded-lg font-black text-xs shadow-white/50 shadow-lg">SPACE</span>
+                  <span className="text-sm font-black tracking-wider uppercase opacity-80">GIỮ ĐỂ QUĂNG CẦN</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-bold opacity-60">hoặc nhấn giữ màn hình</div>
               </div>
             )}
 
@@ -206,7 +234,72 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           </>
         )}
 
+        {/* Epic Catch Overlay */}
+        {epicCatch && (() => {
+          const isLegendaryPlus = epicCatch.fish.rarity === 'legendary' || epicCatch.fish.rarity === 'mythic';
+          const isMythic = epicCatch.fish.rarity === 'mythic';
+          const glowColor = isMythic ? '#7c3aed' : isLegendaryPlus ? '#d97706' : '#f59e0b';
+          const textGradient = isMythic
+            ? 'from-purple-300 via-pink-400 to-purple-600'
+            : isLegendaryPlus
+            ? 'from-yellow-200 via-amber-400 to-yellow-600'
+            : 'from-yellow-300 via-yellow-400 to-yellow-600';
+          const label = isMythic ? '✦ THẦN THOẠI ✦' : isLegendaryPlus ? '★ HUYỀN THOẠI ★' : epicCatch.isGolden ? '✦ CÁ VÀNG ✦' : '★ SỬ THI ★';
+          return (
+            <div
+              className="absolute inset-0 pointer-events-none z-[300] flex items-center justify-center overflow-hidden"
+              style={{ animation: 'epicFlash 0.35s ease-out' }}
+            >
+              {/* Screen flash */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `radial-gradient(ellipse at center, ${glowColor}55 0%, transparent 70%)`,
+                  animation: 'epicGlow 1.5s ease-in-out infinite alternate',
+                }}
+              />
+              {/* Confetti */}
+              {confettiItems.map(c => (
+                <div
+                  key={c.id}
+                  className="absolute top-0 rounded-sm"
+                  style={{
+                    left: `${c.x}%`,
+                    width: c.size,
+                    height: c.size * 0.5,
+                    backgroundColor: c.color,
+                    transform: `rotate(${c.rotation}deg)`,
+                    animation: `confettiFall ${c.duration}s ${c.delay}s ease-in forwards`,
+                  }}
+                />
+              ))}
+              {/* Center card */}
+              <div
+                className="relative flex flex-col items-center gap-4"
+                style={{ animation: 'epicCardPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
+              >
+                <div
+                  className="text-xs font-black uppercase tracking-[0.3em] px-5 py-1.5 rounded-full border"
+                  style={{ color: glowColor, borderColor: glowColor, background: `${glowColor}22`, boxShadow: `0 0 20px ${glowColor}44` }}
+                >
+                  {label}
+                </div>
+                <div
+                  className={`text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-b ${textGradient} drop-shadow-2xl text-center leading-tight`}
+                  style={{ textShadow: `0 0 40px ${glowColor}` }}
+                >
+                  {epicCatch.fish.name}
+                </div>
+                <div className="text-base font-black text-yellow-400">
+                  +{(epicCatch.isGolden ? epicCatch.fish.value * 2 : epicCatch.fish.value).toLocaleString()} 💰
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {showTutorial && (
+
             <div className="absolute inset-0 bg-black/90 backdrop-blur-xl pointer-events-auto z-[200] flex items-center justify-center p-8">
                 <div className="max-w-md w-full bg-slate-900 border-2 border-white/10 rounded-[3rem] p-8 animate-in zoom-in slide-in-from-bottom-5 duration-300">
                     <h2 className="text-3xl font-black italic text-blue-400 mb-6 text-center">HƯỚNG DẪN</h2>
@@ -321,6 +414,17 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                   </div>
                </div>
 
+               {dailyMarketBoosts.length > 0 && (
+                 <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-2xl mb-4">
+                    <h4 className="text-yellow-400 font-black text-xs mb-2">📈 THỊ TRƯỜNG HÔM NAY (x3 GIÁ)</h4>
+                    <div className="flex gap-2">
+                       {dailyMarketBoosts.map((fishName, idx) => (
+                         <span key={idx} className="bg-yellow-500/20 text-yellow-300 text-[10px] px-2 py-1 rounded-md font-bold">{fishName}</span>
+                       ))}
+                    </div>
+                 </div>
+               )}
+
                <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-white/5 shadow-2xl">
                   <div className="flex justify-between items-center mb-6">
                      <h3 className="font-black italic text-lg opacity-70">TÚI CỦA BẠN</h3>
@@ -337,20 +441,33 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                     </div>
                   ) : (
                     <div className="grid grid-cols-2 gap-4">
-                       {inventory.map((item, i) => (
-                         <div key={i} className={`p-4 rounded-2xl border-l-4 shadow-lg flex flex-col gap-2 group transition-all hover:scale-105 relative overflow-hidden ${item.isGolden ? 'bg-yellow-500/10 border-yellow-500' : 'bg-slate-800/40 border-slate-700'}`} style={!item.isGolden ? { borderLeftColor: item.fish.color } : {}}>
-                            {item.isGolden && (
-                                <div className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[6px] font-black px-1.5 py-0.5 rounded-bl-lg">X2 GIÁ</div>
-                            )}
-                            <div className={`text-xs font-black uppercase truncate ${item.isGolden ? 'text-yellow-400' : 'opacity-60'}`}>
-                                {item.isGolden ? '★ ' : ''}{item.fish.name}
-                            </div>
-                            <div className="flex justify-between items-center">
-                               <span className="text-yellow-500 font-bold text-xs">{(item.isGolden ? item.fish.value * 2 : item.fish.value).toLocaleString()} 💰</span>
-                               <span className="text-[8px] bg-white/5 px-2 py-0.5 rounded-full opacity-40">{item.fish.rarity}</span>
-                            </div>
-                         </div>
-                       ))}
+                       {inventory.map((item, i) => {
+                          let itemValue = item.isGolden ? item.fish.value * 2 : item.fish.value;
+                          const isBoosted = dailyMarketBoosts.includes(item.fish.name);
+                          if (isBoosted) itemValue *= 3;
+                          return (
+                          <div key={i} className={`p-4 rounded-2xl border-l-4 shadow-lg flex flex-col gap-2 group transition-all hover:scale-105 relative overflow-hidden ${item.isGolden ? 'bg-yellow-500/10 border-yellow-500' : 'bg-slate-800/40 border-slate-700'}`} style={!item.isGolden ? { borderLeftColor: item.fish.color } : {}}>
+                             {(item.isGolden || isBoosted) && (
+                                 <div className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[6px] font-black px-1.5 py-0.5 rounded-bl-lg">
+                                    {isBoosted ? 'x3 THỊ TRƯỜNG' : 'X2 GIÁ'}
+                                 </div>
+                             )}
+                             <div className={`text-xs font-black uppercase truncate ${item.isGolden ? 'text-yellow-400' : 'opacity-60'}`}>
+                                 {item.isGolden ? '★ ' : ''}{item.fish.name}
+                             </div>
+                             <div className="flex justify-between items-center">
+                                <span className="text-yellow-500 font-bold text-xs">{itemValue.toLocaleString()} 💰</span>
+                                <span className="text-[8px] bg-white/5 px-2 py-0.5 rounded-full opacity-40">{item.fish.rarity}</span>
+                             </div>
+                             <button
+                               onClick={() => onSellFish(item.timestamp)}
+                               className="w-full py-1.5 bg-yellow-500/0 hover:bg-yellow-500 text-yellow-500 hover:text-black rounded-xl text-[9px] font-black uppercase tracking-widest border border-yellow-500/30 hover:border-yellow-500 transition-all opacity-0 group-hover:opacity-100 active:scale-95"
+                             >
+                               BÁN {itemValue.toLocaleString()}
+                             </button>
+                          </div>
+                          );
+                        })}
                     </div>
                   )}
                </div>
@@ -548,6 +665,73 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                  </button>
               </div>
            </div>
+        </div>
+        {renderBottomNav()}
+      </div>
+    );
+  }
+
+  if (activeView === UIView.COLLECTION) {
+    const unlockedCount = unlockedFish.length;
+    return (
+      <div className="absolute inset-0 bg-[#0a0f1d] flex flex-col pointer-events-auto text-white overflow-hidden pb-20 animate-in fade-in duration-300">
+        {renderHeader("SỔ SƯU TẬP")}
+        <div className="px-6 py-4 flex justify-between items-center">
+           <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest opacity-60">Các loài cá đã khám phá</span>
+           <span className="text-sm font-black">{unlockedCount} / {FISH_TYPES.length}</span>
+        </div>
+        <div className="flex-1 px-6 overflow-y-auto pb-10">
+           <div className="grid grid-cols-2 gap-4">
+              {FISH_TYPES.map((fish, i) => {
+                 const isUnlocked = unlockedFish.includes(fish.name);
+                 return (
+                    <div key={i} className={`p-4 rounded-2xl border ${isUnlocked ? 'bg-slate-800/60 border-white/10' : 'bg-slate-900/40 border-white/5 opacity-50'} flex flex-col items-center text-center shadow-lg transition-transform hover:scale-105`}>
+                       <div className="w-16 h-16 rounded-full mb-3 flex items-center justify-center text-3xl shadow-inner" style={{ backgroundColor: isUnlocked ? `${fish.color}33` : '#1e293b' }}>
+                          <span style={{ filter: isUnlocked ? 'drop-shadow(0 0 10px rgba(255,255,255,0.5))' : 'brightness(0) invert(0.3)' }}>🐟</span>
+                       </div>
+                       <h4 className={`font-black text-sm mb-1 ${isUnlocked ? 'text-white' : 'text-slate-500'}`}>{isUnlocked ? fish.name : '???'}</h4>
+                       <span className="text-[8px] px-2 py-0.5 rounded-full font-black border" style={{ borderColor: isUnlocked ? fish.color : '#334155', color: isUnlocked ? fish.color : '#64748b' }}>
+                          {isUnlocked ? fish.rarity : 'CHƯA RÕ'}
+                       </span>
+                    </div>
+                 )
+              })}
+           </div>
+        </div>
+        {renderBottomNav()}
+      </div>
+    );
+  }
+
+  if (activeView === UIView.SKILLS) {
+    const skillDefs = [
+       { id: 'sharpEye', name: 'MẮT TINH', icon: '👁️', desc: 'Mở rộng vùng an toàn khi kéo cá' },
+       { id: 'fastHands', name: 'TAY NHANH', icon: '⚡', desc: 'Tăng tốc độ thu dây câu' },
+       { id: 'lucky', name: 'MAY MẮN', icon: '🍀', desc: 'Tăng tỷ lệ gặp cá hiếm' }
+    ];
+    return (
+      <div className="absolute inset-0 bg-[#0a0f1d] flex flex-col pointer-events-auto text-white overflow-hidden pb-20 animate-in fade-in duration-300">
+        {renderHeader("KỸ NĂNG")}
+        <div className="flex-1 px-6 py-6 space-y-4 overflow-y-auto pb-10">
+           {skillDefs.map(s => {
+              const currentLevel = skills[s.id as keyof PlayerSkills];
+              const cost = (currentLevel + 1) * 2000;
+              return (
+                 <div key={s.id} className="bg-[#162031] p-5 rounded-3xl border border-white/5 flex items-center gap-4 group hover:border-blue-500/30 transition-all hover:scale-102">
+                    <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-3xl shrink-0 group-hover:bg-blue-500/20 transition-colors shadow-inner">{s.icon}</div>
+                    <div className="flex-1">
+                       <div className="flex justify-between items-center mb-1">
+                          <h4 className="font-black text-sm">{s.name}</h4>
+                          <span className="text-[10px] bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded-full font-black border border-blue-500/20">CẤP {currentLevel}</span>
+                       </div>
+                       <p className="text-[10px] text-slate-400 mb-3 leading-relaxed">{s.desc}</p>
+                       <button onClick={() => onBuySkill(s.id as keyof PlayerSkills)} className="w-full py-2 bg-yellow-500 text-black rounded-xl text-[10px] font-black tracking-widest hover:bg-yellow-400 active:scale-95 transition-all shadow-lg border border-yellow-400">
+                          NÂNG CẤP ({cost.toLocaleString()} 💰)
+                       </button>
+                    </div>
+                 </div>
+              )
+           })}
         </div>
         {renderBottomNav()}
       </div>

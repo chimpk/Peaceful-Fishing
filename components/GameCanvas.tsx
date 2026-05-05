@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { GameState, FishInstance, FishType, RodType, BaitType, Rarity } from '../types';
+import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../gameData';
 import * as Graphics from '../graphics';
 import { soundManager } from '../soundManager';
@@ -13,6 +13,7 @@ interface GameCanvasProps {
   currentRod: RodType;
   currentBait: BaitType;
   weather: 'sunny' | 'rainy' | 'stormy';
+  skills: PlayerSkills;
 }
 
 interface Particle {
@@ -46,7 +47,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, weather
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, weather, skills
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -149,7 +150,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, []);
 
   const spawnSingleFish = useCallback(() => {
-    const type = getRandomFishType(currentBait.rarityBoost);
+    const type = getRandomFishType(currentBait.rarityBoost + skills.lucky * 1.5);
     const y = 300 + Math.random() * 250;
     const initialDir = Math.random() > 0.5 ? 1 : -1;
     const baseSpeed = (0.4 + Math.random() * 0.6) * WEATHER_BONUSES[weather].speed;
@@ -169,7 +170,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       velocity: { x: initialDir * baseSpeed, y: 0 },
       isGolden
     };
-  }, [currentBait, getRandomFishType]);
+  }, [currentBait, getRandomFishType, skills.lucky]);
 
   const spawnInitialFish = useCallback(() => {
     const initialFish: EnhancedFishInstance[] = [];
@@ -223,6 +224,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         castProgress.current = 0;
         setGameState(GameState.CASTING);
       }
+    }
+  }, [gameState, setGameState]);
+
+  const handlePressStart = useCallback(() => {
+    if (!isSpacePressed.current) {
+      isSpacePressed.current = true;
+      if (gameState === GameState.IDLE) {
+        setGameState(GameState.CHARGING);
+        chargePower.current = 0;
+        chargeDirection.current = 1;
+      }
+      if (gameState === GameState.REELING) {
+        tensionVelocity.current -= 0.0035;
+        tugFactor.current = 1.0;
+      }
+    }
+  }, [gameState, setGameState]);
+
+  const handlePressEnd = useCallback(() => {
+    isSpacePressed.current = false;
+    if (gameState === GameState.CHARGING) {
+      targetHookX.current = 220 + (chargePower.current / 100) * 500;
+      targetHookY.current = 250 + (chargePower.current / 100) * 300;
+      castProgress.current = 0;
+      setGameState(GameState.CASTING);
     }
   }, [gameState, setGameState]);
 
@@ -372,7 +398,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (collidingFish) {
         activeFish.current = collidingFish; createSplash(hookX.current, hookY.current, 0.8);
         setGameState(GameState.REELING); reelingProgress.current = 0; lineHealth.current = 100; tensionCursor.current = 0.5; tensionVelocity.current = 0;
-        tensionZoneSize.current = Math.max(0.16, 0.42 - (collidingFish.type.tension / 220));
+        tensionZoneSize.current = Math.max(0.16, 0.42 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05));
 
         const goldenBoost = (currentRod.control - 1) * 0.2; 
         if (Math.random() < goldenBoost) {
@@ -425,7 +451,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const isInZone = Math.abs(tensionCursor.current - tensionZone.current) < hz;
       
       if (isInZone) {
-        reelingProgress.current += Math.max(0.12, 0.35 - (ft / 450));
+        reelingProgress.current += Math.max(0.12, 0.35 - (ft / 450)) * (1 + skills.fastHands * 0.25);
         lineHealth.current = Math.min(100, lineHealth.current + 0.35); 
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
@@ -502,7 +528,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       activeFish.current?.type.tension || 0, currentRod, chargePower.current
     );
     ctx.restore();
-  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles]);
+  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather]);
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
@@ -512,7 +538,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     render(); return () => window.cancelAnimationFrame(animId);
   }, [update]);
 
-  return <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} className="block cursor-crosshair shadow-inner shadow-black/50" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={CANVAS_WIDTH}
+      height={CANVAS_HEIGHT}
+      className="block cursor-crosshair shadow-inner shadow-black/50"
+      onTouchStart={(e) => { e.preventDefault(); handlePressStart(); }}
+      onTouchEnd={(e) => { e.preventDefault(); handlePressEnd(); }}
+      onMouseDown={handlePressStart}
+      onMouseUp={handlePressEnd}
+    />
+  );
 };
 
 export default GameCanvas;

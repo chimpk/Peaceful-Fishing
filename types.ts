@@ -16,7 +16,9 @@ export enum UIView {
   SHOP = 'SHOP',
   PROFILE = 'PROFILE',
   ACHIEVEMENTS = 'ACHIEVEMENTS',
-  QUESTS = 'QUESTS'
+  QUESTS = 'QUESTS',
+  COLLECTION = 'COLLECTION',
+  SKILLS = 'SKILLS'
 }
 
 export enum Rarity {
@@ -106,4 +108,10 @@ export interface Quest {
   rewardBaitCount?: number;
   type: 'CATCH_TOTAL' | 'CATCH_SPECIFIC' | 'EARN_GOLD';
   fishTarget?: string;
+}
+
+export interface PlayerSkills {
+  sharpEye: number;
+  fastHands: number;
+  lucky: number;
 }

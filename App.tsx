@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest } from './types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests } from './gameData';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills } from './types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './gameData';
 import GameCanvas from './components/GameCanvas';
 import UIOverlay from './components/UIOverlay';
 import { soundManager } from './soundManager';
@@ -31,6 +31,10 @@ const App: React.FC = () => {
   const [lastQuestReset, setLastQuestReset] = useState<number>(0);
   const [weather, setWeather] = useState<'sunny' | 'rainy' | 'stormy'>('sunny');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [epicCatch, setEpicCatch] = useState<{ fish: FishType; isGolden: boolean } | null>(null);
+  const [unlockedFish, setUnlockedFish] = useState<string[]>([]);
+  const [skills, setSkills] = useState<PlayerSkills>({ sharpEye: 0, fastHands: 0, lucky: 0 });
+  const [dailyMarketBoosts, setDailyMarketBoosts] = useState<string[]>([]);
 
   // --- PERSISTENCE LOGIC ---
   
@@ -46,15 +50,24 @@ const App: React.FC = () => {
         if (data.baitCounts) setBaitCounts(data.baitCounts);
         if (data.stats) setStats(data.stats);
         if (data.achievements) setAchievements(data.achievements);
+        if (data.unlockedFish) setUnlockedFish(data.unlockedFish);
+        if (data.skills) setSkills(data.skills);
         
         const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
         if (!data.lastQuestReset || now - data.lastQuestReset > oneDay) {
           setQuests(generateDailyQuests());
           setLastQuestReset(now);
+          const fishNames = FISH_TYPES.map(f => f.name);
+          const boosts = [];
+          for (let i = 0; i < 3; i++) {
+             boosts.push(fishNames[Math.floor(Math.random() * fishNames.length)]);
+          }
+          setDailyMarketBoosts(boosts);
         } else {
           setQuests(data.quests || generateDailyQuests());
           setLastQuestReset(data.lastQuestReset);
+          setDailyMarketBoosts(data.dailyMarketBoosts || []);
         }
 
         if (data.currentRodId) {
@@ -73,6 +86,12 @@ const App: React.FC = () => {
       setStats(s => ({ ...s, totalGoldEarned: 500 }));
       setQuests(generateDailyQuests());
       setLastQuestReset(Date.now());
+      const fishNames = FISH_TYPES.map(f => f.name);
+      const boosts = [];
+      for (let i = 0; i < 3; i++) {
+         boosts.push(fishNames[Math.floor(Math.random() * fishNames.length)]);
+      }
+      setDailyMarketBoosts(boosts);
     }
     
     // Random weather on load
@@ -96,10 +115,13 @@ const App: React.FC = () => {
       quests,
       lastQuestReset,
       currentRodId: currentRod.id,
-      currentBaitId: currentBait.id
+      currentBaitId: currentBait.id,
+      unlockedFish,
+      skills,
+      dailyMarketBoosts
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(dataToSave));
-  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded]);
+  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts]);
 
   const handleResetData = useCallback(() => {
     if (confirm("Bạn có chắc chắn muốn xóa toàn bộ tiến trình và chơi lại từ đầu?")) {
@@ -167,6 +189,7 @@ const App: React.FC = () => {
 
   const startGame = () => {
     try { soundManager.playClick(); } catch(e) {}
+    try { (soundManager as any).startAmbient?.(); } catch(e) {}
     const count = baitCounts[currentBait.id] || 0;
     if (count <= 0) {
       setNotification("Hết mồi câu rồi! Hãy mua thêm ở Cửa hàng.");
@@ -189,11 +212,25 @@ const App: React.FC = () => {
     setInventory(prev => [{ fish, timestamp: Date.now(), isGolden }, ...prev]);
     const finalValue = isGolden ? fish.value * 2 : fish.value;
     
-    if (fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC || isGolden) {
+    const isEpic = fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC || isGolden;
+    if (isEpic) {
         soundManager.playSuccess();
+        setEpicCatch({ fish, isGolden });
+        setTimeout(() => setEpicCatch(null), 3500);
     }
     
-    setNotification(`Bắt được ${isGolden ? 'CÁ VÀNG ' : ''}${fish.name}! +${finalValue} vàng`);
+    let bonusMessage = "";
+    setUnlockedFish(prev => {
+       if (!prev.includes(fish.name)) {
+          const bonus = fish.value * 5;
+          bonusMessage = `\n(Mới! +${bonus} vàng)`;
+          setGold(g => g + bonus);
+          return [...prev, fish.name];
+       }
+       return prev;
+    });
+
+    setNotification(`Bắt được ${isGolden ? 'CÁ VÀNG ' : ''}${fish.name}! +${finalValue} vàng${bonusMessage}`);
     setGameState(GameState.CAUGHT);
     updateStatsAndQuests(fish, isGolden);
     
@@ -212,7 +249,8 @@ const App: React.FC = () => {
 
   const sellAllFish = () => {
     const totalValue = inventory.reduce((sum, item) => {
-        const itemValue = item.isGolden ? item.fish.value * 2 : item.fish.value;
+        let itemValue = item.isGolden ? item.fish.value * 2 : item.fish.value;
+        if (dailyMarketBoosts.includes(item.fish.name)) itemValue *= 3;
         return sum + itemValue;
     }, 0);
     if (totalValue > 0) {
@@ -249,6 +287,26 @@ const App: React.FC = () => {
       setNotification(`Đã bán toàn bộ cá! Nhận được ${totalValue} vàng`);
       setTimeout(() => setNotification(null), 2000);
     }
+  };
+
+  const sellFish = (timestamp: number) => {
+    const item = inventory.find(i => i.timestamp === timestamp);
+    if (!item) return;
+    let value = item.isGolden ? item.fish.value * 2 : item.fish.value;
+    if (dailyMarketBoosts.includes(item.fish.name)) value *= 3;
+    setGold(prev => prev + value);
+    setStats(prev => ({ ...prev, totalGoldEarned: prev.totalGoldEarned + value }));
+    setInventory(prev => prev.filter(i => i.timestamp !== timestamp));
+    setQuests(prev => prev.map(q => {
+      if (q.type === 'EARN_GOLD' && !q.isCompleted) {
+        const newProgress = q.progress + value;
+        const completed = newProgress >= q.target;
+        return { ...q, progress: Math.min(q.target, newProgress), isCompleted: completed };
+      }
+      return q;
+    }));
+    setNotification(`Đã bán ${item.fish.name}! +${value} vàng`);
+    setTimeout(() => setNotification(null), 1500);
   };
 
   const claimQuest = (questId: string) => {
@@ -313,6 +371,20 @@ const App: React.FC = () => {
     }
   };
 
+  const buySkill = (skillId: keyof PlayerSkills) => {
+     const currentLevel = skills[skillId];
+     const cost = (currentLevel + 1) * 2000;
+     if (gold >= cost) {
+        setGold(prev => prev - cost);
+        setSkills(prev => ({ ...prev, [skillId]: currentLevel + 1 }));
+        setNotification(`Đã nâng cấp kỹ năng!`);
+        setTimeout(() => setNotification(null), 2000);
+     } else {
+        setNotification('Không đủ tiền nâng cấp!');
+        setTimeout(() => setNotification(null), 2000);
+     }
+  };
+
   return (
     <div className="relative w-screen h-screen flex items-center justify-center overflow-hidden bg-[#0a0f1d]">
       <div 
@@ -328,6 +400,7 @@ const App: React.FC = () => {
             currentRod={currentRod}
             currentBait={currentBait}
             weather={weather}
+            skills={skills}
           />
         )}
         
@@ -348,12 +421,18 @@ const App: React.FC = () => {
           quests={quests}
           onStart={startGame}
           onSellAll={sellAllFish}
+          onSellFish={sellFish}
           onBuy={buyItem}
           onSelect={selectItem}
           onUpgradeCapacity={upgradeCapacity}
           onResetData={handleResetData}
           onClaimQuest={claimQuest}
           weather={weather}
+          epicCatch={epicCatch}
+          unlockedFish={unlockedFish}
+          skills={skills}
+          dailyMarketBoosts={dailyMarketBoosts}
+          onBuySkill={buySkill}
         />
       </div>
     </div>
