@@ -31,14 +31,19 @@ export enum Rarity {
   MYTHIC = 'THẦN THOẠI'
 }
 
+export type LocationType = 'POND' | 'OCEAN' | 'CAVE';
+export type TimeOfDay = 'DAY' | 'SUNSET' | 'NIGHT';
+
 export interface FishType {
   name: string;
-  rarity: Rarity;
+  weight: number; 
   value: number;
-  tension: number;
   color: string;
+  tension: number;
   size: number;
-  weight: number;
+  rarity: Rarity;
+  allowedLocations?: LocationType[];
+  allowedTimes?: TimeOfDay[];
 }
 
 export interface RodType {

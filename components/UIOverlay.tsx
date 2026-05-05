@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills } from '../types';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay } from '../types';
 import { RODS, BAITS, FISH_TYPES } from '../gameData';
 
 interface UIOverlayProps {
@@ -32,13 +32,18 @@ interface UIOverlayProps {
   skills: PlayerSkills;
   dailyMarketBoosts: string[];
   onBuySkill: (skillId: keyof PlayerSkills) => void;
+  location: LocationType;
+  timeOfDay: TimeOfDay;
+  streak: number;
+  onChangeLocation: (loc: LocationType) => void;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
   gameState, activeView, setActiveView, gold, inventory, inventoryCapacity, notification,
   currentRod, currentBait, baitCounts, ownedRods, stats, achievements, quests,
   onStart, onSellAll, onSellFish, onBuy, onSelect, onUpgradeCapacity, onResetData, onClaimQuest,
-  weather, epicCatch, unlockedFish, skills, dailyMarketBoosts, onBuySkill
+  weather, epicCatch, unlockedFish, skills, dailyMarketBoosts, onBuySkill,
+  location, timeOfDay, streak, onChangeLocation
 }) => {
   const [shopTab, setShopTab] = useState<'rod' | 'bait'>('rod');
   const [inventoryTab, setInventoryTab] = useState<'items' | 'upgrade'>('items');
@@ -163,13 +168,26 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         ) : (
           <>
             {/* Header info */}
-            <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-start pointer-events-none z-10">
+            <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-start pointer-events-none z-[60]">
               <div className="flex flex-col gap-2 pointer-events-auto">
-                <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3 shadow-lg">
-                  <span className="text-xl">{weather === 'sunny' ? '☀️' : weather === 'rainy' ? '🌧️' : '🌩️'}</span>
+                <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3 shadow-lg group relative cursor-pointer hover:bg-slate-800 transition-colors">
+                  <span className="text-xl">📍</span>
                   <div>
-                    <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest">THỜI TIẾT</div>
-                    <div className="text-[10px] font-bold text-white uppercase">{weather === 'sunny' ? 'Nắng Đẹp' : weather === 'rainy' ? 'Trời Mưa' : 'Bão Lớn'}</div>
+                    <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest">ĐỊA ĐIỂM</div>
+                    <div className="text-[10px] font-bold text-white uppercase">{location === 'POND' ? 'Ao Làng' : location === 'OCEAN' ? 'Đại Dương' : 'Hang Tối'} ▼</div>
+                  </div>
+                  <div className="absolute top-full mt-2 left-0 bg-slate-900 border border-white/10 rounded-xl p-2 hidden group-hover:flex flex-col gap-2 shadow-2xl z-50">
+                     <button onClick={() => onChangeLocation('POND')} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'POND' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Ao Làng</button>
+                     <button onClick={() => onChangeLocation('OCEAN')} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'OCEAN' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Đại Dương</button>
+                     <button onClick={() => onChangeLocation('CAVE')} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'CAVE' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Hang Tối</button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3 shadow-lg">
+                  <span className="text-xl">{timeOfDay === 'DAY' ? '☀️' : timeOfDay === 'SUNSET' ? '🌅' : '🌙'}</span>
+                  <div>
+                    <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest">THỜI GIAN ({weather === 'sunny' ? 'Nắng' : weather === 'rainy' ? 'Mưa' : 'Bão'})</div>
+                    <div className="text-[10px] font-bold text-white uppercase">{timeOfDay === 'DAY' ? 'Trời Sáng' : timeOfDay === 'SUNSET' ? 'Hoàng Hôn' : 'Trời Đêm'}</div>
                   </div>
                 </div>
               </div>
@@ -212,6 +230,14 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                 </div>
               </div>
             </div>
+            
+            {/* Streak Indicator */}
+            {streak >= 3 && (
+              <div className="absolute top-32 right-6 bg-orange-500/20 border border-orange-500/50 px-4 py-2 rounded-full animate-bounce flex items-center gap-2 pointer-events-none shadow-lg z-50">
+                 <span className="text-xl">🔥</span>
+                 <span className="font-black text-orange-400 tracking-wider">COMBO x{streak >= 10 ? '3' : streak >= 6 ? '2' : '1.5'}</span>
+              </div>
+            )}
             
             {gameState === GameState.IDLE && (
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 bg-black/70 px-10 py-4 rounded-3xl border-2 border-white/10 backdrop-blur-xl pointer-events-none flex flex-col items-center gap-3">

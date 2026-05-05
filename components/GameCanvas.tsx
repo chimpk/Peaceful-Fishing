@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills } from '../types';
+import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay } from '../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../gameData';
 import * as Graphics from '../graphics';
 import { soundManager } from '../soundManager';
@@ -14,6 +14,8 @@ interface GameCanvasProps {
   currentBait: BaitType;
   weather: 'sunny' | 'rainy' | 'stormy';
   skills: PlayerSkills;
+  location: LocationType;
+  timeOfDay: TimeOfDay;
 }
 
 interface Particle {
@@ -47,7 +49,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, weather, skills
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, weather, skills, location, timeOfDay
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -131,7 +133,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, []);
 
   const getRandomFishType = useCallback((rarityBoost: number): FishType => {
-    const weightedTypes = FISH_TYPES.map(f => {
+    const validFishes = FISH_TYPES.filter(f => 
+      (!f.allowedLocations || f.allowedLocations.includes(location)) && 
+      (!f.allowedTimes || f.allowedTimes.includes(timeOfDay))
+    );
+    const pool = validFishes.length > 0 ? validFishes : FISH_TYPES;
+
+    const weightedTypes = pool.map(f => {
       let weight = f.weight;
       const weatherBonus = WEATHER_BONUSES[weather].rarity;
       if (f.rarity === Rarity.RARE) weight *= (rarityBoost * 0.5 + 0.5) * weatherBonus;
@@ -146,8 +154,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (random < item.weight) return item.type;
       random -= item.weight;
     }
-    return FISH_TYPES[0];
-  }, []);
+    return pool[0];
+  }, [weather, location, timeOfDay]);
 
   const spawnSingleFish = useCallback(() => {
     const type = getRandomFishType(currentBait.rarityBoost + skills.lucky * 1.5);
@@ -280,7 +288,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    Graphics.drawWaterAndSky(ctx, frameCount.current, weather);
+    Graphics.drawWaterAndSky(ctx, frameCount.current, weather, location, timeOfDay);
 
     bubblesRef.current.forEach(b => {
       b.y -= b.speed; if (b.y < 200) b.y = CANVAS_HEIGHT + 20;
@@ -528,7 +536,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       activeFish.current?.type.tension || 0, currentRod, chargePower.current
     );
     ctx.restore();
-  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather]);
+  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;

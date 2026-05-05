@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills } from './types';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay } from './types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './gameData';
 import GameCanvas from './components/GameCanvas';
 import UIOverlay from './components/UIOverlay';
@@ -35,6 +35,22 @@ const App: React.FC = () => {
   const [unlockedFish, setUnlockedFish] = useState<string[]>([]);
   const [skills, setSkills] = useState<PlayerSkills>({ sharpEye: 0, fastHands: 0, lucky: 0 });
   const [dailyMarketBoosts, setDailyMarketBoosts] = useState<string[]>([]);
+  
+  const [currentLocation, setCurrentLocation] = useState<LocationType>('POND');
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('DAY');
+  const [streak, setStreak] = useState<number>(0);
+
+  // --- TIME OF DAY CYCLE ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeOfDay(prev => {
+        if (prev === 'DAY') return 'SUNSET';
+        if (prev === 'SUNSET') return 'NIGHT';
+        return 'DAY';
+      });
+    }, 90000); // Đổi thời gian mỗi 1.5 phút
+    return () => clearInterval(interval);
+  }, []);
 
   // --- PERSISTENCE LOGIC ---
   
@@ -52,6 +68,7 @@ const App: React.FC = () => {
         if (data.achievements) setAchievements(data.achievements);
         if (data.unlockedFish) setUnlockedFish(data.unlockedFish);
         if (data.skills) setSkills(data.skills);
+        if (data.currentLocation) setCurrentLocation(data.currentLocation);
         
         const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
@@ -118,10 +135,11 @@ const App: React.FC = () => {
       currentBaitId: currentBait.id,
       unlockedFish,
       skills,
-      dailyMarketBoosts
+      dailyMarketBoosts,
+      currentLocation
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(dataToSave));
-  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts]);
+  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts, currentLocation]);
 
   const handleResetData = useCallback(() => {
     if (confirm("Bạn có chắc chắn muốn xóa toàn bộ tiến trình và chơi lại từ đầu?")) {
@@ -210,7 +228,15 @@ const App: React.FC = () => {
 
     consumeBait(); 
     setInventory(prev => [{ fish, timestamp: Date.now(), isGolden }, ...prev]);
-    const finalValue = isGolden ? fish.value * 2 : fish.value;
+    
+    setStreak(prev => prev + 1);
+    const newStreak = streak + 1;
+    let comboMultiplier = 1;
+    if (newStreak >= 10) comboMultiplier = 3;
+    else if (newStreak >= 6) comboMultiplier = 2;
+    else if (newStreak >= 3) comboMultiplier = 1.5;
+
+    const finalValue = Math.floor((isGolden ? fish.value * 2 : fish.value) * comboMultiplier);
     
     const isEpic = fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC || isGolden;
     if (isEpic) {
@@ -244,6 +270,7 @@ const App: React.FC = () => {
     consumeBait(); 
     setNotification(reason);
     setGameState(GameState.IDLE);
+    setStreak(0);
     setTimeout(() => setNotification(null), 2000);
   }, [consumeBait]);
 
@@ -401,6 +428,8 @@ const App: React.FC = () => {
             currentBait={currentBait}
             weather={weather}
             skills={skills}
+            location={currentLocation}
+            timeOfDay={timeOfDay}
           />
         )}
         
@@ -433,6 +462,10 @@ const App: React.FC = () => {
           skills={skills}
           dailyMarketBoosts={dailyMarketBoosts}
           onBuySkill={buySkill}
+          location={currentLocation}
+          timeOfDay={timeOfDay}
+          streak={streak}
+          onChangeLocation={(loc) => setCurrentLocation(loc)}
         />
       </div>
     </div>

@@ -17,47 +17,47 @@ export const FISH_TYPES: FishType[] = [
   { name: 'Lon Thiếc', rarity: Rarity.JUNK, value: 10, tension: 8, color: '#94a3b8', size: 14, weight: 100 },
   { name: 'Túi Nilon', rarity: Rarity.JUNK, value: 2, tension: 3, color: '#e2e8f0', size: 20, weight: 100 },
   { name: 'Vỏ Chai', rarity: Rarity.JUNK, value: 8, tension: 6, color: '#60a5fa', size: 12, weight: 100 },
-  { name: 'Tảo Biển Mục', rarity: Rarity.JUNK, value: 12, tension: 10, color: '#166534', size: 25, weight: 80 },
+  { name: 'Tảo Biển Mục', rarity: Rarity.JUNK, value: 12, tension: 10, color: '#166534', size: 25, weight: 80, allowedLocations: ['OCEAN'] },
 
   // --- PHỔ THÔNG (COMMON) ---
-  { name: 'Cá Rô Đồng', rarity: Rarity.COMMON, value: 25, tension: 15, color: '#4ade80', size: 18, weight: 150 },
-  { name: 'Cá Chép', rarity: Rarity.COMMON, value: 35, tension: 20, color: '#f59e0b', size: 22, weight: 150 },
-  { name: 'Cá Diếc', rarity: Rarity.COMMON, value: 30, tension: 18, color: '#94a3b8', size: 16, weight: 140 },
-  { name: 'Cá Mè', rarity: Rarity.COMMON, value: 40, tension: 22, color: '#cbd5e1', size: 24, weight: 130 },
-  { name: 'Cá Bống', rarity: Rarity.COMMON, value: 20, tension: 12, color: '#78350f', size: 14, weight: 160 },
+  { name: 'Cá Rô Đồng', rarity: Rarity.COMMON, value: 25, tension: 15, color: '#4ade80', size: 18, weight: 150, allowedLocations: ['POND'] },
+  { name: 'Cá Chép', rarity: Rarity.COMMON, value: 35, tension: 20, color: '#f59e0b', size: 22, weight: 150, allowedLocations: ['POND'] },
+  { name: 'Cá Diếc', rarity: Rarity.COMMON, value: 30, tension: 18, color: '#94a3b8', size: 16, weight: 140, allowedLocations: ['POND'] },
+  { name: 'Cá Mè', rarity: Rarity.COMMON, value: 40, tension: 22, color: '#cbd5e1', size: 24, weight: 130, allowedLocations: ['POND'] },
+  { name: 'Cá Bống', rarity: Rarity.COMMON, value: 20, tension: 12, color: '#78350f', size: 14, weight: 160, allowedLocations: ['POND'] },
 
   // --- KHÔNG PHỔ BIẾN (UNCOMMON) ---
-  { name: 'Cá Trê', rarity: Rarity.UNCOMMON, value: 60, tension: 30, color: '#4b5563', size: 24, weight: 80 },
-  { name: 'Cá Lóc', rarity: Rarity.UNCOMMON, value: 75, tension: 35, color: '#1e293b', size: 26, weight: 75 },
-  { name: 'Cá Chim', rarity: Rarity.UNCOMMON, value: 80, tension: 32, color: '#e2e8f0', size: 28, weight: 70 },
-  { name: 'Cá Rô Phi', rarity: Rarity.UNCOMMON, value: 55, tension: 28, color: '#64748b', size: 22, weight: 85 },
-  { name: 'Cá Đuối Nhỏ', rarity: Rarity.UNCOMMON, value: 90, tension: 40, color: '#475569', size: 30, weight: 60 },
+  { name: 'Cá Trê', rarity: Rarity.UNCOMMON, value: 60, tension: 30, color: '#4b5563', size: 24, weight: 80, allowedLocations: ['POND', 'CAVE'], allowedTimes: ['SUNSET', 'NIGHT'] },
+  { name: 'Cá Lóc', rarity: Rarity.UNCOMMON, value: 75, tension: 35, color: '#1e293b', size: 26, weight: 75, allowedLocations: ['POND'] },
+  { name: 'Cá Chim', rarity: Rarity.UNCOMMON, value: 80, tension: 32, color: '#e2e8f0', size: 28, weight: 70, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Rô Phi', rarity: Rarity.UNCOMMON, value: 55, tension: 28, color: '#64748b', size: 22, weight: 85, allowedLocations: ['POND'] },
+  { name: 'Cá Đuối Nhỏ', rarity: Rarity.UNCOMMON, value: 90, tension: 40, color: '#475569', size: 30, weight: 60, allowedLocations: ['OCEAN'] },
 
   // --- HIẾM (RARE) ---
-  { name: 'Cá Thu', rarity: Rarity.RARE, value: 150, tension: 45, color: '#60a5fa', size: 28, weight: 40 },
-  { name: 'Cá Hồi', rarity: Rarity.RARE, value: 200, tension: 55, color: '#f87171', size: 32, weight: 40 },
-  { name: 'Cá Hề (Nemo)', rarity: Rarity.RARE, value: 300, tension: 35, color: '#fb923c', size: 16, weight: 35 },
-  { name: 'Cá Ngựa', rarity: Rarity.RARE, value: 350, tension: 40, color: '#facc15', size: 18, weight: 30 },
-  { name: 'Cá Mập Con', rarity: Rarity.RARE, value: 450, tension: 65, color: '#94a3b8', size: 35, weight: 25 },
+  { name: 'Cá Thu', rarity: Rarity.RARE, value: 150, tension: 45, color: '#60a5fa', size: 28, weight: 40, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Hồi', rarity: Rarity.RARE, value: 200, tension: 55, color: '#f87171', size: 32, weight: 40, allowedLocations: ['POND', 'OCEAN'] },
+  { name: 'Cá Hề (Nemo)', rarity: Rarity.RARE, value: 300, tension: 35, color: '#fb923c', size: 16, weight: 35, allowedLocations: ['OCEAN'], allowedTimes: ['DAY', 'SUNSET'] },
+  { name: 'Cá Ngựa', rarity: Rarity.RARE, value: 350, tension: 40, color: '#facc15', size: 18, weight: 30, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Mập Con', rarity: Rarity.RARE, value: 450, tension: 65, color: '#94a3b8', size: 35, weight: 25, allowedLocations: ['OCEAN'] },
 
   // --- SỬ THI (EPIC) ---
-  { name: 'Cá Ngừ Đại Dương', rarity: Rarity.EPIC, value: 800, tension: 70, color: '#312e81', size: 36, weight: 15 },
-  { name: 'Cá Nhám Búa', rarity: Rarity.EPIC, value: 1200, tension: 80, color: '#1e1b4b', size: 45, weight: 12 },
-  { name: 'Cá Mặt Trăng', rarity: Rarity.EPIC, value: 1500, tension: 60, color: '#cbd5e1', size: 55, weight: 10 },
-  { name: 'Cá Heo', rarity: Rarity.EPIC, value: 2000, tension: 65, color: '#38bdf8', size: 40, weight: 8 },
-  { name: 'Cá Mập Cáo', rarity: Rarity.EPIC, value: 1800, tension: 75, color: '#475569', size: 42, weight: 10 },
+  { name: 'Cá Ngừ Đại Dương', rarity: Rarity.EPIC, value: 800, tension: 70, color: '#312e81', size: 36, weight: 15, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Nhám Búa', rarity: Rarity.EPIC, value: 1200, tension: 80, color: '#1e1b4b', size: 45, weight: 12, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Mặt Trăng', rarity: Rarity.EPIC, value: 1500, tension: 60, color: '#cbd5e1', size: 55, weight: 10, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT'] },
+  { name: 'Cá Heo', rarity: Rarity.EPIC, value: 2000, tension: 65, color: '#38bdf8', size: 40, weight: 8, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Mập Cáo', rarity: Rarity.EPIC, value: 1800, tension: 75, color: '#475569', size: 42, weight: 10, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'] },
 
   // --- HUYỀN THOẠI (LEGENDARY) ---
-  { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 5000, tension: 90, color: '#e2e8f0', size: 50, weight: 5 },
-  { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 7500, tension: 94, color: '#94a3b8', size: 65, weight: 4 },
-  { name: 'Cá Rồng Vàng', rarity: Rarity.LEGENDARY, value: 10000, tension: 88, color: '#fbbf24', size: 45, weight: 3 },
-  { name: 'Cá Voi Xanh Con', rarity: Rarity.LEGENDARY, value: 12000, tension: 92, color: '#1d4ed8', size: 70, weight: 2 },
+  { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 5000, tension: 90, color: '#e2e8f0', size: 50, weight: 5, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 7500, tension: 94, color: '#94a3b8', size: 65, weight: 4, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Rồng Vàng', rarity: Rarity.LEGENDARY, value: 10000, tension: 88, color: '#fbbf24', size: 45, weight: 3, allowedLocations: ['POND'] },
+  { name: 'Cá Voi Xanh Con', rarity: Rarity.LEGENDARY, value: 12000, tension: 92, color: '#1d4ed8', size: 70, weight: 2, allowedLocations: ['OCEAN'] },
 
   // --- THẦN THOẠI (MYTHIC) ---
-  { name: 'Long Ngư Phượng Hoàng', rarity: Rarity.MYTHIC, value: 30000, tension: 97, color: '#ef4444', size: 75, weight: 1 },
-  { name: 'Hải Long Vương', rarity: Rarity.MYTHIC, value: 50000, tension: 99, color: '#3b82f6', size: 90, weight: 0.5 },
-  { name: 'Kraken Con', rarity: Rarity.MYTHIC, value: 75000, tension: 98, color: '#7e22ce', size: 100, weight: 0.3 },
-  { name: 'Leviathan Thần Thánh', rarity: Rarity.MYTHIC, value: 100000, tension: 99, color: '#10b981', size: 120, weight: 0.1 },
+  { name: 'Long Ngư Phượng Hoàng', rarity: Rarity.MYTHIC, value: 30000, tension: 97, color: '#ef4444', size: 75, weight: 1, allowedLocations: ['CAVE'] },
+  { name: 'Hải Long Vương', rarity: Rarity.MYTHIC, value: 50000, tension: 99, color: '#3b82f6', size: 90, weight: 0.5, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT', 'SUNSET'] },
+  { name: 'Kraken Con', rarity: Rarity.MYTHIC, value: 75000, tension: 98, color: '#7e22ce', size: 100, weight: 0.3, allowedLocations: ['CAVE'] },
+  { name: 'Leviathan Thần Thánh', rarity: Rarity.MYTHIC, value: 100000, tension: 99, color: '#10b981', size: 120, weight: 0.1, allowedLocations: ['CAVE'] },
 ];
 
 export const RODS: RodType[] = [

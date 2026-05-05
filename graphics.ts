@@ -1,63 +1,98 @@
 
-import { Rarity, FishType, GameState, RodType } from './types';
+import { Rarity, FishType, GameState, RodType, LocationType, TimeOfDay } from './types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, REEL_BAR_HEIGHT } from './gameData';
 
 
-export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, weather: 'sunny' | 'rainy' | 'stormy' = 'sunny') => {
-  // Deep Sky Gradient based on weather
+export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, weather: 'sunny' | 'rainy' | 'stormy' = 'sunny', location: LocationType = 'POND', timeOfDay: TimeOfDay = 'DAY') => {
+  // Deep Sky Gradient based on weather and timeOfDay
   const skyGrad = ctx.createLinearGradient(0, 0, 0, 200);
-  if (weather === 'sunny') {
-    skyGrad.addColorStop(0, '#0c4a6e');
-    skyGrad.addColorStop(1, '#38bdf8');
-  } else if (weather === 'rainy') {
-    skyGrad.addColorStop(0, '#1e293b');
-    skyGrad.addColorStop(1, '#475569');
+  if (location === 'CAVE') {
+    skyGrad.addColorStop(0, '#09090b');
+    skyGrad.addColorStop(1, '#18181b');
   } else {
-    skyGrad.addColorStop(0, '#020617');
-    skyGrad.addColorStop(1, '#1e293b');
+    if (timeOfDay === 'NIGHT') {
+      skyGrad.addColorStop(0, '#020617');
+      skyGrad.addColorStop(1, '#0f172a');
+    } else if (timeOfDay === 'SUNSET') {
+      skyGrad.addColorStop(0, '#c2410c');
+      skyGrad.addColorStop(1, '#f59e0b');
+    } else { // DAY
+      if (weather === 'sunny') {
+        skyGrad.addColorStop(0, '#0c4a6e');
+        skyGrad.addColorStop(1, '#38bdf8');
+      } else if (weather === 'rainy') {
+        skyGrad.addColorStop(0, '#1e293b');
+        skyGrad.addColorStop(1, '#475569');
+      } else {
+        skyGrad.addColorStop(0, '#020617');
+        skyGrad.addColorStop(1, '#1e293b');
+      }
+    }
   }
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, CANVAS_WIDTH, 200);
 
-  // Distant Mountains
+  // Stars for Night
+  if (location !== 'CAVE' && timeOfDay === 'NIGHT' && weather === 'sunny') {
+    ctx.save();
+    ctx.fillStyle = 'white';
+    for (let i = 0; i < 30; i++) {
+        const sx = (Math.sin(i * 123) * 1000) % CANVAS_WIDTH;
+        const sy = (Math.cos(i * 321) * 1000) % 200;
+        ctx.globalAlpha = 0.2 + Math.random() * 0.8;
+        ctx.beginPath();
+        ctx.arc(Math.abs(sx), Math.abs(sy), Math.random() * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Distant Mountains / Cave Stalactites
   ctx.save();
   ctx.globalAlpha = 0.4;
-  ctx.fillStyle = weather === 'sunny' ? '#075985' : '#0f172a';
-  ctx.beginPath();
-  ctx.moveTo(0, 200);
-  ctx.lineTo(150, 140);
-  ctx.lineTo(300, 200);
-  ctx.lineTo(450, 120);
-  ctx.lineTo(650, 200);
-  ctx.lineTo(CANVAS_WIDTH, 160);
-  ctx.lineTo(CANVAS_WIDTH, 200);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  // Floating Clouds
-  ctx.save();
-  ctx.globalAlpha = weather === 'sunny' ? 0.3 : 0.1;
-  ctx.fillStyle = 'white';
-  for(let i=0; i<3; i++) {
-    const cx = ((frame * (0.2 + i * 0.1)) + (i * 300)) % (CANVAS_WIDTH + 200) - 100;
-    const cy = 40 + i * 30;
+  if (location === 'CAVE') {
+    ctx.fillStyle = '#27272a';
     ctx.beginPath();
-    ctx.ellipse(cx, cy, 50, 20, 0, 0, Math.PI * 2);
-    ctx.ellipse(cx + 20, cy - 10, 30, 15, 0, 0, Math.PI * 2);
+    ctx.moveTo(0, 0); ctx.lineTo(150, 100); ctx.lineTo(300, 20); ctx.lineTo(450, 120); ctx.lineTo(650, 30); ctx.lineTo(CANVAS_WIDTH, 90); ctx.lineTo(CANVAS_WIDTH, 0);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = (timeOfDay === 'NIGHT' || weather !== 'sunny') ? '#0f172a' : (timeOfDay === 'SUNSET' ? '#7c2d12' : '#075985');
+    ctx.beginPath();
+    ctx.moveTo(0, 200); ctx.lineTo(150, 140); ctx.lineTo(300, 200); ctx.lineTo(450, 120); ctx.lineTo(650, 200); ctx.lineTo(CANVAS_WIDTH, 160); ctx.lineTo(CANVAS_WIDTH, 200);
+    ctx.closePath();
     ctx.fill();
   }
   ctx.restore();
 
+  // Floating Clouds
+  if (location !== 'CAVE') {
+    ctx.save();
+    ctx.globalAlpha = (timeOfDay === 'NIGHT' || weather !== 'sunny') ? 0.1 : (timeOfDay === 'SUNSET' ? 0.2 : 0.3);
+    ctx.fillStyle = timeOfDay === 'SUNSET' ? '#fcd34d' : 'white';
+    for(let i=0; i<3; i++) {
+      const cx = ((frame * (0.2 + i * 0.1)) + (i * 300)) % (CANVAS_WIDTH + 200) - 100;
+      const cy = 40 + i * 30;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 50, 20, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx + 20, cy - 10, 30, 15, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // Water Background
   const waterGrad = ctx.createLinearGradient(0, 200, 0, CANVAS_HEIGHT);
-  if (weather === 'sunny') {
-    waterGrad.addColorStop(0, '#0ea5e9');
-    waterGrad.addColorStop(0.5, '#0369a1');
-    waterGrad.addColorStop(1, '#0c4a6e');
-  } else {
-    waterGrad.addColorStop(0, '#0f172a');
+  if (location === 'CAVE') {
+    waterGrad.addColorStop(0, '#1e1b4b');
     waterGrad.addColorStop(1, '#020617');
+  } else if (location === 'OCEAN') {
+    if (timeOfDay === 'NIGHT') { waterGrad.addColorStop(0, '#0f172a'); waterGrad.addColorStop(1, '#020617'); }
+    else if (timeOfDay === 'SUNSET') { waterGrad.addColorStop(0, '#b45309'); waterGrad.addColorStop(1, '#0c4a6e'); }
+    else { waterGrad.addColorStop(0, '#0369a1'); waterGrad.addColorStop(1, '#082f49'); }
+  } else { // POND
+    if (timeOfDay === 'NIGHT') { waterGrad.addColorStop(0, '#064e3b'); waterGrad.addColorStop(1, '#022c22'); }
+    else if (timeOfDay === 'SUNSET') { waterGrad.addColorStop(0, '#9a3412'); waterGrad.addColorStop(1, '#064e3b'); }
+    else { waterGrad.addColorStop(0, '#0ea5e9'); waterGrad.addColorStop(0.5, '#0369a1'); waterGrad.addColorStop(1, '#0c4a6e'); }
   }
   ctx.fillStyle = waterGrad;
   ctx.fillRect(0, 200, CANVAS_WIDTH, 400);
@@ -80,17 +115,20 @@ export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, we
     ctx.restore();
   };
 
-  if (weather === 'sunny') {
-    drawWave(10, 5, 0.01, '#0284c7', 0.4);
-    drawWave(30, 8, 0.008, '#0369a1', 0.3);
+  if (location === 'CAVE') {
+    drawWave(10, 3, 0.005, '#312e81', 0.4);
+    drawWave(30, 5, 0.004, '#1e1b4b', 0.5);
+  } else if (location === 'OCEAN') {
+    drawWave(10, 8, 0.012, timeOfDay === 'DAY' ? '#0284c7' : (timeOfDay === 'SUNSET' ? '#7c2d12' : '#0f172a'), 0.4);
+    drawWave(30, 12, 0.01, timeOfDay === 'DAY' ? '#0369a1' : (timeOfDay === 'SUNSET' ? '#9a3412' : '#020617'), 0.5);
   } else {
-    drawWave(10, 12, 0.015, '#1e293b', 0.5);
-    drawWave(40, 15, 0.012, '#0f172a', 0.4);
+    drawWave(10, 5, 0.01, timeOfDay === 'DAY' ? '#0284c7' : (timeOfDay === 'SUNSET' ? '#ea580c' : '#064e3b'), 0.4);
+    drawWave(30, 8, 0.008, timeOfDay === 'DAY' ? '#0369a1' : (timeOfDay === 'SUNSET' ? '#c2410c' : '#022c22'), 0.3);
   }
 
   // God Rays or Storm Lightning
   ctx.save();
-  if (weather === 'sunny') {
+  if (timeOfDay === 'DAY' && weather === 'sunny' && location !== 'CAVE') {
     ctx.globalCompositeOperation = 'overlay';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
     for (let i = 0; i < 5; i++) {
@@ -102,7 +140,7 @@ export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, we
       ctx.lineTo(-50 + i * 200 + xOffset * 2, CANVAS_HEIGHT);
       ctx.fill();
     }
-  } else if (weather === 'stormy' && Math.random() > 0.99) {
+  } else if (weather === 'stormy' && Math.random() > 0.99 && location !== 'CAVE') {
     ctx.fillStyle = 'white';
     ctx.globalAlpha = 0.8;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
