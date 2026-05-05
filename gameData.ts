@@ -5,6 +5,12 @@ export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 600;
 export const REEL_BAR_HEIGHT = 350;
 
+export const WEATHER_BONUSES = {
+  sunny: { attraction: 1.0, rarity: 1.0, speed: 1.0 },
+  rainy: { attraction: 1.3, rarity: 0.8, speed: 1.2 },
+  stormy: { attraction: 0.7, rarity: 2.5, speed: 1.8 }
+};
+
 export const FISH_TYPES: FishType[] = [
   // --- RÁC (JUNK) ---
   { name: 'Giày Cũ', rarity: Rarity.JUNK, value: 5, tension: 5, color: '#78350f', size: 18, weight: 100 },

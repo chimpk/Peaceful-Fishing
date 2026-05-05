@@ -1,8 +1,9 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GameState, FishInstance, FishType, RodType, BaitType, Rarity } from '../types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES } from '../gameData';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../gameData';
 import * as Graphics from '../graphics';
+import { soundManager } from '../soundManager';
 
 interface GameCanvasProps {
   gameState: GameState;
@@ -11,6 +12,7 @@ interface GameCanvasProps {
   onFishLost: (reason?: string) => void;
   currentRod: RodType;
   currentBait: BaitType;
+  weather: 'sunny' | 'rainy' | 'stormy';
 }
 
 interface Particle {
@@ -44,7 +46,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait 
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, weather
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -107,6 +109,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             type: 'circle'
         });
     }
+    soundManager.playSplash();
   }, []);
 
   const createSparkles = useCallback((x: number, y: number, count = 20, colorSet?: string[]) => {
@@ -129,10 +132,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const getRandomFishType = useCallback((rarityBoost: number): FishType => {
     const weightedTypes = FISH_TYPES.map(f => {
       let weight = f.weight;
-      if (f.rarity === Rarity.RARE) weight *= (rarityBoost * 0.5 + 0.5);
-      if (f.rarity === Rarity.EPIC) weight *= rarityBoost;
-      if (f.rarity === Rarity.LEGENDARY) weight *= (rarityBoost * 1.5);
-      if (f.rarity === Rarity.MYTHIC) weight *= (rarityBoost * 2);
+      const weatherBonus = WEATHER_BONUSES[weather].rarity;
+      if (f.rarity === Rarity.RARE) weight *= (rarityBoost * 0.5 + 0.5) * weatherBonus;
+      if (f.rarity === Rarity.EPIC) weight *= rarityBoost * weatherBonus;
+      if (f.rarity === Rarity.LEGENDARY) weight *= (rarityBoost * 1.5) * weatherBonus;
+      if (f.rarity === Rarity.MYTHIC) weight *= (rarityBoost * 2) * weatherBonus;
       return { type: f, weight };
     });
     const totalWeight = weightedTypes.reduce((sum, item) => sum + item.weight, 0);
@@ -148,7 +152,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const type = getRandomFishType(currentBait.rarityBoost);
     const y = 300 + Math.random() * 250;
     const initialDir = Math.random() > 0.5 ? 1 : -1;
-    const baseSpeed = 0.4 + Math.random() * 0.6;
+    const baseSpeed = (0.4 + Math.random() * 0.6) * WEATHER_BONUSES[weather].speed;
     const personalities: FishPersonality[] = ['curious', 'shy', 'brave'];
     const swimStyles: FishSwimStyle[] = ['glider', 'jerky', 'charger'];
     
@@ -250,7 +254,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    Graphics.drawWaterAndSky(ctx);
+    Graphics.drawWaterAndSky(ctx, frameCount.current, weather);
 
     bubblesRef.current.forEach(b => {
       b.y -= b.speed; if (b.y < 200) b.y = CANVAS_HEIGHT + 20;
@@ -283,7 +287,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (activeFish.current?.id === f.id) return; 
       const dx = hookX.current - f.x; const dy = hookY.current - f.y;
       const distSq = dx * dx + dy * dy;
-      const attractRange = currentBait.attraction;
+      const attractRange = currentBait.attraction * WEATHER_BONUSES[weather].attraction;
       f.stateTimer--;
       if (canAttractFish && distSq < attractRange * attractRange) {
         if (f.personality === 'shy' && distSq < 100 * 100) {
@@ -438,9 +442,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (reelingProgress.current >= 100) { 
         setGameState(GameState.CAUGHT); isJumping.current = true; jumpProgress.current = 0; 
         createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']);
-      } else if (lineHealth.current <= 0) { 
+      }      
+      if (lineHealth.current <= 0) { 
         onFishLost("Dây câu bị đứt!"); activeFish.current = null; 
       }
+      
+      if (frameCount.current % 8 === 0) {
+        soundManager.playReel(Math.abs(tensionCursor.current - tensionZone.current) * 2);
+      }
+
       Graphics.drawReelingInterface(ctx, reelingProgress.current, lineHealth.current, tensionCursor.current, tensionZone.current, tensionZoneSize.current, isInZone);
     }
 

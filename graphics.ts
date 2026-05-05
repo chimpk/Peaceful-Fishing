@@ -2,36 +2,114 @@
 import { Rarity, FishType, GameState, RodType } from './types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, REEL_BAR_HEIGHT } from './gameData';
 
-export const drawWaterAndSky = (ctx: CanvasRenderingContext2D) => {
-  // Deep Sky Gradient
+
+export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, weather: 'sunny' | 'rainy' | 'stormy' = 'sunny') => {
+  // Deep Sky Gradient based on weather
   const skyGrad = ctx.createLinearGradient(0, 0, 0, 200);
-  skyGrad.addColorStop(0, '#0c4a6e');
-  skyGrad.addColorStop(1, '#38bdf8');
+  if (weather === 'sunny') {
+    skyGrad.addColorStop(0, '#0c4a6e');
+    skyGrad.addColorStop(1, '#38bdf8');
+  } else if (weather === 'rainy') {
+    skyGrad.addColorStop(0, '#1e293b');
+    skyGrad.addColorStop(1, '#475569');
+  } else {
+    skyGrad.addColorStop(0, '#020617');
+    skyGrad.addColorStop(1, '#1e293b');
+  }
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, CANVAS_WIDTH, 200);
 
-  // Deep Water Gradient with "God Rays" effect
-  const waterGrad = ctx.createLinearGradient(0, 200, 0, CANVAS_HEIGHT);
-  waterGrad.addColorStop(0, '#0ea5e9');
-  waterGrad.addColorStop(0.5, '#0369a1');
-  waterGrad.addColorStop(1, '#0c4a6e');
-  ctx.fillStyle = waterGrad;
-  ctx.fillRect(0, 200, CANVAS_WIDTH, 400);
-
-  // Subtle light rays
+  // Distant Mountains
   ctx.save();
-  ctx.globalCompositeOperation = 'overlay';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-  for (let i = 0; i < 5; i++) {
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = weather === 'sunny' ? '#075985' : '#0f172a';
+  ctx.beginPath();
+  ctx.moveTo(0, 200);
+  ctx.lineTo(150, 140);
+  ctx.lineTo(300, 200);
+  ctx.lineTo(450, 120);
+  ctx.lineTo(650, 200);
+  ctx.lineTo(CANVAS_WIDTH, 160);
+  ctx.lineTo(CANVAS_WIDTH, 200);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Floating Clouds
+  ctx.save();
+  ctx.globalAlpha = weather === 'sunny' ? 0.3 : 0.1;
+  ctx.fillStyle = 'white';
+  for(let i=0; i<3; i++) {
+    const cx = ((frame * (0.2 + i * 0.1)) + (i * 300)) % (CANVAS_WIDTH + 200) - 100;
+    const cy = 40 + i * 30;
     ctx.beginPath();
-    ctx.moveTo(100 + i * 200, 200);
-    ctx.lineTo(250 + i * 200, 200);
-    ctx.lineTo(150 + i * 200, CANVAS_HEIGHT);
-    ctx.lineTo(-50 + i * 200, CANVAS_HEIGHT);
+    ctx.ellipse(cx, cy, 50, 20, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx + 20, cy - 10, 30, 15, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
+
+  // Water Background
+  const waterGrad = ctx.createLinearGradient(0, 200, 0, CANVAS_HEIGHT);
+  if (weather === 'sunny') {
+    waterGrad.addColorStop(0, '#0ea5e9');
+    waterGrad.addColorStop(0.5, '#0369a1');
+    waterGrad.addColorStop(1, '#0c4a6e');
+  } else {
+    waterGrad.addColorStop(0, '#0f172a');
+    waterGrad.addColorStop(1, '#020617');
+  }
+  ctx.fillStyle = waterGrad;
+  ctx.fillRect(0, 200, CANVAS_WIDTH, 400);
+
+  // Animated Wave Layers
+  const drawWave = (offsetY: number, amplitude: number, frequency: number, color: string, alpha: number) => {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, 200 + offsetY);
+    for (let x = 0; x <= CANVAS_WIDTH; x += 10) {
+      const y = Math.sin((x * frequency) + (frame * 0.02)) * amplitude;
+      ctx.lineTo(x, 200 + offsetY + y);
+    }
+    ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.lineTo(0, CANVAS_HEIGHT);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+
+  if (weather === 'sunny') {
+    drawWave(10, 5, 0.01, '#0284c7', 0.4);
+    drawWave(30, 8, 0.008, '#0369a1', 0.3);
+  } else {
+    drawWave(10, 12, 0.015, '#1e293b', 0.5);
+    drawWave(40, 15, 0.012, '#0f172a', 0.4);
+  }
+
+  // God Rays or Storm Lightning
+  ctx.save();
+  if (weather === 'sunny') {
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    for (let i = 0; i < 5; i++) {
+      const xOffset = Math.sin(frame * 0.005 + i) * 20;
+      ctx.beginPath();
+      ctx.moveTo(100 + i * 200 + xOffset, 200);
+      ctx.lineTo(250 + i * 200 + xOffset, 200);
+      ctx.lineTo(150 + i * 200 + xOffset * 2, CANVAS_HEIGHT);
+      ctx.lineTo(-50 + i * 200 + xOffset * 2, CANVAS_HEIGHT);
+      ctx.fill();
+    }
+  } else if (weather === 'stormy' && Math.random() > 0.99) {
+    ctx.fillStyle = 'white';
+    ctx.globalAlpha = 0.8;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+  }
+  ctx.restore();
 };
+
 
 export const drawBubbles = (ctx: CanvasRenderingContext2D, bubbles: any[]) => {
   ctx.save();

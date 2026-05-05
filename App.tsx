@@ -4,6 +4,7 @@ import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileS
 import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests } from './gameData';
 import GameCanvas from './components/GameCanvas';
 import UIOverlay from './components/UIOverlay';
+import { soundManager } from './soundManager';
 
 const SAVE_KEY = 'fishing_frenzy_save_v1';
 
@@ -28,6 +29,7 @@ const App: React.FC = () => {
   const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [lastQuestReset, setLastQuestReset] = useState<number>(0);
+  const [weather, setWeather] = useState<'sunny' | 'rainy' | 'stormy'>('sunny');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // --- PERSISTENCE LOGIC ---
@@ -72,6 +74,11 @@ const App: React.FC = () => {
       setQuests(generateDailyQuests());
       setLastQuestReset(Date.now());
     }
+    
+    // Random weather on load
+    const weathers: ('sunny' | 'rainy' | 'stormy')[] = ['sunny', 'sunny', 'sunny', 'rainy', 'stormy'];
+    setWeather(weathers[Math.floor(Math.random() * weathers.length)]);
+    
     setIsDataLoaded(true);
   }, []);
 
@@ -159,12 +166,12 @@ const App: React.FC = () => {
   }, [currentBait.id]);
 
   const startGame = () => {
+    try { soundManager.playClick(); } catch(e) {}
     const count = baitCounts[currentBait.id] || 0;
     if (count <= 0) {
       setNotification("Hết mồi câu rồi! Hãy mua thêm ở Cửa hàng.");
-      setTimeout(() => setNotification(null), 2000);
-      setActiveView(UIView.SHOP);
-      return;
+      setTimeout(() => setNotification(null), 3000);
+      // Vẫn cho vào game - không block người dùng
     }
     setGameState(GameState.IDLE);
     setActiveView(UIView.GAME);
@@ -181,6 +188,11 @@ const App: React.FC = () => {
     consumeBait(); 
     setInventory(prev => [{ fish, timestamp: Date.now(), isGolden }, ...prev]);
     const finalValue = isGolden ? fish.value * 2 : fish.value;
+    
+    if (fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC || isGolden) {
+        soundManager.playSuccess();
+    }
+    
     setNotification(`Bắt được ${isGolden ? 'CÁ VÀNG ' : ''}${fish.name}! +${finalValue} vàng`);
     setGameState(GameState.CAUGHT);
     updateStatsAndQuests(fish, isGolden);
@@ -240,6 +252,7 @@ const App: React.FC = () => {
   };
 
   const claimQuest = (questId: string) => {
+    soundManager.playClick();
     const quest = quests.find(q => q.id === questId);
     if (quest && quest.isCompleted && !quest.isClaimed) {
       setGold(g => g + quest.rewardGold);
@@ -279,6 +292,7 @@ const App: React.FC = () => {
   };
 
   const selectItem = (item: RodType | BaitType, type: 'rod' | 'bait') => {
+    soundManager.playClick();
     if (type === 'rod') {
       setCurrentRod(item as RodType);
     } else {
@@ -313,6 +327,7 @@ const App: React.FC = () => {
             onFishLost={onFishLost}
             currentRod={currentRod}
             currentBait={currentBait}
+            weather={weather}
           />
         )}
         
@@ -338,6 +353,7 @@ const App: React.FC = () => {
           onUpgradeCapacity={upgradeCapacity}
           onResetData={handleResetData}
           onClaimQuest={claimQuest}
+          weather={weather}
         />
       </div>
     </div>

@@ -25,12 +25,14 @@ interface UIOverlayProps {
   onUpgradeCapacity: () => void;
   onResetData: () => void;
   onClaimQuest: (id: string) => void;
+  weather: 'sunny' | 'rainy' | 'stormy';
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
   gameState, activeView, setActiveView, gold, inventory, inventoryCapacity, notification,
   currentRod, currentBait, baitCounts, ownedRods, stats, achievements, quests,
-  onStart, onSellAll, onBuy, onSelect, onUpgradeCapacity, onResetData, onClaimQuest
+  onStart, onSellAll, onBuy, onSelect, onUpgradeCapacity, onResetData, onClaimQuest,
+  weather
 }) => {
   const [shopTab, setShopTab] = useState<'rod' | 'bait'>('rod');
   const [inventoryTab, setInventoryTab] = useState<'items' | 'upgrade'>('items');
@@ -137,7 +139,15 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           <>
             {/* Header info */}
             <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-start pointer-events-none z-10">
-              <div />
+              <div className="flex flex-col gap-2 pointer-events-auto">
+                <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3 shadow-lg">
+                  <span className="text-xl">{weather === 'sunny' ? '☀️' : weather === 'rainy' ? '🌧️' : '🌩️'}</span>
+                  <div>
+                    <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest">THỜI TIẾT</div>
+                    <div className="text-[10px] font-bold text-white uppercase">{weather === 'sunny' ? 'Nắng Đẹp' : weather === 'rainy' ? 'Trời Mưa' : 'Bão Lớn'}</div>
+                  </div>
+                </div>
+              </div>
               <div className="flex flex-col items-end gap-2 pointer-events-auto">
                 <div className="bg-[#1e293b]/95 backdrop-blur-lg px-5 py-2.5 rounded-full flex items-center gap-3 border border-slate-700 shadow-2xl hover:scale-105 transition-transform">
                   <span className="text-yellow-400 font-black text-2xl drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">{gold.toLocaleString()}</span>
