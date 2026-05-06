@@ -433,7 +433,7 @@ export const drawPlayerEquipment = (
   hookX: number, hookY: number,
   isCasting: boolean = false,
   lineHealth: number = 100,
-  fishTension: number = 0,
+  rodStress: number = 0,
   currentRod: RodType,
   chargePower: number = 0
 ) => {
@@ -454,8 +454,8 @@ export const drawPlayerEquipment = (
     charTilt = 0.2;
     rodBend = 0.3;
   } else if (gameState === GameState.REELING) {
-    rodBend = 0.8 * (fishTension / 100);
-    charTilt = -0.08 * (fishTension / 50);
+    rodBend = Math.min(2.4, rodStress);
+    charTilt = -0.08 * Math.min(1.4, rodStress);
   }
 
   // Ghost landing target
@@ -491,11 +491,11 @@ export const drawPlayerEquipment = (
   const visibleStates = [GameState.CHARGING, GameState.CASTING, GameState.WAITING, GameState.REELING, GameState.CAUGHT];
   if (visibleStates.includes(gameState)) {
     const isLowHealth = lineHealth < 30 && gameState === GameState.REELING;
-    const isHighTension = fishTension > 75 && gameState === GameState.REELING;
+    const isHighTension = rodStress > 0.75 && gameState === GameState.REELING;
     
     let shakeX = 0, shakeY = 0;
     if (gameState === GameState.REELING || gameState === GameState.CAUGHT) {
-      const vibIntensity = (fishTension / 40) + (isLowHealth ? 4 : 0.5);
+      const vibIntensity = (rodStress * 2) + (isLowHealth ? 4 : 0.5);
       shakeX = (Math.random() - 0.5) * vibIntensity;
       shakeY = (Math.random() - 0.5) * vibIntensity;
     }
@@ -514,7 +514,7 @@ export const drawPlayerEquipment = (
     ctx.moveTo(rodEndX, rodEndY + (rodBend * 50));
     let cpX = (rodEndX + hookX) / 2 + shakeX;
     let cpY = Math.min(rodEndY, hookY) - (isCasting ? 180 : 30) + shakeY; 
-    if (gameState === GameState.REELING) cpY += 80;
+    if (gameState === GameState.REELING) cpY += 80 + rodBend * 30;
     
     ctx.quadraticCurveTo(cpX, cpY, hookX + shakeX, hookY + shakeY);
     ctx.stroke();

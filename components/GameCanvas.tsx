@@ -531,8 +531,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         setGameState(GameState.CAUGHT); isJumping.current = true; jumpProgress.current = 0; 
         createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']);
       }      
-      if (lineHealth.current <= 0) { 
-        onLineBroken(); onFishLost("Thẻo bị đứt!"); activeFish.current = null; 
+      if (lineHealth.current <= 0) {
+        const lineLimit = currentBait.maxValue || 300;
+        if (activeFish.current?.type.value > lineLimit) {
+          onLineBroken(); 
+          onFishLost("Thẻo bị đứt vì cá quá to!");
+        } else {
+          onFishLost("Cá đã sổng mất rồi!");
+        }
+        activeFish.current = null;
       }
       
       if (frameCount.current % 8 === 0) {
@@ -654,10 +661,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillText('Attack Charge', 60, 125);
     }
 
+    const rodStress = activeFish.current ? activeFish.current.type.value / Math.max(1, currentRod.maxValue ?? 300) : 0;
+    const rodBendProgress = gameState === GameState.REELING ? Math.max(0, Math.min(1, (reelingProgress.current - 50) / 50)) : 0;
+    const rodBendAmount = Math.min(2.4, rodStress * (0.6 + 0.4 * rodBendProgress));
+
     Graphics.drawPlayerEquipment(
       ctx, gameState, pX, pY, rodEndX, rodEndY, hookX.current, hookY.current, 
       gameState === GameState.CASTING, lineHealth.current,
-      activeFish.current ? activeFish.current.type.value / 500 : 0, currentRod, chargePower.current
+      rodBendAmount, currentRod, chargePower.current
     );
     ctx.restore();
   }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
