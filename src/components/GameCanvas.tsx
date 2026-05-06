@@ -23,6 +23,8 @@ interface GameCanvasProps {
   onSessionReset?: () => void;
   onLineBroken: () => void;
   setNotification: (msg: string | null) => void;
+  liveBait: FishType | null;
+  setLiveBait: (bait: FishType | null) => void;
 }
 
 interface Particle {
@@ -56,7 +58,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, baitCounts, ownedRods, weather, skills, location, timeOfDay, onBossDefeated, onSessionReset, onLineBroken, setNotification
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, baitCounts, ownedRods, weather, skills, location, timeOfDay, onBossDefeated, onSessionReset, onLineBroken, setNotification, liveBait, setLiveBait
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -107,7 +109,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // Special behaviors refs
   const behaviorTimer = useRef(0);
   const isBehaviorActive = useRef(false);
-  const behaviorType = useRef<string | null>(null); // 'jump', 'dive', 'thrash'
+  const behaviorType = useRef<string | null>(null); 
+  
+  // Nibbling system
+  const nibbleTimer = useRef(0);
+  const nibbleCount = useRef(0);
+  const targetNibbles = useRef(3);
+  const lungeProgress = useRef(0);
+  const lungeDelay = useRef(0);
+  const biteWindowTimer = useRef(0);
+  const isBitingHard = useRef(false);
+  const baitSettleTimer = useRef(0);
+  const reelRotation = useRef(0);
+  const nibbleSide = useRef(1); // 1 = from right, -1 = from left
 
   const prevTimeOfDayRef = useRef<TimeOfDay>(timeOfDay);
   const transitionProgressRef = useRef(1); // 0 to 1
@@ -176,10 +190,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const weightedTypes = pool.map(f => {
       let weight = f.weight;
       const weatherBonus = WEATHER_BONUSES[weather].rarity;
-      if (f.rarity === Rarity.RARE) weight *= (rarityBoost * 0.5 + 0.5) * weatherBonus;
-      if (f.rarity === Rarity.EPIC) weight *= rarityBoost * weatherBonus;
-      if (f.rarity === Rarity.LEGENDARY) weight *= (rarityBoost * 1.5) * weatherBonus;
-      if (f.rarity === Rarity.MYTHIC) weight *= (rarityBoost * 2) * weatherBonus;
+      
+      let finalBoost = rarityBoost;
+      if (liveBait) {
+          // Live bait dramatically increases chance for high rarity
+          if (f.rarity === Rarity.EPIC) finalBoost *= 3;
+          if (f.rarity === Rarity.LEGENDARY) finalBoost *= 8;
+          if (f.rarity === Rarity.MYTHIC) finalBoost *= 15;
+      }
+
+      if (f.rarity === Rarity.RARE) weight *= (finalBoost * 0.5 + 0.5) * weatherBonus;
+      if (f.rarity === Rarity.EPIC) weight *= finalBoost * weatherBonus;
+      if (f.rarity === Rarity.LEGENDARY) weight *= (finalBoost * 1.5) * weatherBonus;
+      if (f.rarity === Rarity.MYTHIC) weight *= (finalBoost * 2) * weatherBonus;
       return { type: f, weight };
     });
     const totalWeight = weightedTypes.reduce((sum, item) => sum + item.weight, 0);
@@ -189,7 +212,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       random -= item.weight;
     }
     return pool[0];
-  }, [weather, location, timeOfDay]);
+  }, [weather, location, timeOfDay, liveBait]);
 
   const spawnSingleFish = useCallback(() => {
     const type = getRandomFishType(currentBait.rarityBoost + skills.lucky * 1.5);
@@ -255,26 +278,81 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     return true;
   }, [baitCounts, currentBait.id, currentRod.id, ownedRods, setNotification]);
 
+  const handleHookAction = useCallback(() => {
+    if (gameState === GameState.NIBBLING && activeFish.current) {
+      if (isBitingHard.current) {
+        // Success!
+        const collidingFish = activeFish.current;
+        const lineLimit = currentBait.maxValue || 300;
+        
+        if (collidingFish.type.value > lineLimit) {
+            onLineBroken();
+            onFishLost("Thẻo bị đứt vì cá quá to!");
+            setGameState(GameState.IDLE);
+            activeFish.current = null;
+            return;
+        }
+
+        setGameState(GameState.REELING);
+        reelingProgress.current = 0;
+        lineHealth.current = 100;
+        tensionCursor.current = 0.5;
+        tensionVelocity.current = 0;
+        isBehaviorActive.current = false;
+        behaviorType.current = null;
+        behaviorTimer.current = 100;
+        if (liveBait) setLiveBait(null);
+        
+        const sizeMatch = Math.min(1, collidingFish.type.value / lineLimit);
+        const mismatchPenalty = 1 - sizeMatch;
+        tensionZoneSize.current = Math.max(0.18, 0.48 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18);
+        tensionZone.current = 0.5 - tensionZoneSize.current / 2;
+
+        const goldenBoost = (currentRod.control - 1) * 0.2; 
+        if (Math.random() < goldenBoost) {
+            activeFish.current.isGolden = true;
+        }
+
+        const baseEscapeChance = 0.25;
+        const actualEscapeChance = Math.max(0.04, baseEscapeChance - (currentRod.control - 1) * 0.15);
+        willAutoEscape.current = Math.random() < actualEscapeChance;
+        if (willAutoEscape.current) {
+            autoEscapeTime.current = frameCount.current + 120 + Math.random() * 120;
+        }
+
+        soundManager.playSuccess();
+        // Removed notification as requested
+      } else {
+        // Too early
+        createSplash(hookX.current, hookY.current, 1.2);
+        onFishLost("Giật quá sớm rồi! Cá đã chạy mất.");
+        activeFish.current = null;
+      }
+    }
+  }, [gameState, liveBait, onFishLost, setGameState, setLiveBait, currentBait.maxValue, onLineBroken, skills.sharpEye, currentRod.control, frameCount]);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
       e.preventDefault();
       if (!isSpacePressed.current) {
         isSpacePressed.current = true;
         if (gameState === GameState.IDLE) {
-          if (!canStartFishing()) {
-            return;
-          }
+          if (!canStartFishing()) return;
           setGameState(GameState.CHARGING);
           chargePower.current = 0;
           chargeDirection.current = 1;
-        }
-        if (gameState === GameState.REELING) {
+        } else if (gameState === GameState.WAITING) {
+          // Reeling back manually (implemented before)
+        } else if (gameState === GameState.NIBBLING) {
+           // Handle hook action
+           handleHookAction();
+        } else if (gameState === GameState.REELING) {
           tensionVelocity.current -= 0.0035;
           tugFactor.current = 1.0;
         }
       }
     }
-  }, [gameState, setGameState, canStartFishing]);
+  }, [gameState, canStartFishing, handleHookAction]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
@@ -288,23 +366,24 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [gameState, setGameState]);
 
+
   const handlePressStart = useCallback(() => {
     if (!isSpacePressed.current) {
       isSpacePressed.current = true;
       if (gameState === GameState.IDLE) {
-        if (!canStartFishing()) {
-          return;
-        }
+        if (!canStartFishing()) return;
         setGameState(GameState.CHARGING);
         chargePower.current = 0;
         chargeDirection.current = 1;
+      } else if (gameState === GameState.NIBBLING) {
+        handleHookAction();
       }
       if (gameState === GameState.REELING) {
         tensionVelocity.current -= 0.0035;
         tugFactor.current = 1.0;
       }
     }
-  }, [gameState, setGameState, canStartFishing]);
+  }, [gameState, canStartFishing, handleHookAction]);
 
   const handlePressEnd = useCallback(() => {
     isSpacePressed.current = false;
@@ -395,7 +474,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const pX = 80; const pY = 150; 
     const rodEndX = 220; const rodEndY = 120; 
 
-    const canAttractFish = gameState === GameState.WAITING;
+    // Update reel rotation when reeling or waiting and pressing space
+    if (isSpacePressed.current && (gameState === GameState.REELING || gameState === GameState.WAITING)) {
+        reelRotation.current += 0.25;
+    }
+
+    if (baitSettleTimer.current > 0) baitSettleTimer.current--;
+    const canAttractFish = gameState === GameState.WAITING && baitSettleTimer.current <= 0;
     const hookInWater = gameState === GameState.WAITING || gameState === GameState.REELING;
     let highestInterestedRarity: Rarity | null = null;
 
@@ -405,14 +490,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const distSq = dx * dx + dy * dy;
       const lineLimit = currentBait.maxValue || 300;
       const sizeMatchRatio = Math.min(1, f.type.value / lineLimit);
-      const attractRange = currentBait.attraction * WEATHER_BONUSES[weather].attraction * (0.35 + sizeMatchRatio * 0.65);
-      const interestChance = 0.15 + sizeMatchRatio * 0.75;
+      const attractRange = currentBait.attraction * WEATHER_BONUSES[weather].attraction * (0.6 + sizeMatchRatio * 0.6) + 60;
+      const interestChance = 0.4 + sizeMatchRatio * 0.5;
       f.stateTimer--;
       if (canAttractFish && distSq < attractRange * attractRange && Math.random() < interestChance) {
-        if (f.personality === 'shy' && distSq < 100 * 100) {
+        const isNearPier = hookX.current < 300;
+        const scaredRange = isNearPier ? 60 : 100; // Less scared if cast near pier
+
+        if (f.personality === 'shy' && distSq < scaredRange * scaredRange) {
           f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120;
         } else if (f.state !== 'scared') {
-          f.state = 'interested'; f.targetAngle = Math.atan2(dy, dx);
+          f.state = 'interested'; 
+          // Update target to hook position
+          f.targetAngle = Math.atan2(dy, dx);
+          f.targetY = hookY.current; 
+
           if ([Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity)) {
             if (!highestInterestedRarity || f.type.rarity === Rarity.MYTHIC || (f.type.rarity === Rarity.LEGENDARY && highestInterestedRarity === Rarity.EPIC)) {
               highestInterestedRarity = f.type.rarity;
@@ -432,13 +524,28 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       let moveSpeed = f.baseSpeed;
       if (f.state === 'scared') moveSpeed *= 2.8;
-      else if (f.state === 'interested') moveSpeed *= 1.3;
+      else if (f.state === 'interested') moveSpeed *= 1.1; // More calm approach
       else if (f.state === 'inspecting') moveSpeed *= 0.2;
       if (f.swimStyle === 'jerky') { const pulse = Math.sin(frameCount.current * 0.15); moveSpeed *= (pulse > 0 ? 2.0 : 0.1); }
       else if (f.swimStyle === 'charger') { moveSpeed *= 1.6; }
-      f.angle = lerpAngle(f.angle, f.targetAngle, f.state === 'scared' ? 0.25 : 0.06);
+      const dx_hook = hookX.current - f.x;
+      const dy_hook = hookY.current - f.y;
+      const distToHook = Math.sqrt(dx_hook * dx_hook + dy_hook * dy_hook);
+
+      // Prevent jitter when very close to hook
+      if (f.state === 'interested' && distToHook < 15) {
+          moveSpeed *= 0.2; // Slow down significantly
+          if (distToHook < 5) moveSpeed = 0; // Stop
+      }
+
+      f.angle = lerpAngle(f.angle, f.targetAngle, f.state === 'scared' ? 0.25 : (f.state === 'interested' ? 0.03 : 0.06));
       const vx = Math.cos(f.angle) * moveSpeed; const vy = Math.sin(f.angle) * moveSpeed;
-      f.velocity = { x: vx, y: vy }; f.x += vx; f.y += vy + (f.targetY - f.y) * 0.015;
+      f.velocity = { x: vx, y: vy }; f.x += vx; 
+      
+      // Smooth Y movement
+      const yForce = (f.targetY - f.y) * 0.015;
+      f.y += vy + yForce;
+
       if (f.x > CANVAS_WIDTH + 200) { f.x = -190; f.direction = 1; }
       if (f.x < -200) { f.x = CANVAS_WIDTH + 190; f.direction = -1; }
       if (f.y < 220) f.y = 220; if (f.y > CANVAS_HEIGHT) f.y = CANVAS_HEIGHT;
@@ -486,6 +593,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         hookX.current = targetHookX.current; hookY.current = targetHookY.current;
         createSplash(hookX.current, hookY.current, 1.2);
         setGameState(GameState.WAITING);
+        // Random wait after cast: 5s to 10s
+        baitSettleTimer.current = 300 + Math.random() * 300; 
       }
     }
 
@@ -506,38 +615,127 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         hookY.current += Math.sin(frameCount.current * 0.1) * 0.3;
       }
 
-      const collidingFish = fishRef.current.find(f => {
-        const d2 = (f.x - hookX.current)**2 + (f.y - hookY.current)**2;
-        return d2 < (f.type.size + 18)**2;
-      });
+      const collidingFish = (baitSettleTimer.current <= 0) ? fishRef.current.find(f => {
+        // Calculate mouth position based on angle and size
+        const mouthX = f.x + Math.cos(f.angle) * f.type.size;
+        const mouthY = f.y + Math.sin(f.angle) * f.type.size;
+        
+        const dx = mouthX - hookX.current;
+        const dy = mouthY - hookY.current;
+        const d2 = dx*dx + dy*dy;
+        return d2 < 20*20; // Tight mouth collision
+      }) : null;
+
       if (collidingFish) {
-        const lineLimit = currentBait.maxValue || 300;
-        if (collidingFish.type.value > lineLimit) {
-          onLineBroken();
-          onFishLost("Thẻo bị đứt vì cá quá to!");
-          setGameState(GameState.IDLE);
-          activeFish.current = null;
-          return;
-        }
-        activeFish.current = collidingFish; createSplash(hookX.current, hookY.current, 0.8);
-        setGameState(GameState.REELING); reelingProgress.current = 0; lineHealth.current = 100; tensionCursor.current = 0.5; tensionVelocity.current = 0;
-        isBehaviorActive.current = false; behaviorType.current = null; behaviorTimer.current = 100; 
-        const sizeMatch = Math.min(1, collidingFish.type.value / lineLimit);
-        const mismatchPenalty = 1 - sizeMatch;
-        tensionZoneSize.current = Math.max(0.18, 0.48 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18);
+        activeFish.current = collidingFish;
+        // Determine which side the fish is approaching from
+        nibbleSide.current = collidingFish.x < hookX.current ? -1 : 1;
+        // Always angle=0; direction controls flip so mouth offset works correctly
+        activeFish.current.angle = 0;
+        
+        // Place fish at retreat position immediately
+        activeFish.current.x = hookX.current + 35 * nibbleSide.current;
+        activeFish.current.y = hookY.current + 2;
+        lungeProgress.current = 0;
+        lungeDelay.current = 20 + Math.random() * 30; // Short pause before first approach
+        
+        setGameState(GameState.NIBBLING);
+        nibbleTimer.current = 30 + Math.random() * 40;
+        nibbleCount.current = 0;
+        
+        // Randomize nibbles based on rarity
+        const rarity = collidingFish.type.rarity;
+        let minN = 1, maxN = 3;
+        if (rarity === Rarity.RARE) { minN = 2; maxN = 4; }
+        else if (rarity === Rarity.EPIC) { minN = 3; maxN = 5; }
+        else if (rarity === Rarity.LEGENDARY) { minN = 4; maxN = 6; }
+        else if (rarity === Rarity.MYTHIC) { minN = 5; maxN = 8; }
+        targetNibbles.current = Math.floor(Math.random() * (maxN - minN + 1)) + minN;
 
-        const goldenBoost = (currentRod.control - 1) * 0.2; 
-        if (Math.random() < goldenBoost) {
-            activeFish.current.isGolden = true;
-        }
-
-        const baseEscapeChance = 0.25;
-        const actualEscapeChance = Math.max(0.04, baseEscapeChance - (currentRod.control - 1) * 0.15);
-        willAutoEscape.current = Math.random() < actualEscapeChance;
-        if (willAutoEscape.current) {
-            autoEscapeTime.current = frameCount.current + 120 + Math.random() * 120;
-        }
+        isBitingHard.current = false;
+        soundManager.playClick();
       }
+    }
+
+    if (gameState === GameState.NIBBLING && activeFish.current) {
+        activeFish.current.angle = 0; // Always 0, direction handles sprite flip
+        if (isBitingHard.current) {
+            // When biting hard, fish MUST be at the hook
+            activeFish.current.x = hookX.current;
+            activeFish.current.y = hookY.current + 2;
+            
+            biteWindowTimer.current--;
+            if (biteWindowTimer.current <= 0) {
+                createSplash(hookX.current, hookY.current, 1.0);
+                onFishLost("Hụt rồi! Cá đã sổng mất.");
+                activeFish.current = null;
+            }
+        } else {
+            // Advanced animation for nibbling: random delays between lunges
+            const side = nibbleSide.current; // -1 = from left, 1 = from right
+            const retreatDist = 35 * side; // Retreat to same side fish came from
+            if (lungeDelay.current > 0) {
+                lungeDelay.current--;
+                activeFish.current.x = hookX.current + retreatDist;
+            } else {
+                lungeProgress.current += 0.035;
+                // Lunge: 0=retreat, 1=hook-touch, 0=retreat again
+                const lunge = Math.sin(lungeProgress.current * Math.PI);
+                activeFish.current.x = hookX.current + retreatDist * (1 - lunge);
+                
+                // Splash and shake only at mouth-touch peak
+                if (lunge > 0.9) {
+                    hookX.current += (Math.random() - 0.5) * 1.2;
+                    if (frameCount.current % 10 === 0) createSplash(hookX.current, hookY.current, 0.4);
+                }
+
+                if (lungeProgress.current >= 1) {
+                    lungeProgress.current = 0;
+                    lungeDelay.current = 60 + Math.random() * 90; 
+                }
+            }
+            
+            // Stabilize Y position to prevent up-down jitter
+            activeFish.current.y = hookY.current + 2;
+
+            nibbleTimer.current--;
+            if (nibbleTimer.current <= 0) {
+                nibbleCount.current++;
+                if (nibbleCount.current >= targetNibbles.current) { 
+                    isBitingHard.current = true;
+                    // Extended window: 0.6s to 1.2s
+                    biteWindowTimer.current = 70 - (activeFish.current.type.tension / 6); 
+                    biteWindowTimer.current = Math.max(40, biteWindowTimer.current);
+                    createSplash(hookX.current, hookY.current, 2.2);
+                    soundManager.playSplash();
+                } else {
+                    // Small nibble splash
+                    nibbleTimer.current = 35 + Math.random() * 45;
+                    createSplash(hookX.current, hookY.current, 0.5);
+                    soundManager.playClick();
+                }
+            }
+        }
+        
+        // Horizontal shake only
+        hookX.current += (Math.random() - 0.5) * 0.8;
+
+        // Draw fish: direction faces toward hook (-nibbleSide)
+        Graphics.drawFishTexture(ctx, activeFish.current.type, frameCount.current, true, 
+            { x: activeFish.current.x, y: activeFish.current.y, angle: activeFish.current.angle, direction: -nibbleSide.current }, 
+            0.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
+
+        // Suble visual cue for biting
+        if (isBitingHard.current) {
+            ctx.save();
+            ctx.font = 'bold 60px Arial';
+            ctx.fillStyle = '#ef4444';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'white';
+            ctx.fillText('!', hookX.current, hookY.current - 50);
+            ctx.restore();
+        }
     }
 
     if (gameState === GameState.REELING && activeFish.current) {
@@ -559,14 +757,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             
             if (behaviorType.current === 'jump') {
               createSplash(hookX.current, hookY.current, 1.2);
-              setNotification("⚠️ CÁ ĐANG NHẢY! THẢ SPACE!");
-              setTimeout(() => setNotification(null), 1000);
             } else if (behaviorType.current === 'dive') {
-              setNotification("⬇️ CÁ ĐANG LẶN SÂU!");
-              setTimeout(() => setNotification(null), 1000);
+              soundManager.playClick();
             }
           }
         }
+      }
+
+      if (isBehaviorActive.current && behaviorType.current) {
+          Graphics.drawBehaviorIcon(ctx, hookX.current, hookY.current, behaviorType.current as any);
       }
 
       const lineLimit = currentBait.maxValue || 300;
@@ -906,7 +1105,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx, gameState, pX, pY, rodEndX, rodEndY, hookX.current, hookY.current, 
       gameState === GameState.CASTING, lineHealth.current,
       rodBendAmount, currentRod, chargePower.current, currentBait,
-      frameCount.current
+      frameCount.current, reelRotation.current
     );
     ctx.restore();
   }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);

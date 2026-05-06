@@ -13,11 +13,12 @@ interface InventoryViewProps {
   onSellFish: (timestamp: number) => void;
   onUpgradeCapacity: () => void;
   onSellAll: () => void;
+  onUseAsBait: (timestamp: number) => void;
 }
 
 const InventoryView: React.FC<InventoryViewProps> = ({ 
   gold, inventory, inventoryCapacity, quests,
-  setActiveView, onSellFish, onUpgradeCapacity, onSellAll 
+  setActiveView, onSellFish, onUpgradeCapacity, onSellAll, onUseAsBait 
 }) => {
   const [tab, setTab] = useState<'items' | 'upgrade'>('items');
 
@@ -55,7 +56,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                       <div className="w-20 h-20 bg-slate-950/60 rounded-3xl mb-4 flex items-center justify-center text-4xl shadow-inner group-hover:scale-110 transition-transform animate-float">🐟</div>
                       <h4 className="font-black text-sm italic tracking-tight mb-2 text-white/90 line-clamp-1">{item.fish.name}</h4>
                       <div className="text-yellow-500 font-black text-xs mb-4">{(item.isGolden ? item.fish.value * 2 : item.fish.value).toLocaleString()} 💰</div>
-                      <button onClick={() => onSellFish(item.timestamp)} className="w-full py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
+                      <div className="flex gap-2 w-full mt-auto">
+                        <button onClick={() => onSellFish(item.timestamp)} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
+                        <button onClick={() => onUseAsBait(item.timestamp)} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
+                      </div>
                    </div>
                  ))
                )}

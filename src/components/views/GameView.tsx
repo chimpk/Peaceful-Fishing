@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import BottomNav from '../ui/BottomNav';
-import { UIView, GameState, RodType, BaitType, LocationType, TimeOfDay, InventoryItem, Quest } from '../../core/types';
+import { UIView, GameState, FishType, RodType, BaitType, LocationType, TimeOfDay, InventoryItem, Quest } from '../../core/types';
 
 interface GameViewProps {
   gameState: GameState;
@@ -28,13 +28,14 @@ interface GameViewProps {
   setProfileTab: (tab: any) => void;
   setShowTutorial: (show: boolean) => void;
   showTutorial: boolean;
+  liveBait: FishType | null;
 }
 
 const GameView: React.FC<GameViewProps> = ({ 
   gameState, gold, inventory, inventoryCapacity, currentRod, currentBait, baitCounts,
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
   notification, epicCatch, quests, onStart, onStartCompetition, onChangeLocation,
-  setActiveView, setProfileTab, setShowTutorial, showTutorial
+  setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const currentBaitCount = baitCounts[currentBait.id] || 0;
@@ -112,7 +113,7 @@ const GameView: React.FC<GameViewProps> = ({
       ) : (
         <>
           {/* Header info */}
-          <div className="absolute top-0 inset-x-0 p-8 flex justify-between items-start pointer-events-none z-[60]">
+          <div className="absolute top-0 inset-x-0 p-6 flex flex-wrap justify-between items-start pointer-events-none z-[60] gap-4">
             <div className="flex flex-col gap-3 pointer-events-auto">
               <div className="flex gap-2">
                  <div className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl group cursor-pointer hover:bg-slate-900 transition-all relative"
@@ -202,6 +203,16 @@ const GameView: React.FC<GameViewProps> = ({
                 x{currentBaitCount}
               </div>
             </div>
+
+            {liveBait && (
+              <div className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-blue-500/30 flex items-center gap-4 shadow-[0_0_30px_rgba(59,130,246,0.2)] animate-pulse hover:translate-x-2 transition-all">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 text-lg shadow-inner">🦐</div>
+                <div>
+                  <div className="text-[9px] text-blue-400 font-black uppercase tracking-widest opacity-60">MỒI SỐNG</div>
+                  <div className="text-sm font-black text-blue-100 truncate max-w-[150px]">{liveBait.name}</div>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Streak Indicator */}

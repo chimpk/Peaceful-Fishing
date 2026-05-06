@@ -235,6 +235,38 @@ export const drawAlert = (ctx: CanvasRenderingContext2D, x: number, y: number, r
   ctx.restore();
 };
 
+export const drawBehaviorIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, type: 'jump' | 'dive' | 'thrash') => {
+  const icons = {
+    jump: { char: '⚠️', text: 'NHẢY!', color: '#fbbf24' },
+    dive: { char: '⚓', text: 'LẶN!', color: '#60a5fa' },
+    thrash: { char: '💢', text: 'VÙNG VẪY!', color: '#ef4444' }
+  };
+  const icon = icons[type];
+  const pulse = Math.sin(Date.now() * 0.01) * 3;
+
+  ctx.save();
+  ctx.translate(x, y - 60 + pulse);
+  
+  // BG
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(-40, -12, 80, 24, 12);
+  else ctx.rect(-40, -12, 80, 24);
+  ctx.fill();
+  ctx.strokeStyle = icon.color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Text
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 11px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${icon.char} ${icon.text}`, 0, 0);
+  
+  ctx.restore();
+};
+
 import { drawFishByModel } from './fish';
 
 export const drawFishTexture = (
@@ -258,7 +290,7 @@ export const drawFishTexture = (
     
     // Offset to make the mouth touch the hook instead of the body center
     if (isStruggling || isCaught) {
-        ctx.translate(-size * 0.8, 0);
+        ctx.translate(-size * 1.0, 0);
     }
   }
 
@@ -299,7 +331,8 @@ export const drawRodTexture = (
   startY: number, 
   endX: number, 
   endY: number,
-  bendAmount: number = 0
+  bendAmount: number = 0,
+  reelRotation: number = 0
 ) => {
   ctx.save();
   const dx = endX - startX;
@@ -344,6 +377,25 @@ export const drawRodTexture = (
       ctx.stroke();
   }
 
+  // --- DRAW REEL HANDLE ---
+  ctx.save();
+  ctx.translate(12, 5); // Base of rod
+  
+  // Reel Body
+  ctx.fillStyle = '#3f3f46';
+  ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#18181b'; ctx.lineWidth = 1; ctx.stroke();
+
+  // Handle Arm
+  ctx.rotate(reelRotation);
+  ctx.strokeStyle = '#a1a1aa'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(10, 0); ctx.stroke();
+
+  // Handle Knob
+  ctx.fillStyle = '#18181b';
+  ctx.beginPath(); ctx.arc(10, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
   ctx.restore();
 };
 
@@ -359,7 +411,8 @@ export const drawPlayerEquipment = (
   currentRod: RodType,
   chargePower: number = 0,
   currentBait?: BaitType,
-  frameCount: number = 0
+  frameCount: number = 0,
+  reelRotation: number = 0
 ) => {
   // Pier
   const pierGrad = ctx.createLinearGradient(0, 160, 0, 200);
@@ -402,12 +455,12 @@ export const drawPlayerEquipment = (
   const rodAngle = Math.atan2(rodEndY - rodBaseY, rodEndX - rodBaseX);
 
   // Professional Character Model (Included from character.ts)
-  drawPlayer(ctx, pX - 40, pY, gameState, charTilt, frameCount, rodAngle);
+  drawPlayer(ctx, pX - 40, pY, gameState, charTilt, frameCount, rodAngle, reelRotation);
 
-  drawRodTexture(ctx, currentRod, rodBaseX, rodBaseY, rodEndX, rodEndY, rodBend);
+  drawRodTexture(ctx, currentRod, rodBaseX, rodBaseY, rodEndX, rodEndY, rodBend, reelRotation);
 
   // Line
-  const visibleStates = [GameState.CHARGING, GameState.CASTING, GameState.WAITING, GameState.REELING, GameState.CAUGHT];
+  const visibleStates = [GameState.CHARGING, GameState.CASTING, GameState.WAITING, GameState.NIBBLING, GameState.REELING, GameState.CAUGHT];
   if (visibleStates.includes(gameState)) {
     const isLowHealth = lineHealth < 30 && gameState === GameState.REELING;
     const isHighTension = rodStress > 0.75 && gameState === GameState.REELING;

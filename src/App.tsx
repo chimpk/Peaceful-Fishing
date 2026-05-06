@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const [competitionTimeLeft, setCompetitionTimeLeft] = useState<number>(180); // 3 minutes
   const [competitionScore, setCompetitionScore] = useState<number>(0);
   const [leaderboard, setLeaderboard] = useState<{ score: number; date: string }[]>([]);
+  const [liveBait, setLiveBait] = useState<FishType | null>(null);
 
   // --- TIME OF DAY CYCLE ---
   useEffect(() => {
@@ -451,6 +452,19 @@ const App: React.FC = () => {
     setTimeout(() => setNotification(null), 1000);
   };
 
+  const useFishAsBait = (timestamp: number) => {
+    const item = inventory.find(i => i.timestamp === timestamp);
+    if (!item) return;
+    
+    // Only allow common/uncommon/rare for bait to prevent accidents with Mythics?
+    // Actually, let player choose, but maybe a warning in UI.
+    
+    setLiveBait(item.fish);
+    setInventory(prev => prev.filter(i => i.timestamp !== timestamp));
+    setNotification(`Đã sử dụng ${item.fish.name} làm mồi sống!`);
+    setTimeout(() => setNotification(null), 1200);
+  };
+
   const claimQuest = (questId: string) => {
     soundManager.playClick();
     const quest = quests.find(q => q.id === questId);
@@ -551,6 +565,8 @@ const App: React.FC = () => {
             onSessionReset={handleSessionReset}
             onLineBroken={handleLineBroken}
             setNotification={setNotification}
+            liveBait={liveBait}
+            setLiveBait={setLiveBait}
           />
         )}
         
@@ -592,6 +608,8 @@ const App: React.FC = () => {
           competitionScore={competitionScore}
           leaderboard={leaderboard}
           onStartCompetition={startCompetition}
+          liveBait={liveBait}
+          onUseAsBait={useFishAsBait}
         />
       </div>
     </div>

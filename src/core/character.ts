@@ -7,7 +7,8 @@ export const drawPlayer = (
   gameState: GameState,
   tilt: number,
   frameCount: number,
-  rodAngle: number = 0
+  rodAngle: number = 0,
+  reelRotation: number = 0
 ) => {
   ctx.save();
   ctx.translate(x, y);
@@ -65,8 +66,9 @@ export const drawPlayer = (
   // Left Arm (Holding handle base)
   ctx.save();
   ctx.translate(-5, by);
-  const leftHandX = 25 + Math.cos(rodAngle) * 10;
-  const leftHandY = 0 + Math.sin(rodAngle) * 10;
+  // IK-like hand positioning
+  const leftHandX = 22 + Math.cos(rodAngle) * 12;
+  const leftHandY = 0 + Math.sin(rodAngle) * 12;
   
   ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(leftHandX, leftHandY);
   ctx.strokeStyle = '#4a7c20'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
@@ -74,11 +76,21 @@ export const drawPlayer = (
   shape('#f9a875', '#c8774e', 1.5);
   ctx.restore();
 
-  // Right Arm (Holding handle higher)
+  // Right Arm (Reeling action)
   ctx.save();
   ctx.translate(5, by);
-  const rightHandX = 20 + Math.cos(rodAngle) * 15;
-  const rightHandY = -5 + Math.sin(rodAngle) * 15;
+  
+  let rightHandX, rightHandY;
+  if (gameState === GameState.REELING || (gameState === GameState.WAITING && reelRotation > 0)) {
+      // Reeling motion: circular path relative to rod handle
+      const rx = 20 + Math.cos(rodAngle) * 18;
+      const ry = -5 + Math.sin(rodAngle) * 18;
+      rightHandX = rx + Math.cos(reelRotation) * 6;
+      rightHandY = ry + Math.sin(reelRotation) * 6;
+  } else {
+      rightHandX = 20 + Math.cos(rodAngle) * 20;
+      rightHandY = -5 + Math.sin(rodAngle) * 20;
+  }
 
   ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(rightHandX, rightHandY);
   ctx.strokeStyle = '#4a7c20'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
@@ -124,10 +136,17 @@ export const drawPlayer = (
   ctx.beginPath(); ctx.arc(0, hy + 5, 2, 0, Math.PI * 2);
   fill('rgba(180,90,60,0.5)');
 
-  // Smile
+  // Mouth based on state
   ctx.beginPath();
-  ctx.arc(0, hy + 5, 8, 0.2, Math.PI - 0.2);
-  ctx.strokeStyle = '#c0504d'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
+  if (gameState === GameState.REELING) {
+    // Determined/Struggling mouth
+    ctx.arc(0, hy + 8, 4, 0, Math.PI * 2);
+    ctx.strokeStyle = '#c0504d'; ctx.lineWidth = 2; ctx.stroke();
+  } else {
+    // Normal smile
+    ctx.arc(0, hy + 5, 8, 0.2, Math.PI - 0.2);
+    ctx.strokeStyle = '#c0504d'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
+  }
 
   // ── 7. HAT ───────────────────────────────────────────────────────────────────
   const hat_y = hy - 17;

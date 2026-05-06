@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, RodType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay } from '../core/types';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay } from '../core/types';
 
 // Views
 import GameView from './views/GameView';
@@ -49,6 +49,8 @@ interface UIOverlayProps {
   competitionScore: number;
   leaderboard: { score: number; date: string }[];
   onStartCompetition: () => void;
+  liveBait: FishType | null;
+  onUseAsBait: (timestamp: number) => void;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = (props) => {
