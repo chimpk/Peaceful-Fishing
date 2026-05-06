@@ -1,10 +1,10 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay } from './types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './gameData';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay } from './core/types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './core/gameData';
 import GameCanvas from './components/GameCanvas';
 import UIOverlay from './components/UIOverlay';
-import { soundManager } from './soundManager';
+import { soundManager } from './core/soundManager';
 
 const SAVE_KEY = 'fishing_frenzy_save_v1';
 
@@ -224,7 +224,7 @@ const App: React.FC = () => {
     setGameState(GameState.IDLE);
     setActiveView(UIView.GAME);
     setNotification("CHẾ ĐỘ THI ĐẤU BẮT ĐẦU! Cố gắng kiếm nhiều vàng nhất trong 3 phút!");
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 1500);
   };
 
   // --- GAMEPLAY LOGIC ---
@@ -286,7 +286,7 @@ const App: React.FC = () => {
       return { ...prev, [currentBait.id]: nextCount };
     });
     setNotification('Thẻo bị đứt! Hãy mua thẻo mới.');
-    setTimeout(() => setNotification(null), 2500);
+    setTimeout(() => setNotification(null), 1200);
   }, [currentBait.id]);
 
   const startGame = () => {
@@ -305,7 +305,7 @@ const App: React.FC = () => {
     if (inventory.length >= inventoryCapacity) {
       setNotification("Túi đồ đã đầy! Hãy bán bớt cá hoặc nâng cấp túi.");
       setGameState(GameState.IDLE);
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 1500);
       return;
     }
 
@@ -328,7 +328,7 @@ const App: React.FC = () => {
     if (isEpic) {
         soundManager.playSuccess();
         setEpicCatch({ fish, isGolden });
-        setTimeout(() => setEpicCatch(null), 3500);
+        setTimeout(() => setEpicCatch(null), 2000);
     }
     
     let bonusMessage = "";
@@ -357,7 +357,7 @@ const App: React.FC = () => {
         return remaining;
       });
       setNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy mua lại cần mới.");
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 1500);
     }
     
     // Check for boss after catching fish
@@ -369,14 +369,14 @@ const App: React.FC = () => {
           setTimeout(() => {
             setNotification(null);
             setGameState(GameState.BOSS_FIGHT);
-          }, 2000);
+          }, 1200);
         }, 2500);
         return newCount;
       } else {
         setTimeout(() => {
           setNotification(null);
           setGameState(GameState.IDLE);
-        }, 2500);
+        }, 1200);
         return newCount;
       }
     });
@@ -386,7 +386,7 @@ const App: React.FC = () => {
     setNotification(reason);
     setGameState(GameState.IDLE);
     setStreak(0);
-    setTimeout(() => setNotification(null), 2000);
+    setTimeout(() => setNotification(null), 1000);
   }, []);
 
   const sellAllFish = () => {
@@ -427,7 +427,7 @@ const App: React.FC = () => {
 
       setInventory([]);
       setNotification(`Đã bán toàn bộ cá! Nhận được ${totalValue} vàng`);
-      setTimeout(() => setNotification(null), 2000);
+      setTimeout(() => setNotification(null), 1200);
     }
   };
 
@@ -448,7 +448,7 @@ const App: React.FC = () => {
       return q;
     }));
     setNotification(`Đã bán ${item.fish.name}! +${value} vàng`);
-    setTimeout(() => setNotification(null), 1500);
+    setTimeout(() => setNotification(null), 1000);
   };
 
   const claimQuest = (questId: string) => {
@@ -464,7 +464,7 @@ const App: React.FC = () => {
       }
       setQuests(prev => prev.map(q => q.id === questId ? { ...q, isClaimed: true } : q));
       setNotification(`Đã nhận thưởng nhiệm vụ: +${quest.rewardGold} vàng!`);
-      setTimeout(() => setNotification(null), 2000);
+      setTimeout(() => setNotification(null), 1200);
     }
   };
 
@@ -484,10 +484,10 @@ const App: React.FC = () => {
         setCurrentBait(bait); 
       }
       setNotification(`Đã mua ${item.name}!`);
-      setTimeout(() => setNotification(null), 2000);
+      setTimeout(() => setNotification(null), 1200);
     } else {
       setNotification('Không đủ tiền!');
-      setTimeout(() => setNotification(null), 2000);
+      setTimeout(() => setNotification(null), 1200);
     }
   };
 
@@ -506,10 +506,10 @@ const App: React.FC = () => {
       setGold(prev => prev - cost);
       setInventoryCapacity(prev => prev + 5);
       setNotification(`Đã nâng cấp túi đồ lên ${inventoryCapacity + 5} ô!`);
-      setTimeout(() => setNotification(null), 2000);
+      setTimeout(() => setNotification(null), 1200);
     } else {
       setNotification('Không đủ tiền nâng cấp!');
-      setTimeout(() => setNotification(null), 2000);
+      setTimeout(() => setNotification(null), 1200);
     }
   };
 
@@ -520,7 +520,7 @@ const App: React.FC = () => {
         setGold(prev => prev - cost);
         setSkills(prev => ({ ...prev, [skillId]: currentLevel + 1 }));
         setNotification(`Đã nâng cấp kỹ năng!`);
-        setTimeout(() => setNotification(null), 2000);
+        setTimeout(() => setNotification(null), 1200);
      } else {
         setNotification('Không đủ tiền nâng cấp!');
         setTimeout(() => setNotification(null), 2000);

@@ -34,6 +34,13 @@ export enum Rarity {
   MYTHIC = 'THẦN THOẠI'
 }
 
+export enum FishBehavior {
+  NORMAL = 'NORMAL',
+  LEAPER = 'LEAPER',    // Nhảy khỏi mặt nước, cần thả phím Space
+  DIVER = 'DIVER',      // Lặn sâu, kéo dây xuống mạnh
+  AGGRESSIVE = 'AGGRESSIVE' // Hung dữ, tăng tension nhanh
+}
+
 export type LocationType = 'POND' | 'OCEAN' | 'CAVE';
 export type TimeOfDay = 'DAY' | 'SUNSET' | 'NIGHT';
 
@@ -45,6 +52,7 @@ export interface FishType {
   tension: number;
   size: number;
   rarity: Rarity;
+  behavior?: FishBehavior;
   allowedLocations?: LocationType[];
   allowedTimes?: TimeOfDay[];
 }

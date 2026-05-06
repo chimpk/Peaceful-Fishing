@@ -1,45 +1,87 @@
-
-import { Rarity, FishType, GameState, RodType, LocationType, TimeOfDay } from './types';
+import { Rarity, FishType, GameState, RodType, BaitType, LocationType, TimeOfDay } from './types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, REEL_BAR_HEIGHT } from './gameData';
+import { drawPlayer } from './character';
 
 
-export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, weather: 'sunny' | 'rainy' | 'stormy' = 'sunny', location: LocationType = 'POND', timeOfDay: TimeOfDay = 'DAY') => {
-  // Deep Sky Gradient based on weather and timeOfDay
+// Color Constants for Interpolation
+const SKY_COLORS = {
+  DAY_SUNNY: ['#0c4a6e', '#38bdf8'],
+  DAY_RAINY: ['#1e293b', '#475569'],
+  DAY_STORMY: ['#020617', '#1e293b'],
+  SUNSET: ['#c2410c', '#f59e0b'],
+  NIGHT: ['#020617', '#0f172a'],
+  CAVE: ['#09090b', '#18181b']
+};
+
+const WATER_COLORS = {
+  POND_DAY: ['#0ea5e9', '#0369a1', '#0c4a6e'],
+  POND_SUNSET: ['#9a3412', '#9a3412', '#064e3b'],
+  POND_NIGHT: ['#064e3b', '#064e3b', '#022c22'],
+  OCEAN_DAY: ['#0369a1', '#0369a1', '#082f49'],
+  OCEAN_SUNSET: ['#b45309', '#b45309', '#0c4a6e'],
+  OCEAN_NIGHT: ['#0f172a', '#0f172a', '#020617'],
+  CAVE: ['#1e1b4b', '#1e1b4b', '#020617']
+};
+
+// Helper to lerp colors
+const lerpColor = (c1: string, c2: string, f: number) => {
+  const r1 = parseInt(c1.slice(1, 3), 16);
+  const g1 = parseInt(c1.slice(3, 5), 16);
+  const b1 = parseInt(c1.slice(5, 7), 16);
+  const r2 = parseInt(c2.slice(1, 3), 16);
+  const g2 = parseInt(c2.slice(3, 5), 16);
+  const b2 = parseInt(c2.slice(5, 7), 16);
+  const r = Math.round(r1 + (r2 - r1) * f);
+  const g = Math.round(g1 + (g2 - g1) * f);
+  const b = Math.round(b1 + (b2 - b1) * f);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
+export const drawWaterAndSky = (
+  ctx: CanvasRenderingContext2D, 
+  frame: number, 
+  weather: 'sunny' | 'rainy' | 'stormy' = 'sunny', 
+  location: LocationType = 'POND', 
+  timeOfDay: TimeOfDay = 'DAY',
+  prevTimeOfDay: TimeOfDay = 'DAY',
+  transition: number = 1 // 0 to 1
+) => {
+  const getSkyTarget = (t: TimeOfDay) => {
+    if (location === 'CAVE') return SKY_COLORS.CAVE;
+    if (t === 'NIGHT') return SKY_COLORS.NIGHT;
+    if (t === 'SUNSET') return SKY_COLORS.SUNSET;
+    if (weather === 'sunny') return SKY_COLORS.DAY_SUNNY;
+    if (weather === 'rainy') return SKY_COLORS.DAY_RAINY;
+    return SKY_COLORS.DAY_STORMY;
+  };
+
+  const getWaterTarget = (t: TimeOfDay) => {
+    if (location === 'CAVE') return WATER_COLORS.CAVE;
+    const key = `${location}_${t}` as keyof typeof WATER_COLORS;
+    return WATER_COLORS[key] || WATER_COLORS.POND_DAY;
+  };
+
+  const skyPrev = getSkyTarget(prevTimeOfDay);
+  const skyCurr = getSkyTarget(timeOfDay);
+  const waterPrev = getWaterTarget(prevTimeOfDay);
+  const waterCurr = getWaterTarget(timeOfDay);
+
+  // --- Draw Sky ---
   const skyGrad = ctx.createLinearGradient(0, 0, 0, 200);
-  if (location === 'CAVE') {
-    skyGrad.addColorStop(0, '#09090b');
-    skyGrad.addColorStop(1, '#18181b');
-  } else {
-    if (timeOfDay === 'NIGHT') {
-      skyGrad.addColorStop(0, '#020617');
-      skyGrad.addColorStop(1, '#0f172a');
-    } else if (timeOfDay === 'SUNSET') {
-      skyGrad.addColorStop(0, '#c2410c');
-      skyGrad.addColorStop(1, '#f59e0b');
-    } else { // DAY
-      if (weather === 'sunny') {
-        skyGrad.addColorStop(0, '#0c4a6e');
-        skyGrad.addColorStop(1, '#38bdf8');
-      } else if (weather === 'rainy') {
-        skyGrad.addColorStop(0, '#1e293b');
-        skyGrad.addColorStop(1, '#475569');
-      } else {
-        skyGrad.addColorStop(0, '#020617');
-        skyGrad.addColorStop(1, '#1e293b');
-      }
-    }
-  }
+  skyGrad.addColorStop(0, lerpColor(skyPrev[0], skyCurr[0], transition));
+  skyGrad.addColorStop(1, lerpColor(skyPrev[1], skyCurr[1], transition));
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, CANVAS_WIDTH, 200);
 
   // Stars for Night
-  if (location !== 'CAVE' && timeOfDay === 'NIGHT' && weather === 'sunny') {
+  const nightAlpha = timeOfDay === 'NIGHT' ? transition : (prevTimeOfDay === 'NIGHT' ? 1 - transition : 0);
+  if (location !== 'CAVE' && nightAlpha > 0.05 && weather === 'sunny') {
     ctx.save();
+    ctx.globalAlpha = nightAlpha;
     ctx.fillStyle = 'white';
     for (let i = 0; i < 30; i++) {
         const sx = (Math.sin(i * 123) * 1000) % CANVAS_WIDTH;
         const sy = (Math.cos(i * 321) * 1000) % 200;
-        ctx.globalAlpha = 0.2 + Math.random() * 0.8;
         ctx.beginPath();
         ctx.arc(Math.abs(sx), Math.abs(sy), Math.random() * 1.5, 0, Math.PI * 2);
         ctx.fill();
@@ -47,61 +89,19 @@ export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, we
     ctx.restore();
   }
 
-  // Distant Mountains / Cave Stalactites
-  ctx.save();
-  ctx.globalAlpha = 0.4;
-  if (location === 'CAVE') {
-    ctx.fillStyle = '#27272a';
-    ctx.beginPath();
-    ctx.moveTo(0, 0); ctx.lineTo(150, 100); ctx.lineTo(300, 20); ctx.lineTo(450, 120); ctx.lineTo(650, 30); ctx.lineTo(CANVAS_WIDTH, 90); ctx.lineTo(CANVAS_WIDTH, 0);
-    ctx.fill();
-  } else {
-    ctx.fillStyle = (timeOfDay === 'NIGHT' || weather !== 'sunny') ? '#0f172a' : (timeOfDay === 'SUNSET' ? '#7c2d12' : '#075985');
-    ctx.beginPath();
-    ctx.moveTo(0, 200); ctx.lineTo(150, 140); ctx.lineTo(300, 200); ctx.lineTo(450, 120); ctx.lineTo(650, 200); ctx.lineTo(CANVAS_WIDTH, 160); ctx.lineTo(CANVAS_WIDTH, 200);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // Floating Clouds
-  if (location !== 'CAVE') {
-    ctx.save();
-    ctx.globalAlpha = (timeOfDay === 'NIGHT' || weather !== 'sunny') ? 0.1 : (timeOfDay === 'SUNSET' ? 0.2 : 0.3);
-    ctx.fillStyle = timeOfDay === 'SUNSET' ? '#fcd34d' : 'white';
-    for(let i=0; i<3; i++) {
-      const cx = ((frame * (0.2 + i * 0.1)) + (i * 300)) % (CANVAS_WIDTH + 200) - 100;
-      const cy = 40 + i * 30;
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, 50, 20, 0, 0, Math.PI * 2);
-      ctx.ellipse(cx + 20, cy - 10, 30, 15, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  // Water Background
+  // --- Draw Water ---
   const waterGrad = ctx.createLinearGradient(0, 200, 0, CANVAS_HEIGHT);
-  if (location === 'CAVE') {
-    waterGrad.addColorStop(0, '#1e1b4b');
-    waterGrad.addColorStop(1, '#020617');
-  } else if (location === 'OCEAN') {
-    if (timeOfDay === 'NIGHT') { waterGrad.addColorStop(0, '#0f172a'); waterGrad.addColorStop(1, '#020617'); }
-    else if (timeOfDay === 'SUNSET') { waterGrad.addColorStop(0, '#b45309'); waterGrad.addColorStop(1, '#0c4a6e'); }
-    else { waterGrad.addColorStop(0, '#0369a1'); waterGrad.addColorStop(1, '#082f49'); }
-  } else { // POND
-    if (timeOfDay === 'NIGHT') { waterGrad.addColorStop(0, '#064e3b'); waterGrad.addColorStop(1, '#022c22'); }
-    else if (timeOfDay === 'SUNSET') { waterGrad.addColorStop(0, '#9a3412'); waterGrad.addColorStop(1, '#064e3b'); }
-    else { waterGrad.addColorStop(0, '#0ea5e9'); waterGrad.addColorStop(0.5, '#0369a1'); waterGrad.addColorStop(1, '#0c4a6e'); }
-  }
+  waterGrad.addColorStop(0, lerpColor(waterPrev[0], waterCurr[0], transition));
+  waterGrad.addColorStop(0.5, lerpColor(waterPrev[1], waterCurr[1], transition));
+  waterGrad.addColorStop(1, lerpColor(waterPrev[2], waterCurr[2], transition));
   ctx.fillStyle = waterGrad;
   ctx.fillRect(0, 200, CANVAS_WIDTH, 400);
 
-  // Animated Wave Layers
-  const drawWave = (offsetY: number, amplitude: number, frequency: number, color: string, alpha: number) => {
+  // Wave Layers
+  const drawWave = (offsetY: number, amplitude: number, frequency: number, colors: string[], alpha: number) => {
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
+    ctx.fillStyle = lerpColor(colors[0], colors[1], transition);
     ctx.beginPath();
     ctx.moveTo(0, 200 + offsetY);
     for (let x = 0; x <= CANVAS_WIDTH; x += 10) {
@@ -115,37 +115,32 @@ export const drawWaterAndSky = (ctx: CanvasRenderingContext2D, frame: number, we
     ctx.restore();
   };
 
-  if (location === 'CAVE') {
-    drawWave(10, 3, 0.005, '#312e81', 0.4);
-    drawWave(30, 5, 0.004, '#1e1b4b', 0.5);
-  } else if (location === 'OCEAN') {
-    drawWave(10, 8, 0.012, timeOfDay === 'DAY' ? '#0284c7' : (timeOfDay === 'SUNSET' ? '#7c2d12' : '#0f172a'), 0.4);
-    drawWave(30, 12, 0.01, timeOfDay === 'DAY' ? '#0369a1' : (timeOfDay === 'SUNSET' ? '#9a3412' : '#020617'), 0.5);
-  } else {
-    drawWave(10, 5, 0.01, timeOfDay === 'DAY' ? '#0284c7' : (timeOfDay === 'SUNSET' ? '#ea580c' : '#064e3b'), 0.4);
-    drawWave(30, 8, 0.008, timeOfDay === 'DAY' ? '#0369a1' : (timeOfDay === 'SUNSET' ? '#c2410c' : '#022c22'), 0.3);
-  }
-
-  // God Rays or Storm Lightning
-  ctx.save();
-  if (timeOfDay === 'DAY' && weather === 'sunny' && location !== 'CAVE') {
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    for (let i = 0; i < 5; i++) {
-      const xOffset = Math.sin(frame * 0.005 + i) * 20;
-      ctx.beginPath();
-      ctx.moveTo(100 + i * 200 + xOffset, 200);
-      ctx.lineTo(250 + i * 200 + xOffset, 200);
-      ctx.lineTo(150 + i * 200 + xOffset * 2, CANVAS_HEIGHT);
-      ctx.lineTo(-50 + i * 200 + xOffset * 2, CANVAS_HEIGHT);
-      ctx.fill();
+  const getWaveColors = (t: TimeOfDay) => {
+    if (location === 'CAVE') return ['#312e81', '#1e1b4b'];
+    if (location === 'OCEAN') {
+      if (t === 'DAY') return ['#0284c7', '#0369a1'];
+      if (t === 'SUNSET') return ['#7c2d12', '#9a3412'];
+      return ['#0f172a', '#020617'];
     }
-  } else if (weather === 'stormy' && Math.random() > 0.99 && location !== 'CAVE') {
+    // POND
+    if (t === 'DAY') return ['#0284c7', '#0369a1'];
+    if (t === 'SUNSET') return ['#ea580c', '#c2410c'];
+    return ['#064e3b', '#022c22'];
+  };
+
+  const wavePrev = getWaveColors(prevTimeOfDay);
+  const waveCurr = getWaveColors(timeOfDay);
+  drawWave(10, 5, 0.01, [wavePrev[0], waveCurr[0]], 0.4);
+  drawWave(30, 8, 0.008, [wavePrev[1], waveCurr[1]], 0.3);
+
+  // Storm Lightning
+  if (weather === 'stormy' && Math.random() > 0.99 && location !== 'CAVE') {
+    ctx.save();
     ctx.fillStyle = 'white';
     ctx.globalAlpha = 0.8;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.restore();
   }
-  ctx.restore();
 };
 
 
@@ -240,6 +235,8 @@ export const drawAlert = (ctx: CanvasRenderingContext2D, x: number, y: number, r
   ctx.restore();
 };
 
+import { drawFishByModel } from './fish';
+
 export const drawFishTexture = (
   ctx: CanvasRenderingContext2D, 
   fishType: FishType, 
@@ -251,42 +248,24 @@ export const drawFishTexture = (
   isCaught: boolean = false,
   isGolden: boolean = false
 ) => {
+  const { size, rarity } = fishType;
+
   ctx.save();
   if (customPos) {
     ctx.translate(customPos.x, customPos.y);
     ctx.rotate(customPos.angle);
     if (customPos.direction === -1) ctx.scale(-1, 1);
+    
+    // Offset to make the mouth touch the hook instead of the body center
+    if (isStruggling || isCaught) {
+        ctx.translate(-size * 0.8, 0);
+    }
   }
 
-  const { size, color, rarity, name } = fishType;
-  const finalColor = isGolden ? '#fbbf24' : color;
-
-  let wagFreq = 0.15;
-  let wagAmp = 0.1;
-
-  if (isStruggling) {
-    wagFreq = 0.8;
-    wagAmp = 0.5;
-  } else {
-    wagFreq = 0.05 + (currentSpeed * 0.12);
-    wagAmp = 0.04 + (currentSpeed * 0.06);
-    if (swimStyle === 'charger') { wagFreq *= 1.4; wagAmp *= 0.7; }
-    else if (swimStyle === 'glider') { wagFreq *= 0.7; wagAmp *= 1.2; }
-  }
-
-  const bodyWiggle = Math.sin(frameCount * wagFreq) * (wagAmp * 0.3);
-  ctx.rotate(bodyWiggle);
-
-  if (isStruggling) {
-      ctx.translate((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4);
-  }
-
-  // Golden Glow for Golden Fish or Caught state
+  // --- GLOW EFFECTS ---
   if (isCaught || isGolden) {
     ctx.shadowBlur = isGolden ? 35 : 30;
     ctx.shadowColor = '#fbbf24';
-    
-    // Outer golden aura
     ctx.save();
     ctx.globalAlpha = 0.3 + Math.sin(frameCount * 0.2) * 0.2;
     ctx.fillStyle = '#fbbf24';
@@ -294,78 +273,21 @@ export const drawFishTexture = (
     ctx.ellipse(0, 0, size * 1.4, size * 0.9, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-
-    if (isGolden && !isCaught) {
-        // Shine sparkles for golden fish in water
-        if (frameCount % 10 === 0) {
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc((Math.random()-0.5)*size, (Math.random()-0.5)*size, 2, 0, Math.PI*2);
-            ctx.fill();
-        }
-    }
   } else {
     if (rarity === Rarity.MYTHIC || rarity === Rarity.LEGENDARY) {
-        const pCount = 2;
-        for(let i=0; i<pCount; i++) {
-            const px = (Math.random() - 0.5) * size;
-            const py = (Math.random() - 0.5) * size;
-            ctx.fillStyle = rarity === Rarity.MYTHIC ? '#f87171' : '#fbbf24';
-            ctx.globalAlpha = Math.random() * 0.4;
-            ctx.beginPath(); ctx.arc(-size + px, py, Math.random() * 3, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = rarity === Rarity.MYTHIC ? 25 : 15;
+        ctx.shadowColor = rarity === Rarity.MYTHIC ? '#ff0000' : '#fbbf24';
+    } else if (rarity === Rarity.EPIC) {
+        ctx.shadowBlur = 10; ctx.shadowColor = '#a855f7';
     }
-
-    if (rarity === Rarity.MYTHIC) { ctx.shadowBlur = 25; ctx.shadowColor = '#ff0000'; }
-    else if (rarity === Rarity.LEGENDARY) { ctx.shadowBlur = 15; ctx.shadowColor = '#fbbf24'; }
-    else if (rarity === Rarity.EPIC) { ctx.shadowBlur = 10; ctx.shadowColor = '#a855f7'; }
   }
 
-  const gradient = ctx.createLinearGradient(-size, 0, size, 0);
-  gradient.addColorStop(0, finalColor);
-  gradient.addColorStop(1, isGolden ? '#ffffffaa' : '#ffffff44');
-  ctx.fillStyle = gradient;
-  ctx.beginPath();
-  if (name.includes('Long Ngư') || name.includes('Rồng')) { ctx.ellipse(0, 0, size * 1.6, size * 0.45, 0, 0, Math.PI * 2); }
-  else if (name.includes('Kiếm')) { ctx.ellipse(0, 0, size * 1.1, size * 0.4, 0, 0, Math.PI * 2); }
-  else { ctx.ellipse(0, 0, size, size * 0.65, 0, 0, Math.PI * 2); }
-  ctx.fill();
-
-  ctx.save();
-  ctx.clip();
-  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-  ctx.setLineDash([2, 4]);
-  for(let i=-size; i<size; i+=8) {
-    ctx.beginPath(); ctx.moveTo(i, -size); ctx.lineTo(i + 12, size); ctx.stroke();
+  if (isStruggling) {
+      ctx.translate((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4);
   }
-  ctx.restore();
 
-  ctx.fillStyle = 'white';
-  ctx.beginPath(); ctx.arc(size * 0.65, -size * 0.2, size * 0.16, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'black';
-  ctx.beginPath(); ctx.arc(size * 0.7, -size * 0.2, size * 0.08, 0, Math.PI * 2); ctx.fill();
-
-  const finFlutter = Math.sin(frameCount * wagFreq * 2) * 0.15;
-  ctx.save();
-  ctx.rotate(finFlutter);
-  ctx.fillStyle = finalColor;
-  ctx.globalAlpha = 0.8;
-  ctx.beginPath(); ctx.moveTo(0, -size * 0.3); ctx.lineTo(-size * 0.6, -size * 0.9); ctx.lineTo(-size * 0.2, -size * 0.3); ctx.fill();
-  ctx.restore();
-
-  const tailWag = Math.sin(frameCount * wagFreq - 0.8) * (wagAmp * 1.2);
-  ctx.save();
-  ctx.rotate(tailWag);
-  ctx.fillStyle = finalColor;
-  ctx.beginPath();
-  ctx.moveTo(-size * 0.85, 0);
-  ctx.lineTo(-size * 1.6, -size * 0.8);
-  ctx.lineTo(-size * 1.3, 0);
-  ctx.lineTo(-size * 1.6, size * 0.8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+  // --- DRAW SPECIALIZED MODEL ---
+  drawFishByModel(ctx, fishType, frameCount, isStruggling, currentSpeed, isCaught, isGolden);
 
   ctx.restore();
 };
@@ -435,7 +357,9 @@ export const drawPlayerEquipment = (
   lineHealth: number = 100,
   rodStress: number = 0,
   currentRod: RodType,
-  chargePower: number = 0
+  chargePower: number = 0,
+  currentBait?: BaitType,
+  frameCount: number = 0
 ) => {
   // Pier
   const pierGrad = ctx.createLinearGradient(0, 160, 0, 200);
@@ -472,20 +396,15 @@ export const drawPlayerEquipment = (
       ctx.restore();
   }
 
-  // Character
-  ctx.save();
-  ctx.translate(pX - 40, pY - 20);
-  ctx.rotate(charTilt);
-  ctx.fillStyle = '#334155'; ctx.fillRect(10, 20, 8, 15); ctx.fillRect(22, 20, 8, 15); 
-  ctx.fillStyle = '#e11d48'; ctx.fillRect(5, 0, 30, 25); 
-  ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(25, 10); ctx.lineTo(45, 8); ctx.stroke(); 
-  ctx.fillStyle = '#fca5a5'; ctx.beginPath(); ctx.arc(20, -10, 12, 0, Math.PI * 2); ctx.fill(); 
-  ctx.fillStyle = '#1e293b'; ctx.beginPath(); ctx.arc(20, -12, 14, Math.PI, Math.PI * 2); ctx.lineTo(38, -12); ctx.lineTo(2, -12); ctx.closePath(); ctx.fill(); 
-  ctx.restore();
+  // Calculate rod angle for hand alignment
+  const rodBaseX = pX - 12;
+  const rodBaseY = pY + (Math.sin(frameCount * 0.05) * 1); // Follow breathing
+  const rodAngle = Math.atan2(rodEndY - rodBaseY, rodEndX - rodBaseX);
 
-  const handX = pX - 15;
-  const handY = pY - 12;
-  drawRodTexture(ctx, currentRod, handX, handY, rodEndX, rodEndY, rodBend);
+  // Professional Character Model (Included from character.ts)
+  drawPlayer(ctx, pX - 40, pY, gameState, charTilt, frameCount, rodAngle);
+
+  drawRodTexture(ctx, currentRod, rodBaseX, rodBaseY, rodEndX, rodEndY, rodBend);
 
   // Line
   const visibleStates = [GameState.CHARGING, GameState.CASTING, GameState.WAITING, GameState.REELING, GameState.CAUGHT];
@@ -511,7 +430,7 @@ export const drawPlayerEquipment = (
     }
     
     ctx.beginPath();
-    ctx.moveTo(rodEndX, rodEndY + (rodBend * 50));
+    ctx.moveTo(rodEndX, rodEndY);
     let cpX = (rodEndX + hookX) / 2 + shakeX;
     let cpY = Math.min(rodEndY, hookY) - (isCasting ? 180 : 30) + shakeY; 
     if (gameState === GameState.REELING) cpY += 80 + rodBend * 30;
@@ -542,6 +461,27 @@ export const drawPlayerEquipment = (
         ctx.restore();
     }
 
+    // --- BAIT GLOW (Task #13) ---
+    if (currentBait) {
+      ctx.save();
+      const glowPulse = 0.5 + Math.sin(Date.now() * 0.01) * 0.5;
+      let glowColor = 'transparent';
+      if (currentBait.rarityText === 'NÂNG CAO') glowColor = 'rgba(74, 222, 128, 0.4)';
+      if (currentBait.rarityText === 'CHUYÊN NGHIỆP') glowColor = 'rgba(56, 189, 248, 0.5)';
+      if (currentBait.rarityText === 'CAO CẤP') glowColor = 'rgba(168, 85, 247, 0.6)';
+      if (currentBait.rarityText === 'CỰC HẠNG') glowColor = 'rgba(251, 191, 36, 0.7)';
+
+      if (glowColor !== 'transparent') {
+        ctx.shadowBlur = 10 + glowPulse * 15;
+        ctx.shadowColor = glowColor;
+        ctx.fillStyle = glowColor;
+        ctx.beginPath();
+        ctx.arc(hookX + shakeX, hookY + shakeY, 8 + glowPulse * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     ctx.fillStyle = '#ef4444';
     ctx.beginPath(); ctx.arc(hookX + shakeX, hookY + shakeY, 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'white';
@@ -556,38 +496,85 @@ export const drawReelingInterface = (
   tensionCursor: number,
   tensionZone: number,
   zoneSize: number,
-  isInZone: boolean
+  isInZone: boolean,
+  fish?: FishType
 ) => {
-  const bx = CANVAS_WIDTH - 70;
-  const by = 120;
-  const bw = 25;
-  const hz = zoneSize / 2;
+  const panelW = 340;
+  const panelH = 120;
+  const px = (CANVAS_WIDTH - panelW) / 2;
+  const py = 60; // Move to top-middle area
+  
+  const barW = 280;
+  const barH = 25;
+  const bx = (CANVAS_WIDTH - barW) / 2;
+  const by = py + 55;
 
   ctx.save();
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  
+  // 1. More transparent overlay
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  // 2. Translucent Panel Backdrop
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
   ctx.shadowBlur = 20;
-  ctx.shadowColor = 'black';
-  ctx.roundRect(bx - 45, by - 30, 115, REEL_BAR_HEIGHT + 60, 20);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+  ctx.roundRect(px, py, panelW, panelH, 32);
   ctx.fill();
+  
+  // Panel Border
+  ctx.strokeStyle = isInZone ? 'rgba(74, 222, 128, 0.4)' : 'rgba(255, 255, 255, 0.1)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
 
-  ctx.fillStyle = '#1e293b'; ctx.fillRect(bx - 30, by, 10, REEL_BAR_HEIGHT);
-  const progGrad = ctx.createLinearGradient(0, by, 0, by + REEL_BAR_HEIGHT);
-  progGrad.addColorStop(0, '#60a5fa');
-  progGrad.addColorStop(1, '#2563eb');
-  ctx.fillStyle = progGrad; 
-  ctx.fillRect(bx - 30, by + REEL_BAR_HEIGHT - (progress/100)*REEL_BAR_HEIGHT, 10, (progress/100)*REEL_BAR_HEIGHT);
+  // 3. Fish Info Header
+  if (fish) {
+    const rarityColors: Record<string, string> = {
+      'junk': '#94a3b8',
+      'common': '#ffffff',
+      'uncommon': '#4ade80',
+      'rare': '#3b82f6',
+      'epic': '#a855f7',
+      'legendary': '#fbbf24',
+      'mythic': '#f472b6'
+    };
+    const rarityColor = rarityColors[fish.rarity] || '#ffffff';
+    const rarityLabel = fish.rarity.toUpperCase();
+    
+    const weight = (fish.value / 100).toFixed(1);
+    const infoText = `🐟 ${fish.name.toUpperCase()}`;
+    
+    // Draw background for info
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.roundRect(CANVAS_WIDTH/2 - 140, py + 8, 280, 22, 6);
+    ctx.fill();
+    
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(infoText, CANVAS_WIDTH / 2 - 50, py + 24);
+    
+    ctx.fillStyle = rarityColor;
+    ctx.font = 'bold 10px Arial';
+    ctx.fillText(`| ${rarityLabel} | ~${weight}kg`, CANVAS_WIDTH / 2 + 60, py + 23);
+  }
 
-  const dangerGrad = ctx.createLinearGradient(bx, by, bx + bw, by);
+  // 4. Main Horizontal Tension Bar
+  // Background (Danger)
+  const dangerGrad = ctx.createLinearGradient(bx, 0, bx + barW, 0);
   dangerGrad.addColorStop(0, '#7f1d1d');
   dangerGrad.addColorStop(0.5, '#ef4444');
   dangerGrad.addColorStop(1, '#7f1d1d');
   ctx.fillStyle = dangerGrad;
-  ctx.fillRect(bx, by, bw, REEL_BAR_HEIGHT);
+  ctx.roundRect(bx, by, barW, barH, 8);
+  ctx.fill();
+
+  // Safe Zone
+  const hz = zoneSize / 2;
+  const safeX = bx + (tensionZone * barW) - (hz * barW);
+  const safeW = zoneSize * barW;
   
-  const safeZoneTop = by + (tensionZone * REEL_BAR_HEIGHT) - (hz * REEL_BAR_HEIGHT);
-  const safeZoneHeight = zoneSize * REEL_BAR_HEIGHT;
-  
-  const zoneGrad = ctx.createLinearGradient(bx, safeZoneTop, bx + bw, safeZoneTop);
+  const zoneGrad = ctx.createLinearGradient(safeX, 0, safeX + safeW, 0);
   zoneGrad.addColorStop(0, '#166534');
   zoneGrad.addColorStop(0.5, '#4ade80');
   zoneGrad.addColorStop(1, '#166534');
@@ -596,60 +583,75 @@ export const drawReelingInterface = (
   if (isInZone) {
     ctx.shadowBlur = 15;
     ctx.shadowColor = '#4ade80';
+    const pulse = Math.sin(Date.now() * 0.01) * 3;
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.1)';
+    ctx.roundRect(safeX - 3 - pulse, by - 3 - pulse, safeW + 6 + pulse*2, barH + 6 + pulse*2, 10);
+    ctx.fill();
   }
   ctx.fillStyle = zoneGrad;
-  ctx.fillRect(bx, safeZoneTop, bw, safeZoneHeight);
+  ctx.roundRect(safeX, by, safeW, barH, 6);
+  ctx.fill();
   ctx.restore();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(bx, safeZoneTop, bw, safeZoneHeight);
-  
-  const cy = by + tensionCursor * REEL_BAR_HEIGHT;
+  // Bar Border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(bx, by, barW, barH);
+
+  // 5. Tension Cursor (Arrow Indicator)
+  const cx = bx + tensionCursor * barW;
   ctx.save();
-  ctx.strokeStyle = '#ffffff'; 
-  ctx.lineWidth = 5;
-  ctx.shadowBlur = isInZone ? 12 : 0;
-  ctx.shadowColor = 'white';
-  ctx.beginPath(); 
-  ctx.moveTo(bx - 10, cy); 
-  ctx.lineTo(bx + bw + 10, cy); 
-  ctx.stroke();
+  ctx.shadowBlur = 5;
+  ctx.shadowColor = 'black';
+  ctx.fillStyle = 'white';
   
-  if (isInZone) {
-      ctx.fillStyle = 'white';
-      ctx.beginPath(); ctx.arc(bx + bw/2, cy, 4, 0, Math.PI * 2); ctx.fill();
-  }
+  // Arrow pointing UP
+  ctx.beginPath();
+  ctx.moveTo(cx, by + barH + 3);
+  ctx.lineTo(cx - 8, by + barH + 12);
+  ctx.lineTo(cx + 8, by + barH + 12);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Vertical line across bar
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(cx, by - 3);
+  ctx.lineTo(cx, by + barH + 3);
+  ctx.stroke();
   ctx.restore();
 
-  ctx.fillStyle = '#1e293b'; ctx.fillRect(bx + 40, by, 10, REEL_BAR_HEIGHT);
-  let healthColor = '#22c55e';
-  if (health < 30) {
-      healthColor = (Math.sin(Date.now() * 0.02) > 0) ? '#ef4444' : '#7f1d1d';
-  } else if (health < 60) {
-      healthColor = '#eab308';
-  }
-  ctx.fillStyle = healthColor;
-  ctx.fillRect(bx + 40, by + REEL_BAR_HEIGHT - (health/100)*REEL_BAR_HEIGHT, 10, (health/100)*REEL_BAR_HEIGHT);
+  // 6. Line Health Mini Bar (Bottom Right)
+  const miniBarW = 140;
+  const miniBarH = 8;
+  const healX = (CANVAS_WIDTH - miniBarW) / 2;
+  const healY = py + panelH - 22;
+  
+  ctx.fillStyle = '#0f172a';
+  ctx.roundRect(healX, healY, miniBarW, miniBarH, 4); ctx.fill();
+  
+  let hColor = '#22c55e';
+  if (health < 30) hColor = (Math.sin(Date.now() * 0.02) > 0) ? '#ef4444' : '#7f1d1d';
+  else if (health < 60) hColor = '#eab308';
+  
+  ctx.fillStyle = hColor;
+  ctx.roundRect(healX, healY, (health/100) * miniBarW, miniBarH, 4); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = 'bold 9px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('ĐỘ BỀN DÂY', CANVAS_WIDTH / 2, healY - 6);
 
-  ctx.fillStyle = 'white';
+  // 7. Instructions
+  ctx.save();
+  ctx.fillStyle = '#fbbf24';
   ctx.font = 'bold 10px Arial';
   ctx.textAlign = 'center';
-  ctx.fillText('TIẾN ĐỘ', bx - 25, by - 14);
-  ctx.fillText('LỰC CĂNG', bx + 12, by - 14);
-  ctx.fillText('ĐỘ BỀN', bx + 45, by - 14);
-
-  ctx.save();
-  ctx.globalAlpha = 0.4;
-  ctx.font = 'bold 9px Arial';
-  ctx.fillStyle = 'white';
-  ctx.textAlign = 'center';
-  ctx.fillText('DANGER', bx + bw/2, by + 18);
-  ctx.fillText('DANGER', bx + bw/2, by + REEL_BAR_HEIGHT - 12);
-  if (zoneSize > 0.15) {
-      ctx.fillText('SAFE', bx + bw/2, safeZoneTop + safeZoneHeight/2 + 4);
-  }
+  const alpha = 0.6 + Math.sin(Date.now() * 0.01) * 0.4;
+  ctx.globalAlpha = alpha;
+  ctx.fillText('GIỮ SPACE ĐỂ KÉO - GIỮ TRONG VÙNG XANH!', CANVAS_WIDTH / 2, by - 10);
   ctx.restore();
+
   ctx.restore();
 };
 

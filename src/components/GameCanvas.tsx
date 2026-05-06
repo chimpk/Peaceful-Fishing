@@ -1,9 +1,10 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay } from '../types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../gameData';
-import * as Graphics from '../graphics';
-import { soundManager } from '../soundManager';
+import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay } from '../core/types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../core/gameData';
+import * as Graphics from '../core/graphics';
+import * as BossModels from '../core/fish/BossModels';
+import { soundManager } from '../core/soundManager';
 
 interface GameCanvasProps {
   gameState: GameState;
@@ -102,6 +103,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const playerAttackCharge = useRef(0);
   const bossX = useRef(CANVAS_WIDTH / 2);
   const bossY = useRef(CANVAS_HEIGHT / 2);
+  
+  // Special behaviors refs
+  const behaviorTimer = useRef(0);
+  const isBehaviorActive = useRef(false);
+  const behaviorType = useRef<string | null>(null); // 'jump', 'dive', 'thrash'
+
+  const prevTimeOfDayRef = useRef<TimeOfDay>(timeOfDay);
+  const transitionProgressRef = useRef(1); // 0 to 1
+
+  useEffect(() => {
+    if (timeOfDay !== prevTimeOfDayRef.current) {
+        // Trigger transition if it was finished
+        if (transitionProgressRef.current >= 1) {
+            transitionProgressRef.current = 0;
+        }
+    }
+  }, [timeOfDay]);
 
   const lerpAngle = (current: number, target: number, speed: number) => {
     let diff = target - current;
@@ -219,7 +237,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       });
     }
     bubblesRef.current = initialBubbles;
-  }, [spawnInitialFish]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]); 
 
   const canStartFishing = useCallback(() => {
     const currentBaitCount = baitCounts[currentBait.id] || 0;
@@ -298,11 +317,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [gameState, setGameState]);
 
   useEffect(() => {
+    const handleBlur = () => { isSpacePressed.current = false; };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
     };
   }, [handleKeyDown, handleKeyUp]);
 
@@ -324,8 +346,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.translate((Math.random() - 0.5) * shakeIntensity.current, (Math.random() - 0.5) * shakeIntensity.current);
     }
 
+    // --- SAFETY WATCHDOG ---
+    if (gameState === GameState.REELING && !activeFish.current) {
+        setGameState(GameState.IDLE);
+    }
+
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    Graphics.drawWaterAndSky(ctx, frameCount.current, weather, location, timeOfDay);
+    
+    // Update Time Transition
+    if (transitionProgressRef.current < 1) {
+        transitionProgressRef.current += 0.003; // ~5.5 seconds transition at 60fps
+        if (transitionProgressRef.current >= 1) {
+            transitionProgressRef.current = 1;
+            prevTimeOfDayRef.current = timeOfDay;
+        }
+    }
+
+    Graphics.drawWaterAndSky(
+        ctx, 
+        frameCount.current, 
+        weather, 
+        location, 
+        timeOfDay, 
+        prevTimeOfDayRef.current, 
+        transitionProgressRef.current
+    );
 
     bubblesRef.current.forEach(b => {
       b.y -= b.speed; if (b.y < 200) b.y = CANVAS_HEIGHT + 20;
@@ -418,6 +463,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     if (gameState === GameState.CASTING) {
       castProgress.current += 0.025; 
+      
+      // Safety: reset if stuck in casting
+      if (castProgress.current > 1.5) {
+        setGameState(GameState.IDLE);
+        return;
+      }
+
       hookX.current = rodEndX + (targetHookX.current - rodEndX) * castProgress.current;
       const t = castProgress.current;
       hookY.current = (1 - t) * rodEndY + t * targetHookY.current + (-200 * 4 * t * (1 - t));
@@ -438,7 +490,22 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     if (gameState === GameState.WAITING) {
-      hookY.current += Math.sin(frameCount.current * 0.1) * 0.3;
+      // Manual Reeling in Waiting State
+      if (isSpacePressed.current) {
+        const dx = rodEndX - hookX.current;
+        const dy = rodEndY - hookY.current;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 20) {
+            hookX.current += (dx / dist) * 4.5;
+            hookY.current += (dy / dist) * 4.5;
+            if (frameCount.current % 15 === 0) createSplash(hookX.current, hookY.current, 0.3);
+        } else {
+            setGameState(GameState.IDLE);
+        }
+      } else {
+        hookY.current += Math.sin(frameCount.current * 0.1) * 0.3;
+      }
+
       const collidingFish = fishRef.current.find(f => {
         const d2 = (f.x - hookX.current)**2 + (f.y - hookY.current)**2;
         return d2 < (f.type.size + 18)**2;
@@ -454,9 +521,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
         activeFish.current = collidingFish; createSplash(hookX.current, hookY.current, 0.8);
         setGameState(GameState.REELING); reelingProgress.current = 0; lineHealth.current = 100; tensionCursor.current = 0.5; tensionVelocity.current = 0;
+        isBehaviorActive.current = false; behaviorType.current = null; behaviorTimer.current = 100; 
         const sizeMatch = Math.min(1, collidingFish.type.value / lineLimit);
         const mismatchPenalty = 1 - sizeMatch;
-        tensionZoneSize.current = Math.max(0.12, 0.42 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18);
+        tensionZoneSize.current = Math.max(0.18, 0.48 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18);
 
         const goldenBoost = (currentRod.control - 1) * 0.2; 
         if (Math.random() < goldenBoost) {
@@ -473,6 +541,34 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     if (gameState === GameState.REELING && activeFish.current) {
+      // --- 4. SPECIAL BEHAVIORS (Task #1.1) ---
+      const fishBehavior = activeFish.current.type.behavior;
+      if (fishBehavior && fishBehavior !== 'NORMAL') {
+        behaviorTimer.current--;
+        if (behaviorTimer.current <= 0) {
+          if (isBehaviorActive.current) {
+            isBehaviorActive.current = false;
+            behaviorType.current = null;
+            behaviorTimer.current = 180 + Math.random() * 240; // Cooldown
+          } else {
+            isBehaviorActive.current = true;
+            behaviorTimer.current = 45 + Math.random() * 60; // Duration
+            if (fishBehavior === 'LEAPER') behaviorType.current = 'jump';
+            else if (fishBehavior === 'DIVER') behaviorType.current = 'dive';
+            else if (fishBehavior === 'AGGRESSIVE') behaviorType.current = 'thrash';
+            
+            if (behaviorType.current === 'jump') {
+              createSplash(hookX.current, hookY.current, 1.2);
+              setNotification("⚠️ CÁ ĐANG NHẢY! THẢ SPACE!");
+              setTimeout(() => setNotification(null), 1000);
+            } else if (behaviorType.current === 'dive') {
+              setNotification("⬇️ CÁ ĐANG LẶN SÂU!");
+              setTimeout(() => setNotification(null), 1000);
+            }
+          }
+        }
+      }
+
       const lineLimit = currentBait.maxValue || 300;
       const sizeMatch = Math.min(1, activeFish.current.type.value / lineLimit);
       const mismatchPenalty = 1 - sizeMatch;
@@ -484,9 +580,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
       if (tugFactor.current > 0) tugFactor.current -= 0.12;
       if (tugFactor.current < 0) tugFactor.current = 0;
+      
+      let jumpOffsetY = 0;
+      if (isBehaviorActive.current && behaviorType.current === 'jump') {
+          const t = (behaviorTimer.current % 60) / 60;
+          jumpOffsetY = Math.sin(t * Math.PI) * 80;
+      }
+
       const tugX = Math.cos(activeFish.current.angle) * (tugFactor.current * 10);
       const tugY = Math.sin(activeFish.current.angle) * (tugFactor.current * 10);
-      Graphics.drawFishTexture(ctx, activeFish.current.type, frameCount.current, true, { x: hookX.current - tugX, y: hookY.current - tugY, angle: activeFish.current.angle, direction: 1 }, 2.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
+      Graphics.drawFishTexture(ctx, activeFish.current.type, frameCount.current, true, { x: hookX.current - tugX, y: hookY.current - tugY - jumpOffsetY, angle: activeFish.current.angle, direction: 1 }, 2.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
 
       const ft = activeFish.current.type.tension;
 
@@ -500,14 +603,46 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       const gravity = (0.00045 + (ft / 160000)) / currentRod.control; 
       const lift = 0.00135 * currentRod.control; 
-      if (isSpacePressed.current) tensionVelocity.current -= lift;
-      else tensionVelocity.current += gravity;
+      
+      let finalGravity = gravity;
+      let finalLift = lift;
+
+      if (isBehaviorActive.current) {
+        if (behaviorType.current === 'dive') finalGravity += 0.006;
+        if (behaviorType.current === 'thrash') {
+           tensionCursor.current += (Math.random() - 0.5) * 0.035;
+        }
+      }
+
+      if (isSpacePressed.current) tensionVelocity.current -= finalLift;
+      else tensionVelocity.current += finalGravity;
       tensionVelocity.current *= 0.95;
       tensionCursor.current += tensionVelocity.current;
       tensionCursor.current = Math.max(0, Math.min(1, tensionCursor.current));
       
-      const zoneSpeed = 0.005 + (ft / 100000); 
-      tensionZone.current += Math.sin(frameCount.current * zoneSpeed) * (0.002 + ft / 60000) + (Math.random()-0.5)*(ft/3500);
+      // --- 2. DYNAMIC MOVEMENT PATTERNS (Task #2) ---
+      const rarity = activeFish.current.type.rarity;
+      // ft is already declared above at line 491
+      
+      let zoneSpeed = 0.005 + (ft / 120000); 
+      let wobble = 0.002 + ft / 80000;
+      let jitter = (Math.random() - 0.5) * (ft / 4000);
+
+      // Specific patterns based on rarity
+      if (rarity === Rarity.RARE || rarity === Rarity.EPIC) {
+        zoneSpeed *= 1.4;
+        wobble *= 1.5;
+        if (frameCount.current % 120 < 10) jitter *= 5; // Jerky burst
+      } else if (rarity === Rarity.LEGENDARY || rarity === Rarity.MYTHIC) {
+        zoneSpeed *= 2.0;
+        wobble *= 2.2;
+        // Fake-out: sudden reversal
+        const reversal = Math.sin(frameCount.current * 0.02) > 0.95 ? -1 : 1;
+        zoneSpeed *= reversal;
+        if (frameCount.current % 60 < 5) jitter *= 8; // Extreme jitter
+      }
+
+      tensionZone.current += Math.sin(frameCount.current * zoneSpeed) * wobble + jitter;
       const hz = tensionZoneSize.current / 2; tensionZone.current = Math.max(hz, Math.min(1 - hz, tensionZone.current));
       const isInZone = Math.abs(tensionCursor.current - tensionZone.current) < hz;
       
@@ -517,7 +652,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         lineHealth.current = Math.min(100, lineHealth.current + 0.35 * progressFactor); 
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
-        const damage = (0.35 + (ft / 250) + mismatchPenalty * 0.25) / currentRod.lineStrength; lineHealth.current -= damage;
+        let damage = (0.35 + (ft / 250) + mismatchPenalty * 0.25) / currentRod.lineStrength; 
+        
+        // Behavior penalties
+        if (isBehaviorActive.current) {
+            if (behaviorType.current === 'jump' && isSpacePressed.current) {
+                damage *= 4.5; // Massive damage if reeling while jumping
+                shakeIntensity.current = 10;
+            }
+            if (behaviorType.current === 'thrash') damage *= 1.4;
+        }
+
+        lineHealth.current -= damage;
         if (frameCount.current % 5 === 0) {
             vfxParticlesRef.current.push({
                 x: (rodEndX + hookX.current)/2, y: (rodEndY + hookY.current)/2, 
@@ -533,6 +679,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }      
       if (lineHealth.current <= 0) {
         const lineLimit = currentBait.maxValue || 300;
+        
+        // --- 3. LOSS ANIMATION (Task #3) ---
+        createSplash(hookX.current, hookY.current, 1.2);
+        for(let i=0; i<10; i++) {
+            vfxParticlesRef.current.push({
+                x: hookX.current, y: hookY.current,
+                size: 2 + Math.random()*4, speed: 0.5,
+                vx: (Math.random()-0.5)*4, vy: 2 + Math.random()*4, // Diving down
+                opacity: 0.8, life: 40, color: 'rgba(255,255,255,0.4)', type: 'circle'
+            });
+        }
+
         if (activeFish.current?.type.value > lineLimit) {
           onLineBroken(); 
           onFishLost("Thẻo bị đứt vì cá quá to!");
@@ -546,7 +704,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         soundManager.playReel(Math.abs(tensionCursor.current - tensionZone.current) * 2);
       }
 
-      Graphics.drawReelingInterface(ctx, reelingProgress.current, lineHealth.current, tensionCursor.current, tensionZone.current, tensionZoneSize.current, isInZone);
+      Graphics.drawReelingInterface(ctx, reelingProgress.current, lineHealth.current, tensionCursor.current, tensionZone.current, tensionZoneSize.current, isInZone, activeFish.current?.type);
+      
+      // Behavior Indicators on UI
+      if (isBehaviorActive.current) {
+        ctx.save();
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'black';
+        ctx.fillStyle = behaviorType.current === 'jump' ? '#ef4444' : '#fbbf24';
+        const label = behaviorType.current === 'jump' ? '⚠️ CÁ NHẢY - THẢ SPACE!' : (behaviorType.current === 'dive' ? '⬇️ CÁ ĐANG LẶN!' : '💢 CÁ VÙNG VẪY!');
+        ctx.fillText(label, CANVAS_WIDTH / 2, 170);
+        ctx.restore();
+      }
     }
 
     if (gameState === GameState.CAUGHT && activeFish.current) {
@@ -593,107 +764,138 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     if (gameState === GameState.BOSS_FIGHT) {
-      // --- BOSS FIGHT AI ---
+      // --- BOSS FIGHT AI (Enhanced) ---
       const time = frameCount.current * 0.05;
+      const hpRatio = bossHP.current / bossMaxHP.current;
+      const isEnraged = hpRatio < 0.5;
       
-      // Dynamic Boss Movement
-      bossX.current = CANVAS_WIDTH / 2 + Math.cos(time * 0.8) * 150;
-      bossY.current = CANVAS_HEIGHT / 2 + Math.sin(time * 1.2) * 80;
+      // Dynamic Boss Movement (More erratic when enraged)
+      const moveSpeed = isEnraged ? 1.5 : 1.0;
+      bossX.current = CANVAS_WIDTH / 2 + Math.cos(time * 0.8 * moveSpeed) * (150 + (isEnraged ? 50 : 0));
+      bossY.current = CANVAS_HEIGHT / 2 + Math.sin(time * 1.2 * moveSpeed) * (80 + (isEnraged ? 30 : 0));
       
       bossAttackTimer.current++;
-      if (bossAttackTimer.current > 100) { 
-        playerHP.current = Math.max(0, playerHP.current - 12);
+      const attackThreshold = isEnraged ? 70 : 100;
+      const isWarning = bossAttackTimer.current > attackThreshold - 25;
+      const isAttacking = bossAttackTimer.current >= attackThreshold;
+
+      if (isAttacking) { 
+        // --- BOSS ATTACK ---
+        playerHP.current = Math.max(0, playerHP.current - (isEnraged ? 18 : 12));
         bossAttackTimer.current = 0;
-        shakeIntensity.current = 10; // Screen shake on hit
+        shakeIntensity.current = 15;
         vfxParticlesRef.current.push({
             x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, 
-            size: 100, speed: 0, opacity: 0.3, life: 10, color: '#ff0000', type: 'ripple'
+            size: 150, speed: 0, opacity: 0.4, life: 15, color: '#ff0000', type: 'ripple'
         });
+        
         if (playerHP.current <= 0) {
           setTimeout(() => {
             setNotification("BẠN ĐÃ THẤT BẠI! Hãy nâng cấp kỹ năng để thử lại.");
+            setTimeout(() => setNotification(null), 2000);
             setGameState(GameState.IDLE);
             if (onSessionReset) onSessionReset();
           }, 1000);
         }
       }
 
-      // Player attack charge
+      // Player Attack: Charge & Release
       if (isSpacePressed.current) {
-        playerAttackCharge.current += (1.5 + skills.fastHands * 0.5);
-        if (playerAttackCharge.current >= 100) {
-          bossHP.current = Math.max(0, bossHP.current - (15 + skills.sharpEye * 3));
-          playerAttackCharge.current = 0;
-          createSparkles(bossX.current, bossY.current, 40, ['#ef4444', '#f87171', '#ffffff']);
-          shakeIntensity.current = 5;
-          if (bossHP.current <= 0) {
-            setTimeout(() => {
-              setNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI! +5000 Vàng");
-              if (onBossDefeated) onBossDefeated();
-              setGameState(GameState.IDLE);
-              if (onSessionReset) onSessionReset();
-              createSparkles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, ['#fbbf24', '#f59e0b', '#ffffff']);
-            }, 1000);
-          }
+        playerAttackCharge.current = Math.min(100, playerAttackCharge.current + (2.0 + skills.fastHands * 0.8));
+      } else if (playerAttackCharge.current > 20) {
+        // --- PLAYER STRIKE ---
+        const charge = playerAttackCharge.current;
+        let damage = (charge / 100) * (20 + skills.sharpEye * 5);
+        
+        // PARRY MECHANIC: Strike during warning
+        if (isWarning) {
+            damage *= 2.5;
+            setNotification("PHẢN ĐÒN HOÀN HẢO! (CRITICAL)");
+            setTimeout(() => setNotification(null), 1000);
+            createSparkles(bossX.current, bossY.current, 60, ['#ffffff', '#fef08a', '#fbbf24']);
+            bossAttackTimer.current = -30; // Stun boss slightly
+        } else {
+            createSparkles(bossX.current, bossY.current, 30, ['#ef4444', '#f87171', '#ffffff']);
+        }
+
+        bossHP.current = Math.max(0, bossHP.current - damage);
+        playerAttackCharge.current = 0;
+        shakeIntensity.current = 8;
+
+        if (bossHP.current <= 0) {
+          setTimeout(() => {
+            setNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI! +5000 Vàng");
+            setTimeout(() => setNotification(null), 2500);
+            if (onBossDefeated) onBossDefeated();
+            setGameState(GameState.IDLE);
+            if (onSessionReset) onSessionReset();
+            createSparkles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, ['#fbbf24', '#f59e0b', '#ffffff']);
+          }, 1000);
         }
       } else {
-        playerAttackCharge.current = Math.max(0, playerAttackCharge.current - 0.8);
+        playerAttackCharge.current = Math.max(0, playerAttackCharge.current - 1.5);
       }
 
-      // --- RENDER BOSS ---
+      // --- RENDER BOSS MODEL ---
       ctx.save();
       ctx.translate(bossX.current, bossY.current);
-      const bossPulse = 1 + Math.sin(time * 2) * 0.1;
-      ctx.scale(bossPulse * 2.5, bossPulse * 2.5);
+      if (isWarning && frameCount.current % 4 < 2) {
+          ctx.filter = 'brightness(2) contrast(1.5)';
+      }
       
-      // Boss Glow
-      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
-      gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
-      gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2); ctx.fill();
+      const bossSize = 1.8 + (isEnraged ? 0.4 : 0);
+      ctx.scale(bossSize, bossSize);
 
-      // Boss Body (Placeholder for actual sprite, but looks better now)
-      ctx.fillStyle = '#1e293b';
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-40, 0); ctx.quadraticCurveTo(0, -30, 40, 0); ctx.quadraticCurveTo(0, 30, -40, 0);
-      ctx.fill(); ctx.stroke();
-      
-      // Eye
-      ctx.fillStyle = '#ef4444';
-      ctx.beginPath(); ctx.arc(20, -5, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(22, -6, 2, 0, Math.PI * 2); ctx.fill();
+      if (location === 'OCEAN') {
+        BossModels.drawAbyssalKraken(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning);
+      } else {
+        BossModels.drawMechaSharkBoss(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning);
+      }
       
       ctx.restore();
 
-      // --- BOSS UI ---
-      // Boss Health
-      const barW = 400; const barH = 12; const barX = (CANVAS_WIDTH - barW) / 2;
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      // --- BOSS UI (Enhanced) ---
+      // Boss Health Bar
+      const barW = 450; const barH = 14; const barX = (CANVAS_WIDTH - barW) / 2;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.roundRect(barX - 4, 36, barW + 8, barH + 8, 10); ctx.fill();
+      
+      // Animated Health BG
+      ctx.fillStyle = '#450a0a';
       ctx.roundRect(barX, 40, barW, barH, 6); ctx.fill();
-      ctx.fillStyle = '#ef4444';
+      
+      // Health Fill
+      const hpColor = isEnraged ? '#ef4444' : '#991b1b';
+      ctx.fillStyle = hpColor;
       ctx.roundRect(barX, 40, (bossHP.current / bossMaxHP.current) * barW, barH, 6); ctx.fill();
-      ctx.fillStyle = 'white'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
-      ctx.fillText(`CÁ QUỶ VƯƠNG (HP: ${Math.ceil(bossHP.current)}%)`, CANVAS_WIDTH/2, 35);
+      
+      // Boss Title
+      ctx.fillStyle = isWarning ? '#ef4444' : 'white';
+      ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
+      const bossTitle = location === 'OCEAN' ? 'KRAKEN VỰC THẲM' : 'CÁ MẬP CƠ KHÍ';
+      ctx.fillText(`${bossTitle} (HP: ${Math.ceil(bossHP.current)}%)`, CANVAS_WIDTH/2, 30);
+      if (isWarning) {
+          ctx.font = 'bold 10px Arial';
+          ctx.fillText('!!! CẢNH BÁO: BOSS SẮP TẤN CÔNG !!!', CANVAS_WIDTH/2, 65);
+      }
 
-      // Player Health
+      // Player HUD
+      // HP Bar
       ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-      ctx.roundRect(40, CANVAS_HEIGHT - 60, 200, 10, 5); ctx.fill();
-      ctx.fillStyle = '#22c55e';
-      ctx.roundRect(40, CANVAS_HEIGHT - 60, (playerHP.current / playerMaxHP.current) * 200, 10, 5); ctx.fill();
-      ctx.fillStyle = 'white'; ctx.textAlign = 'left';
-      ctx.fillText(`SỨC BỀN: ${Math.ceil(playerHP.current)}%`, 40, CANVAS_HEIGHT - 65);
+      ctx.roundRect(40, CANVAS_HEIGHT - 70, 220, 15, 8); ctx.fill();
+      ctx.fillStyle = playerHP.current < 30 ? '#ef4444' : '#22c55e';
+      ctx.roundRect(40, CANVAS_HEIGHT - 70, (playerHP.current / playerMaxHP.current) * 220, 15, 8); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.font = 'bold 11px Arial'; ctx.textAlign = 'left';
+      ctx.fillText(`SỨC BỀN NGƯỜI CHƠI: ${Math.ceil(playerHP.current)}%`, 45, CANVAS_HEIGHT - 75);
 
-      // Attack Charge
+      // Charge Bar
       ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-      ctx.roundRect(CANVAS_WIDTH - 240, CANVAS_HEIGHT - 60, 200, 10, 5); ctx.fill();
-      ctx.fillStyle = '#eab308';
-      ctx.roundRect(CANVAS_WIDTH - 240, CANVAS_HEIGHT - 60, (playerAttackCharge.current / 100) * 200, 10, 5); ctx.fill();
+      ctx.roundRect(CANVAS_WIDTH - 260, CANVAS_HEIGHT - 70, 220, 15, 8); ctx.fill();
+      const chargeColor = playerAttackCharge.current > 80 ? '#fbbf24' : '#eab308';
+      ctx.fillStyle = chargeColor;
+      ctx.roundRect(CANVAS_WIDTH - 260, CANVAS_HEIGHT - 70, (playerAttackCharge.current / 100) * 220, 15, 8); ctx.fill();
       ctx.fillStyle = 'white'; ctx.textAlign = 'right';
-      ctx.fillText('GỒNG LỰC (SPACE)', CANVAS_WIDTH - 40, CANVAS_HEIGHT - 65);
+      ctx.fillText('VẬN LỰC (GIỮ SPACE - THẢ ĐỂ ĐÁNH)', CANVAS_WIDTH - 45, CANVAS_HEIGHT - 75);
     }
 
     const rodStress = activeFish.current ? activeFish.current.type.value / Math.max(1, currentRod.maxValue ?? 300) : 0;
@@ -703,7 +905,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     Graphics.drawPlayerEquipment(
       ctx, gameState, pX, pY, rodEndX, rodEndY, hookX.current, hookY.current, 
       gameState === GameState.CASTING, lineHealth.current,
-      rodBendAmount, currentRod, chargePower.current
+      rodBendAmount, currentRod, chargePower.current, currentBait,
+      frameCount.current
     );
     ctx.restore();
   }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);

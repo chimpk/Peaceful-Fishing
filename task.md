@@ -1,27 +1,53 @@
-# 🎣 Fishing Frenzy Lite — Danh Sách Cải Thiện
+# 🎣 Lộ Trình Phát Triển Fishing Frenzy Lite
 
-## Sprint 1 — Cao nhất (đang làm)
+## 🚀 Tính Năng Mới (New Features)
 
-- [x] **#6 Bán lẻ từng con cá** — Chọn từng con để bán/giữ lại trong túi đồ
-- [x] **#10 Animation hoành tráng** — Flash màn hình + confetti + fish jump khi bắt Legendary/Mythic
-- [x] **#15 Mobile touch controls** — Hỗ trợ nhấn/giữ màn hình thay vì SPACE
+### 1. Cơ Chế Gameplay Nâng Cao
+- [x] **Đa dạng hóa hành vi của cá**:
+    - [x] Thêm loại cá *Cá Nhảy (Leaper)*: Cần thả phím Space khi cá nhảy lên.
+    - [x] Thêm loại cá *Cá Lặn (Diver)*: Kéo dây mạnh xuống sâu.
+    - [x] Thêm loại cá *Cá Hung Dữ (Aggressor)*: Tấn công dây câu trực tiếp.
+- [ ] **Hệ thống Mồi Sống (Live Bait)**: Sử dụng cá nhỏ để câu cá Mythic/Legendary.
+- [ ] **Kỹ năng Chủ Động (Active Skills)**:
+    - [ ] Kỹ năng *Tập Trung*: Làm chậm thanh tension.
+    - [ ] Kỹ năng *Kéo Mạnh*: Tăng tiến độ reeling nhanh chóng.
 
-## Sprint 2 — Trung bình
+### 2. Hệ Thống Bộ Sưu Tập (Collection & Mastery)
+- [ ] **Sách Sưu Tập (Fish Almanac)**: Lưu giữ thông tin mọi loài cá đã bắt.
+- [ ] **Hệ thống Thông Thạo (Mastery)**: Tăng giá trị cá khi bắt được số lượng lớn.
+- [ ] **Bản đồ Thế Giới (Mini-map)**: Giao diện chọn khu vực câu cá trực quan.
 
-- [x] **#7 Sổ sưu tập cá** — Bộ sưu tập: câu lần đầu → unlock + bonus vàng
-- [x] **#5 Cây kỹ năng** — Mắt tinh / Tay nhanh / May mắn (mua bằng vàng)
-- [x] **#8 Thị trường ngẫu nhiên** — Mỗi ngày 2-3 loài cá giá x3
-- [x] **#11 Nhạc nền ambient** — Looping sóng biển + nhạc nhẹ Web Audio API
+---
 
-## Sprint 3 — Về sau
+## 🎨 Đồ Họa & Hiệu Ứng (Visuals & Polish)
 
-- [x] **#1 Bản đồ / Địa điểm** — Ao làng / Biển / Hang tối — cá khác nhau mỗi vùng
-- [ ] **#3 Cá Boss** — Sau 20 cá → xuất hiện Boss với mini-game đặc biệt
-- [x] **#2 Combo & Streak** — Câu liên tiếp → nhân đôi vàng x1.5 → x3
-- [ ] **#9 Chế độ thi đấu** — Timer 3 phút, leaderboard cục bộ
-- [ ] **#14 Màn hình kết quả** — Thống kê sau mỗi phiên câu
-- [ ] **#16 Tutorial tương tác** — Step-by-step hướng dẫn lần đầu chơi
-- [ ] **#17 Notification đẹp hơn** — Animation riêng cho từng loại thông báo
-- [x] **#4 Thời gian trong ngày** — Sáng/tối/đêm → cá khác nhau
-- [ ] **#12 Fish Encyclopedia** — Sprite độc lập cho từng loài
-- [ ] **#13 Hiệu ứng mồi câu** — Mồi phát sáng theo rarity
+### 3. Hiệu Ứng Hình Ảnh Premium
+- [ ] **Animation "Trophy Shot"**: Quay chậm và highlight khi bắt được cá hiếm.
+- [ ] **Cải thiện Môi Trường**:
+    - [ ] Thêm hiệu ứng lá rụng và đom đóm (Pond).
+    - [ ] Thêm hiệu ứng tia sáng xuyên tâm (God rays) (Ocean).
+- [ ] **Shader Mặt Nước**: Thêm hiệu ứng phản chiếu và bọt sóng chi tiết hơn.
+- [ ] **UI Transitions**: Thêm hiệu ứng mượt mà khi chuyển menu (fade/slide).
+
+### 4. Hệ Thống Âm Thanh (Soundscape)
+- [ ] Nhạc nền thay đổi linh hoạt theo khu vực và thời gian.
+- [ ] Hiệu ứng âm thanh môi trường (tiếng gió, tiếng chim, tiếng sóng).
+- [ ] Âm thanh cảnh báo khi Boss sắp tấn công.
+
+---
+
+## 🛠️ Kỹ Thuật & Tối Ưu (Technical)
+
+### 5. Hệ Thống & Lưu Trữ
+- [ ] **Lưu Trữ Đám Mây (Cloud Save)**: Tính năng Export/Import save bằng mã code.
+- [ ] **Tối ưu hóa hiệu suất**: Đảm bảo 60fps trên thiết bị yếu.
+- [ ] **Hệ thống Nhiệm Vụ Tuần**: Thử thách dài hạn với phần thưởng độc quyền.
+
+---
+
+## ✅ Đã Hoàn Thành (Completed)
+- [x] Cơ chế câu cá cơ bản (Charging, Casting, Reeling).
+- [x] Hệ thống Ngày/Đêm và Thời tiết.
+- [x] Hệ thống Shop & Nâng cấp (Rod, Bait).
+- [x] Boss Fight cơ bản (Kraken & Mecha Shark).
+- [x] Chế độ Thi đấu (Competition Mode).

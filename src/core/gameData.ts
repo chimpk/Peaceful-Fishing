@@ -1,5 +1,5 @@
 
-import { Rarity, FishType, RodType, BaitType, Achievement, Quest } from './types';
+import { Rarity, FishType, RodType, BaitType, Achievement, Quest, FishBehavior } from './types';
 
 export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 600;
@@ -31,14 +31,14 @@ export const FISH_TYPES: FishType[] = [
   { name: 'Cá Lóc', rarity: Rarity.UNCOMMON, value: 75, tension: 35, color: '#1e293b', size: 26, weight: 75, allowedLocations: ['POND'] },
   { name: 'Cá Chim', rarity: Rarity.UNCOMMON, value: 80, tension: 32, color: '#e2e8f0', size: 28, weight: 70, allowedLocations: ['OCEAN'] },
   { name: 'Cá Rô Phi', rarity: Rarity.UNCOMMON, value: 55, tension: 28, color: '#64748b', size: 22, weight: 85, allowedLocations: ['POND'] },
-  { name: 'Cá Đuối Nhỏ', rarity: Rarity.UNCOMMON, value: 90, tension: 40, color: '#475569', size: 30, weight: 60, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Đuối Nhỏ', rarity: Rarity.UNCOMMON, value: 90, tension: 40, color: '#475569', size: 30, weight: 60, allowedLocations: ['OCEAN'], behavior: FishBehavior.DIVER },
 
   // --- HIẾM (RARE) ---
   { name: 'Cá Thu', rarity: Rarity.RARE, value: 150, tension: 45, color: '#60a5fa', size: 28, weight: 40, allowedLocations: ['OCEAN'] },
-  { name: 'Cá Hồi', rarity: Rarity.RARE, value: 200, tension: 55, color: '#f87171', size: 32, weight: 40, allowedLocations: ['POND', 'OCEAN'] },
+  { name: 'Cá Hồi', rarity: Rarity.RARE, value: 200, tension: 55, color: '#f87171', size: 32, weight: 40, allowedLocations: ['POND', 'OCEAN'], behavior: FishBehavior.LEAPER },
   { name: 'Cá Hề (Nemo)', rarity: Rarity.RARE, value: 300, tension: 35, color: '#fb923c', size: 16, weight: 35, allowedLocations: ['OCEAN'], allowedTimes: ['DAY', 'SUNSET'] },
   { name: 'Cá Ngựa', rarity: Rarity.RARE, value: 350, tension: 40, color: '#facc15', size: 18, weight: 30, allowedLocations: ['OCEAN'] },
-  { name: 'Cá Mập Con', rarity: Rarity.RARE, value: 450, tension: 65, color: '#94a3b8', size: 35, weight: 25, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Mập Con', rarity: Rarity.RARE, value: 450, tension: 65, color: '#94a3b8', size: 35, weight: 25, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE },
 
   // --- SỬ THI (EPIC) ---
   { name: 'Cá Ngừ Đại Dương', rarity: Rarity.EPIC, value: 800, tension: 70, color: '#312e81', size: 36, weight: 15, allowedLocations: ['OCEAN'] },
@@ -48,14 +48,14 @@ export const FISH_TYPES: FishType[] = [
   { name: 'Cá Mập Cáo', rarity: Rarity.EPIC, value: 1800, tension: 75, color: '#475569', size: 42, weight: 10, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'] },
 
   // --- HUYỀN THOẠI (LEGENDARY) ---
-  { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 5000, tension: 90, color: '#e2e8f0', size: 50, weight: 5, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 5000, tension: 90, color: '#e2e8f0', size: 50, weight: 5, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER },
   { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 7500, tension: 94, color: '#94a3b8', size: 65, weight: 4, allowedLocations: ['OCEAN'] },
   { name: 'Cá Rồng Vàng', rarity: Rarity.LEGENDARY, value: 10000, tension: 88, color: '#fbbf24', size: 45, weight: 3, allowedLocations: ['POND'] },
   { name: 'Cá Voi Xanh Con', rarity: Rarity.LEGENDARY, value: 12000, tension: 92, color: '#1d4ed8', size: 70, weight: 2, allowedLocations: ['OCEAN'] },
 
   // --- THẦN THOẠI (MYTHIC) ---
   { name: 'Long Ngư Phượng Hoàng', rarity: Rarity.MYTHIC, value: 30000, tension: 97, color: '#ef4444', size: 75, weight: 1, allowedLocations: ['CAVE'] },
-  { name: 'Hải Long Vương', rarity: Rarity.MYTHIC, value: 50000, tension: 99, color: '#3b82f6', size: 90, weight: 0.5, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT', 'SUNSET'] },
+  { name: 'Hải Long Vương', rarity: Rarity.MYTHIC, value: 50000, tension: 99, color: '#3b82f6', size: 90, weight: 0.5, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT', 'SUNSET'], behavior: FishBehavior.AGGRESSIVE },
   { name: 'Kraken Con', rarity: Rarity.MYTHIC, value: 75000, tension: 98, color: '#7e22ce', size: 100, weight: 0.3, allowedLocations: ['CAVE'] },
   { name: 'Leviathan Thần Thánh', rarity: Rarity.MYTHIC, value: 100000, tension: 99, color: '#10b981', size: 120, weight: 0.1, allowedLocations: ['CAVE'] },
 ];
