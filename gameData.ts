@@ -68,6 +68,7 @@ export const RODS: RodType[] = [
     price: 0, 
     lineStrength: 1, 
     control: 1, 
+    maxValue: 300,
     rarityText: 'PHỔ THÔNG' 
   },
   { 
@@ -77,6 +78,7 @@ export const RODS: RodType[] = [
     price: 8000, 
     lineStrength: 1.8, 
     control: 1.3, 
+    maxValue: 1000,
     rarityText: 'HIẾM' 
   },
   { 
@@ -86,6 +88,7 @@ export const RODS: RodType[] = [
     price: 15000, 
     lineStrength: 2.8, 
     control: 1.6, 
+    maxValue: 5000,
     rarityText: 'SỬ THI' 
   },
   { 
@@ -95,41 +98,67 @@ export const RODS: RodType[] = [
     price: 50000, 
     lineStrength: 4.5, 
     control: 2.2, 
+    maxValue: 50000,
     rarityText: 'HUYỀN THOẠI', 
     isLocked: true 
   },
 ];
 
 export const BAITS: BaitType[] = [
-  { 
-    id: 'bait_1', 
-    name: 'Trùn Đất', 
-    description: 'Mồi phổ biến nhất. Thu hút cá nhỏ.',
-    price: 200, 
-    attraction: 180, 
-    rarityBoost: 1, 
-    rarityText: 'CƠ BẢN', 
-    count: 10 
+  {
+    id: 'bait_1',
+    name: 'Thẻo số 1',
+    description: 'Dành cho cá nhỏ. Tốt nhất cho cá dưới 301 vàng.',
+    price: 500,
+    attraction: 180,
+    rarityBoost: 0.8,
+    maxValue: 300,
+    rarityText: 'CƠ BẢN',
+    count: 1
   },
-  { 
-    id: 'bait_2', 
-    name: 'Tôm Biển', 
-    description: 'Đặc sản biển sâu. Thu hút nhiều loài cá hiếm.',
-    price: 500, 
-    attraction: 300, 
-    rarityBoost: 2.5, 
-    rarityText: 'NÂNG CAO', 
-    count: 10 
+  {
+    id: 'bait_2',
+    name: 'Thẻo số 2',
+    description: 'Câu được cá dưới 1001 vàng. Tăng sức bền so với thẻo 1.',
+    price: 1000,
+    attraction: 200,
+    rarityBoost: 1.2,
+    maxValue: 1000,
+    rarityText: 'NÂNG CAO',
+    count: 0
   },
-  { 
-    id: 'bait_3', 
-    name: 'Mồi Giả Thần Kỳ', 
-    description: 'Phát ra ánh sáng huyền bí. Chỉ dành cho thợ câu huyền thoại.',
-    price: 2000, 
-    attraction: 500, 
-    rarityBoost: 6, 
-    rarityText: 'Huyền Thoại', 
-    count: 5 
+  {
+    id: 'bait_3',
+    name: 'Thẻo số 3',
+    description: 'Dùng cho cá dưới 5001 vàng. Phù hợp với nhiều loài cá vừa.',
+    price: 5000,
+    attraction: 240,
+    rarityBoost: 1.8,
+    maxValue: 5000,
+    rarityText: 'CHUYÊN NGHIỆP',
+    count: 0
+  },
+  {
+    id: 'bait_4',
+    name: 'Thẻo số 4',
+    description: 'Cho cá dưới 10001 vàng. Tuyệt vời khi câu cá lớn.',
+    price: 10000,
+    attraction: 280,
+    rarityBoost: 2.5,
+    maxValue: 10000,
+    rarityText: 'CAO CẤP',
+    count: 0
+  },
+  {
+    id: 'bait_5',
+    name: 'Thẻo số 5',
+    description: 'Dây câu mạnh mẽ, phù hợp cá dưới 50001 vàng.',
+    price: 20000,
+    attraction: 320,
+    rarityBoost: 3.5,
+    maxValue: 50000,
+    rarityText: 'CỰC HẠNG',
+    count: 0
   },
 ];
 

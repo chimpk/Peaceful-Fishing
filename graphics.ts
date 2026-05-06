@@ -406,7 +406,7 @@ export const drawRodTexture = (
   ctx.beginPath();
   ctx.moveTo(0, 0);
   const cpX = length * 0.5;
-  const cpY = bendAmount * length * 0.6;
+  const cpY = -bendAmount * length * 0.6;
   ctx.quadraticCurveTo(cpX, cpY, length, 0);
   
   ctx.strokeStyle = rodColor;

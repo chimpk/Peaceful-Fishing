@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const [currentRod, setCurrentRod] = useState<RodType>(RODS[0]);
   const [currentBait, setCurrentBait] = useState<BaitType>(BAITS[0]);
   const [ownedRods, setOwnedRods] = useState<string[]>(['rod_1']);
-  const [baitCounts, setBaitCounts] = useState<Record<string, number>>({ 'bait_1': 10 });
+  const [baitCounts, setBaitCounts] = useState<Record<string, number>>({ 'bait_1': 1 });
   const [stats, setStats] = useState<ProfileStats>({
     totalGoldEarned: 0,
     totalFishCaught: 0,
@@ -39,6 +39,11 @@ const App: React.FC = () => {
   const [currentLocation, setCurrentLocation] = useState<LocationType>('POND');
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('DAY');
   const [streak, setStreak] = useState<number>(0);
+  const [sessionFishCount, setSessionFishCount] = useState<number>(0);
+  const [competitionMode, setCompetitionMode] = useState<boolean>(false);
+  const [competitionTimeLeft, setCompetitionTimeLeft] = useState<number>(180); // 3 minutes
+  const [competitionScore, setCompetitionScore] = useState<number>(0);
+  const [leaderboard, setLeaderboard] = useState<{ score: number; date: string }[]>([]);
 
   // --- TIME OF DAY CYCLE ---
   useEffect(() => {
@@ -69,10 +74,12 @@ const App: React.FC = () => {
         if (data.unlockedFish) setUnlockedFish(data.unlockedFish);
         if (data.skills) setSkills(data.skills);
         if (data.currentLocation) setCurrentLocation(data.currentLocation);
+        if (data.sessionFishCount !== undefined) setSessionFishCount(data.sessionFishCount);
         
         const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
         if (!data.lastQuestReset || now - data.lastQuestReset > oneDay) {
+          setGold(g => g + 1000);
           setQuests(generateDailyQuests());
           setLastQuestReset(now);
           const fishNames = FISH_TYPES.map(f => f.name);
@@ -99,8 +106,8 @@ const App: React.FC = () => {
         console.error("Lỗi khi tải dữ liệu bản lưu:", e);
       }
     } else {
-      setGold(500);
-      setStats(s => ({ ...s, totalGoldEarned: 500 }));
+      setGold(1500);
+      setStats(s => ({ ...s, totalGoldEarned: 1500 }));
       setQuests(generateDailyQuests());
       setLastQuestReset(Date.now());
       const fishNames = FISH_TYPES.map(f => f.name);
@@ -136,16 +143,48 @@ const App: React.FC = () => {
       unlockedFish,
       skills,
       dailyMarketBoosts,
-      currentLocation
+      currentLocation,
+      sessionFishCount
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(dataToSave));
-  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts, currentLocation]);
+  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts, currentLocation, sessionFishCount]);
+
+  const handleBossDefeated = useCallback(() => {
+    setGold(g => g + 5000);
+    setStats(s => ({ ...s, totalGoldEarned: s.totalGoldEarned + 5000 }));
+  }, []);
+
+  const handleSessionReset = useCallback(() => {
+    setSessionFishCount(0);
+  }, []);
 
   const handleResetData = useCallback(() => {
-    if (confirm("Bạn có chắc chắn muốn xóa toàn bộ tiến trình và chơi lại từ đầu?")) {
-      localStorage.removeItem(SAVE_KEY);
-      window.location.reload();
-    }
+    localStorage.removeItem(SAVE_KEY);
+    setGold(500);
+    setInventory([]);
+    setInventoryCapacity(20);
+    setCurrentRod(RODS[0]);
+    setCurrentBait(BAITS[0]);
+    setOwnedRods(['rod_1']);
+    setBaitCounts({ 'bait_1': 10 });
+    setStats({
+      totalGoldEarned: 500,
+      totalFishCaught: 0,
+      rarestFish: 'Chưa có',
+      highestValue: 0
+    });
+    setAchievements(INITIAL_ACHIEVEMENTS);
+    setQuests(generateDailyQuests());
+    setLastQuestReset(Date.now());
+    setUnlockedFish([]);
+    setSkills({ sharpEye: 0, fastHands: 0, lucky: 0 });
+    setDailyMarketBoosts([]);
+    setCurrentLocation('POND');
+    setSessionFishCount(0);
+    setStreak(0);
+    setGameState(GameState.START);
+    setActiveView(UIView.GAME);
+    setNotification('Dữ liệu đã được reset!');
   }, []);
 
   // --- GAMEPLAY LOGIC ---
@@ -197,22 +236,33 @@ const App: React.FC = () => {
     }));
   }, []);
 
-  const consumeBait = useCallback(() => {
+  const handleLineBroken = useCallback(() => {
     setBaitCounts(prev => {
       const currentCount = prev[currentBait.id] || 0;
-      if (currentCount <= 0) return prev;
-      return { ...prev, [currentBait.id]: currentCount - 1 };
+      const nextCount = Math.max(0, currentCount - 1);
+      if (nextCount <= 0) {
+        setCurrentBait(BAITS[0]);
+      }
+      return { ...prev, [currentBait.id]: nextCount };
     });
+    setNotification('Thẻo bị đứt! Hãy mua thẻo mới.');
+    setTimeout(() => setNotification(null), 2500);
   }, [currentBait.id]);
 
   const startGame = () => {
     try { soundManager.playClick(); } catch(e) {}
     try { (soundManager as any).startAmbient?.(); } catch(e) {}
     const count = baitCounts[currentBait.id] || 0;
-    if (count <= 0) {
-      setNotification("Hết mồi câu rồi! Hãy mua thêm ở Cửa hàng.");
+    const hasRod = ownedRods.includes(currentRod.id);
+    if (!hasRod) {
+      setNotification("Bạn không có cần câu để bắt đầu. Hãy mua lại cần mới.");
       setTimeout(() => setNotification(null), 3000);
-      // Vẫn cho vào game - không block người dùng
+      return;
+    }
+    if (count <= 0) {
+      setNotification("Bạn không có thẻo để câu. Hãy mua thêm thẻo ở Cửa hàng.");
+      setTimeout(() => setNotification(null), 3000);
+      return;
     }
     setGameState(GameState.IDLE);
     setActiveView(UIView.GAME);
@@ -226,7 +276,6 @@ const App: React.FC = () => {
       return;
     }
 
-    consumeBait(); 
     setInventory(prev => [{ fish, timestamp: Date.now(), isGolden }, ...prev]);
     
     setStreak(prev => prev + 1);
@@ -259,20 +308,49 @@ const App: React.FC = () => {
     setNotification(`Bắt được ${isGolden ? 'CÁ VÀNG ' : ''}${fish.name}! +${finalValue} vàng${bonusMessage}`);
     setGameState(GameState.CAUGHT);
     updateStatsAndQuests(fish, isGolden);
+
+    // Rod breaking logic
+    const currentRodMax = currentRod.maxValue ?? Infinity;
+    if (finalValue > currentRodMax && ownedRods.includes(currentRod.id)) {
+      setOwnedRods(prev => {
+        const remaining = prev.filter(id => id !== currentRod.id);
+        const nextRodId = remaining[0] || 'rod_1';
+        const nextRod = RODS.find(r => r.id === nextRodId) || RODS[0];
+        setCurrentRod(nextRod);
+        return remaining;
+      });
+      setNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy mua lại cần mới.");
+      setTimeout(() => setNotification(null), 3000);
+    }
     
-    setTimeout(() => {
-      setNotification(null);
-      setGameState(GameState.IDLE);
-    }, 2500);
-  }, [consumeBait, updateStatsAndQuests, inventory.length, inventoryCapacity]);
+    // Check for boss after catching fish
+    setSessionFishCount(prev => {
+      const newCount = prev + 1;
+      if (newCount >= 20) {
+        setTimeout(() => {
+          setNotification("BOSS xuất hiện! Chuẩn bị chiến đấu!");
+          setTimeout(() => {
+            setNotification(null);
+            setGameState(GameState.BOSS_FIGHT);
+          }, 2000);
+        }, 2500);
+        return newCount;
+      } else {
+        setTimeout(() => {
+          setNotification(null);
+          setGameState(GameState.IDLE);
+        }, 2500);
+        return newCount;
+      }
+    });
+  }, [updateStatsAndQuests, inventory.length, inventoryCapacity, currentRod, ownedRods]);
 
   const onFishLost = useCallback((reason: string = "Cá đã thoát rồi...") => {
-    consumeBait(); 
     setNotification(reason);
     setGameState(GameState.IDLE);
     setStreak(0);
     setTimeout(() => setNotification(null), 2000);
-  }, [consumeBait]);
+  }, []);
 
   const sellAllFish = () => {
     const totalValue = inventory.reduce((sum, item) => {
@@ -426,10 +504,16 @@ const App: React.FC = () => {
             onFishLost={onFishLost}
             currentRod={currentRod}
             currentBait={currentBait}
+            baitCounts={baitCounts}
+            ownedRods={ownedRods}
             weather={weather}
             skills={skills}
             location={currentLocation}
             timeOfDay={timeOfDay}
+            onBossDefeated={handleBossDefeated}
+            onSessionReset={handleSessionReset}
+            onLineBroken={handleLineBroken}
+            setNotification={setNotification}
           />
         )}
         

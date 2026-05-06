@@ -12,10 +12,16 @@ interface GameCanvasProps {
   onFishLost: (reason?: string) => void;
   currentRod: RodType;
   currentBait: BaitType;
+  baitCounts: Record<string, number>;
+  ownedRods: string[];
   weather: 'sunny' | 'rainy' | 'stormy';
   skills: PlayerSkills;
   location: LocationType;
   timeOfDay: TimeOfDay;
+  onBossDefeated?: () => void;
+  onSessionReset?: () => void;
+  onLineBroken: () => void;
+  setNotification: (msg: string | null) => void;
 }
 
 interface Particle {
@@ -49,7 +55,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, weather, skills, location, timeOfDay
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, baitCounts, ownedRods, weather, skills, location, timeOfDay, onBossDefeated, onSessionReset, onLineBroken, setNotification
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -86,6 +92,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const shakeIntensity = useRef(0);
   
   const tugFactor = useRef(0);
+
+  // Boss fight refs
+  const bossHP = useRef(100);
+  const bossMaxHP = useRef(100);
+  const playerHP = useRef(100);
+  const playerMaxHP = useRef(100);
+  const bossAttackTimer = useRef(0);
+  const playerAttackCharge = useRef(0);
+  const bossX = useRef(CANVAS_WIDTH / 2);
+  const bossY = useRef(CANVAS_HEIGHT / 2);
 
   const lerpAngle = (current: number, target: number, speed: number) => {
     let diff = target - current;
@@ -205,12 +221,30 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     bubblesRef.current = initialBubbles;
   }, [spawnInitialFish]);
 
+  const canStartFishing = useCallback(() => {
+    const currentBaitCount = baitCounts[currentBait.id] || 0;
+    const hasAvailableRod = ownedRods.includes(currentRod.id);
+
+    if (!hasAvailableRod) {
+      setNotification('Không có cần câu. Hãy mua lại cần mới.');
+      return false;
+    }
+    if (currentBaitCount <= 0) {
+      setNotification('Không có thẻo để câu. Hãy mua thêm thẻo.');
+      return false;
+    }
+    return true;
+  }, [baitCounts, currentBait.id, currentRod.id, ownedRods, setNotification]);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
       e.preventDefault();
       if (!isSpacePressed.current) {
         isSpacePressed.current = true;
         if (gameState === GameState.IDLE) {
+          if (!canStartFishing()) {
+            return;
+          }
           setGameState(GameState.CHARGING);
           chargePower.current = 0;
           chargeDirection.current = 1;
@@ -221,7 +255,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
     }
-  }, [gameState, setGameState]);
+  }, [gameState, setGameState, canStartFishing]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
@@ -239,6 +273,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     if (!isSpacePressed.current) {
       isSpacePressed.current = true;
       if (gameState === GameState.IDLE) {
+        if (!canStartFishing()) {
+          return;
+        }
         setGameState(GameState.CHARGING);
         chargePower.current = 0;
         chargeDirection.current = 1;
@@ -248,7 +285,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         tugFactor.current = 1.0;
       }
     }
-  }, [gameState, setGameState]);
+  }, [gameState, setGameState, canStartFishing]);
 
   const handlePressEnd = useCallback(() => {
     isSpacePressed.current = false;
@@ -321,9 +358,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (activeFish.current?.id === f.id) return; 
       const dx = hookX.current - f.x; const dy = hookY.current - f.y;
       const distSq = dx * dx + dy * dy;
-      const attractRange = currentBait.attraction * WEATHER_BONUSES[weather].attraction;
+      const lineLimit = currentBait.maxValue || 300;
+      const sizeMatchRatio = Math.min(1, f.type.value / lineLimit);
+      const attractRange = currentBait.attraction * WEATHER_BONUSES[weather].attraction * (0.35 + sizeMatchRatio * 0.65);
+      const interestChance = 0.15 + sizeMatchRatio * 0.75;
       f.stateTimer--;
-      if (canAttractFish && distSq < attractRange * attractRange) {
+      if (canAttractFish && distSq < attractRange * attractRange && Math.random() < interestChance) {
         if (f.personality === 'shy' && distSq < 100 * 100) {
           f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120;
         } else if (f.state !== 'scared') {
@@ -404,9 +444,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         return d2 < (f.type.size + 18)**2;
       });
       if (collidingFish) {
+        const lineLimit = currentBait.maxValue || 300;
+        if (collidingFish.type.value > lineLimit) {
+          onLineBroken();
+          onFishLost("Thẻo bị đứt vì cá quá to!");
+          setGameState(GameState.IDLE);
+          activeFish.current = null;
+          return;
+        }
         activeFish.current = collidingFish; createSplash(hookX.current, hookY.current, 0.8);
         setGameState(GameState.REELING); reelingProgress.current = 0; lineHealth.current = 100; tensionCursor.current = 0.5; tensionVelocity.current = 0;
-        tensionZoneSize.current = Math.max(0.16, 0.42 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05));
+        const sizeMatch = Math.min(1, collidingFish.type.value / lineLimit);
+        const mismatchPenalty = 1 - sizeMatch;
+        tensionZoneSize.current = Math.max(0.12, 0.42 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18);
 
         const goldenBoost = (currentRod.control - 1) * 0.2; 
         if (Math.random() < goldenBoost) {
@@ -423,6 +473,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     if (gameState === GameState.REELING && activeFish.current) {
+      const lineLimit = currentBait.maxValue || 300;
+      const sizeMatch = Math.min(1, activeFish.current.type.value / lineLimit);
+      const mismatchPenalty = 1 - sizeMatch;
       const dx = rodEndX - hookX.current; const dy = rodEndY - hookY.current;
       const distToRod = Math.sqrt(dx*dx + dy*dy);
       if (distToRod > 15) {
@@ -458,16 +511,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const hz = tensionZoneSize.current / 2; tensionZone.current = Math.max(hz, Math.min(1 - hz, tensionZone.current));
       const isInZone = Math.abs(tensionCursor.current - tensionZone.current) < hz;
       
+      const progressFactor = 0.8 + sizeMatch * 0.2;
       if (isInZone) {
-        reelingProgress.current += Math.max(0.12, 0.35 - (ft / 450)) * (1 + skills.fastHands * 0.25);
-        lineHealth.current = Math.min(100, lineHealth.current + 0.35); 
+        reelingProgress.current += Math.max(0.12, 0.35 - (ft / 450)) * (1 + skills.fastHands * 0.25) * progressFactor;
+        lineHealth.current = Math.min(100, lineHealth.current + 0.35 * progressFactor); 
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
-        const damage = (0.35 + (ft / 250)) / currentRod.lineStrength; lineHealth.current -= damage;
+        const damage = (0.35 + (ft / 250) + mismatchPenalty * 0.25) / currentRod.lineStrength; lineHealth.current -= damage;
         if (frameCount.current % 5 === 0) {
             vfxParticlesRef.current.push({
                 x: (rodEndX + hookX.current)/2, y: (rodEndY + hookY.current)/2, 
-                size: 2, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4,
+                size: 2, speed: 1, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4,
                 life: 15, opacity: 0.8, color: '#ef4444', type: 'circle'
             });
         }
@@ -478,7 +532,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']);
       }      
       if (lineHealth.current <= 0) { 
-        onFishLost("Dây câu bị đứt!"); activeFish.current = null; 
+        onLineBroken(); onFishLost("Thẻo bị đứt!"); activeFish.current = null; 
       }
       
       if (frameCount.current % 8 === 0) {
@@ -502,6 +556,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 x: jX + (Math.random() - 0.5) * 10, 
                 y: jY + (Math.random() - 0.5) * 10, 
                 size: 2 + Math.random() * 4,
+                speed: 1,
                 vx: (Math.random() - 0.5) * 2,
                 vy: (Math.random() - 0.5) * 2,
                 life: 25,
@@ -530,13 +585,95 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     }
 
+    if (gameState === GameState.BOSS_FIGHT) {
+      // Boss fight logic
+      bossAttackTimer.current++;
+      if (bossAttackTimer.current > 120) { // Attack every 2 seconds
+        playerHP.current = Math.max(0, playerHP.current - 10); // Boss attacks player
+        bossAttackTimer.current = 0;
+        if (playerHP.current <= 0) {
+          // Player defeated
+          setTimeout(() => {
+            setNotification("Thua Boss! Thử lại sau.");
+            setGameState(GameState.IDLE);
+            if (onSessionReset) onSessionReset();
+          }, 1000);
+        }
+      }
+
+      // Player attack charge
+      if (isSpacePressed.current) {
+        playerAttackCharge.current += 2;
+        if (playerAttackCharge.current >= 100) {
+          bossHP.current = Math.max(0, bossHP.current - 20); // Player attacks boss
+          playerAttackCharge.current = 0;
+          createSparkles(bossX.current, bossY.current, 20, ['#ff0000', '#ffff00']);
+          if (bossHP.current <= 0) {
+            // Boss defeated
+            setTimeout(() => {
+              setNotification("Thắng Boss! Nhận 5000 vàng!");
+              if (onBossDefeated) onBossDefeated();
+              setGameState(GameState.IDLE);
+              if (onSessionReset) onSessionReset();
+            }, 1000);
+          }
+        }
+      } else {
+        playerAttackCharge.current = Math.max(0, playerAttackCharge.current - 1);
+      }
+
+      // Render boss
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(bossX.current - 50, bossY.current - 50, 100, 100);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '20px Arial';
+      ctx.fillText('BOSS', bossX.current - 20, bossY.current - 20);
+
+      // Boss HP bar
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(50, 50, 200, 20);
+      ctx.fillStyle = '#ff0000';
+      ctx.fillRect(50, 50, (bossHP.current / bossMaxHP.current) * 200, 20);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`Boss HP: ${bossHP.current}/${bossMaxHP.current}`, 60, 65);
+
+      // Player HP bar
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(50, 80, 200, 20);
+      ctx.fillStyle = '#00ff00';
+      ctx.fillRect(50, 80, (playerHP.current / playerMaxHP.current) * 200, 20);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`Your HP: ${playerHP.current}/${playerMaxHP.current}`, 60, 95);
+
+      // Attack bar
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(50, 110, 200, 20);
+      ctx.fillStyle = '#ffff00';
+      ctx.fillRect(50, 110, (playerAttackCharge.current / 100) * 200, 20);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('Attack Charge', 60, 125);
+    }
+
     Graphics.drawPlayerEquipment(
       ctx, gameState, pX, pY, rodEndX, rodEndY, hookX.current, hookY.current, 
       gameState === GameState.CASTING, lineHealth.current,
-      activeFish.current?.type.tension || 0, currentRod, chargePower.current
+      activeFish.current ? activeFish.current.type.value / 500 : 0, currentRod, chargePower.current
     );
     ctx.restore();
   }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
+
+  useEffect(() => {
+    if (gameState === GameState.BOSS_FIGHT) {
+      bossHP.current = 100;
+      bossMaxHP.current = 100;
+      playerHP.current = 100;
+      playerMaxHP.current = 100;
+      bossAttackTimer.current = 0;
+      playerAttackCharge.current = 0;
+      bossX.current = CANVAS_WIDTH / 2;
+      bossY.current = CANVAS_HEIGHT / 2;
+    }
+  }, [gameState]);
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;

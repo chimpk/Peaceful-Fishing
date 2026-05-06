@@ -7,7 +7,8 @@ export enum GameState {
   WAITING = 'WAITING',
   REELING = 'REELING',
   CAUGHT = 'CAUGHT',
-  GAMEOVER = 'GAMEOVER'
+  GAMEOVER = 'GAMEOVER',
+  BOSS_FIGHT = 'BOSS_FIGHT'
 }
 
 export enum UIView {
@@ -53,6 +54,7 @@ export interface RodType {
   price: number;
   lineStrength: number;
   control: number;
+  maxValue?: number;
   rarityText: string;
   isLocked?: boolean;
 }
@@ -64,6 +66,7 @@ export interface BaitType {
   price: number;
   attraction: number;
   rarityBoost: number;
+  maxValue?: number;
   rarityText: string;
   count?: number;
 }

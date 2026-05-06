@@ -48,6 +48,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   const [shopTab, setShopTab] = useState<'rod' | 'bait'>('rod');
   const [inventoryTab, setInventoryTab] = useState<'items' | 'upgrade'>('items');
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [confettiItems] = useState(() => 
     Array.from({ length: 40 }, (_, i) => ({
       id: i,
@@ -169,18 +170,21 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
           <>
             {/* Header info */}
             <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-start pointer-events-none z-[60]">
-              <div className="flex flex-col gap-2 pointer-events-auto">
-                <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3 shadow-lg group relative cursor-pointer hover:bg-slate-800 transition-colors">
+              <div className="flex flex-row gap-2 pointer-events-auto">
+                <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3 shadow-lg group relative cursor-pointer hover:bg-slate-800 transition-colors"
+                     onClick={() => setShowLocationDropdown(!showLocationDropdown)}>
                   <span className="text-xl">📍</span>
                   <div>
                     <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest">ĐỊA ĐIỂM</div>
                     <div className="text-[10px] font-bold text-white uppercase">{location === 'POND' ? 'Ao Làng' : location === 'OCEAN' ? 'Đại Dương' : 'Hang Tối'} ▼</div>
                   </div>
-                  <div className="absolute top-full mt-2 left-0 bg-slate-900 border border-white/10 rounded-xl p-2 hidden group-hover:flex flex-col gap-2 shadow-2xl z-50">
-                     <button onClick={() => onChangeLocation('POND')} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'POND' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Ao Làng</button>
-                     <button onClick={() => onChangeLocation('OCEAN')} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'OCEAN' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Đại Dương</button>
-                     <button onClick={() => onChangeLocation('CAVE')} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'CAVE' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Hang Tối</button>
-                  </div>
+                  {showLocationDropdown && (
+                    <div className="absolute top-full mt-2 left-0 bg-slate-900 border border-white/10 rounded-xl p-2 flex flex-col gap-2 shadow-2xl z-50">
+                       <button onClick={() => { onChangeLocation('POND'); setShowLocationDropdown(false); }} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'POND' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Ao Làng</button>
+                       <button onClick={() => { onChangeLocation('OCEAN'); setShowLocationDropdown(false); }} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'OCEAN' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Đại Dương</button>
+                       <button onClick={() => { onChangeLocation('CAVE'); setShowLocationDropdown(false); }} className={`text-xs font-bold px-4 py-2 rounded-lg text-left ${location === 'CAVE' ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/5 text-white'}`}>Hang Tối</button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10 flex items-center gap-3 shadow-lg">
@@ -220,9 +224,9 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                 </div>
               </div>
               <div className="bg-slate-900/90 backdrop-blur-lg px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 shadow-lg relative hover:translate-x-1 transition-transform">
-                <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center text-green-400 text-sm">🐞</div>
+                <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center text-green-400 text-sm">🧵</div>
                 <div>
-                  <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest">MỒI CÂU</div>
+                  <div className="text-[8px] text-slate-400 font-black uppercase tracking-widest">THẺO CÂU</div>
                   <div className="text-[11px] font-bold text-green-100 truncate max-w-[120px]">{currentBait.name}</div>
                 </div>
                 <div className="absolute -top-2 -right-2 bg-red-600 text-[10px] px-2 py-0.5 rounded-full font-black border-2 border-slate-900 animate-in zoom-in duration-300">
@@ -368,7 +372,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                   <div className="flex flex-col items-end">
                     <span className="text-[10px] font-black text-yellow-500">+{q.rewardGold} 💰</span>
                     {q.rewardBaitId && (
-                      <span className="text-[8px] font-black text-green-400">+{q.rewardBaitCount} Mồi</span>
+                      <span className="text-[8px] font-black text-green-400">+{q.rewardBaitCount} Thẻo</span>
                     )}
                   </div>
                 </div>
@@ -429,9 +433,9 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                     </div>
                   </div>
                   <div className="bg-[#162031] p-4 rounded-2xl flex items-center gap-4 border border-slate-800 relative overflow-hidden hover:border-green-500/40 transition-colors">
-                    <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 text-2xl">🐞</div>
+                    <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 text-2xl">🧵</div>
                     <div>
-                      <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">MỒI CÂU</div>
+                      <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">THẺO CÂU</div>
                       <div className="text-sm font-black truncate">{currentBait.name}</div>
                     </div>
                     <div className="absolute top-2 right-2 bg-red-600 px-2 py-0.5 rounded-full text-[10px] font-black">
@@ -538,7 +542,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
         {renderHeader("TIỆM ĐỒ CÂU")}
         <div className="px-6 flex gap-3 mb-6">
            <button onClick={() => setShopTab('rod')} className={`flex-1 py-3 rounded-2xl font-black text-[10px] tracking-widest transition-all ${shopTab === 'rod' ? 'bg-blue-600 shadow-[0_10px_30px_rgba(37,99,235,0.3)]' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>CẦN CÂU</button>
-           <button onClick={() => setShopTab('bait')} className={`flex-1 py-3 rounded-2xl font-black text-[10px] tracking-widest transition-all ${shopTab === 'bait' ? 'bg-blue-600 shadow-[0_10px_30px_rgba(37,99,235,0.3)]' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>MỒI CÂU</button>
+           <button onClick={() => setShopTab('bait')} className={`flex-1 py-3 rounded-2xl font-black text-[10px] tracking-widest transition-all ${shopTab === 'bait' ? 'bg-blue-600 shadow-[0_10px_30px_rgba(37,99,235,0.3)]' : 'bg-slate-900 text-slate-500 border border-white/5'}`}>THẺO</button>
         </div>
 
         <div className="flex-1 px-6 overflow-y-auto pb-10">
@@ -572,7 +576,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
 
               {shopTab === 'bait' && BAITS.map(bait => (
                 <div key={bait.id} className="bg-slate-900/60 p-5 rounded-3xl border border-white/5 flex gap-5 items-center group transition-all hover:border-green-500/30 hover:scale-102 relative overflow-hidden">
-                   <div className="w-20 h-20 bg-green-500/10 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0">🪱</div>
+                   <div className="w-20 h-20 bg-green-500/10 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0">�</div>
                    <div className="flex-1">
                       <div className="flex justify-between items-start mb-1">
                          <h4 className="font-black italic text-sm">{bait.name}</h4>
@@ -711,14 +715,22 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
               {FISH_TYPES.map((fish, i) => {
                  const isUnlocked = unlockedFish.includes(fish.name);
                  return (
-                    <div key={i} className={`p-4 rounded-2xl border ${isUnlocked ? 'bg-slate-800/60 border-white/10' : 'bg-slate-900/40 border-white/5 opacity-50'} flex flex-col items-center text-center shadow-lg transition-transform hover:scale-105`}>
+                    <div key={i} className={`p-4 rounded-2xl border ${isUnlocked ? 'bg-slate-800/60 border-white/10' : 'bg-slate-900/40 border-white/5 opacity-70'} flex flex-col items-center text-center shadow-lg transition-transform hover:scale-105`}>
                        <div className="w-16 h-16 rounded-full mb-3 flex items-center justify-center text-3xl shadow-inner" style={{ backgroundColor: isUnlocked ? `${fish.color}33` : '#1e293b' }}>
                           <span style={{ filter: isUnlocked ? 'drop-shadow(0 0 10px rgba(255,255,255,0.5))' : 'brightness(0) invert(0.3)' }}>🐟</span>
                        </div>
-                       <h4 className={`font-black text-sm mb-1 ${isUnlocked ? 'text-white' : 'text-slate-500'}`}>{isUnlocked ? fish.name : '???'}</h4>
-                       <span className="text-[8px] px-2 py-0.5 rounded-full font-black border" style={{ borderColor: isUnlocked ? fish.color : '#334155', color: isUnlocked ? fish.color : '#64748b' }}>
-                          {isUnlocked ? fish.rarity : 'CHƯA RÕ'}
-                       </span>
+                       <h4 className={`font-black text-sm mb-1 ${isUnlocked ? 'text-white' : 'text-slate-500'}`}>{fish.name}</h4>
+                       <div className="flex flex-wrap justify-center gap-2 mb-2">
+                          <span className="text-[8px] px-2 py-0.5 rounded-full font-black border" style={{ borderColor: isUnlocked ? fish.color : '#334155', color: isUnlocked ? fish.color : '#64748b' }}>
+                            {fish.rarity}
+                          </span>
+                          <span className="text-[8px] px-2 py-0.5 rounded-full font-black border border-slate-700 text-slate-300">
+                            Giá trị {fish.value}
+                          </span>
+                       </div>
+                       <div className={`text-[10px] ${isUnlocked ? 'text-slate-300' : 'text-slate-500'}`}>
+                          {isUnlocked ? `Cân nặng ${fish.weight}kg` : 'Chưa thu thập'}
+                       </div>
                     </div>
                  )
               })}
