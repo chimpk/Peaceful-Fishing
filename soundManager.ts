@@ -5,7 +5,12 @@ class SoundManager {
   private isAmbientRunning = false;
 
   private getCtx(): AudioContext | null {
-    if (this.ctx) return this.ctx;
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      return this.ctx;
+    }
     try {
       const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return null;
@@ -13,6 +18,9 @@ class SoundManager {
       this.masterGain = this.ctx.createGain();
       this.masterGain.connect(this.ctx.destination);
       this.masterGain.gain.value = 0.3;
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
     } catch (e) {
       // Âm thanh không khả dụng, bỏ qua
     }

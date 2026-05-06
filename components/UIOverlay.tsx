@@ -36,6 +36,11 @@ interface UIOverlayProps {
   timeOfDay: TimeOfDay;
   streak: number;
   onChangeLocation: (loc: LocationType) => void;
+  competitionMode: boolean;
+  competitionTimeLeft: number;
+  competitionScore: number;
+  leaderboard: { score: number; date: string }[];
+  onStartCompetition: () => void;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = ({ 
@@ -43,7 +48,8 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   currentRod, currentBait, baitCounts, ownedRods, stats, achievements, quests,
   onStart, onSellAll, onSellFish, onBuy, onSelect, onUpgradeCapacity, onResetData, onClaimQuest,
   weather, epicCatch, unlockedFish, skills, dailyMarketBoosts, onBuySkill,
-  location, timeOfDay, streak, onChangeLocation
+  location, timeOfDay, streak, onChangeLocation,
+  competitionMode, competitionTimeLeft, competitionScore, leaderboard, onStartCompetition
 }) => {
   const [shopTab, setShopTab] = useState<'rod' | 'bait'>('rod');
   const [inventoryTab, setInventoryTab] = useState<'items' | 'upgrade'>('items');
@@ -142,9 +148,15 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
   if (activeView === UIView.GAME) {
     const currentBaitCount = baitCounts[currentBait.id] || 0;
     return (
-      <div className="absolute inset-0 pointer-events-none text-white font-sans overflow-hidden">
+      <div 
+        className="absolute inset-0 text-white font-sans overflow-hidden"
+        style={{ pointerEvents: gameState === GameState.START ? 'auto' : 'none', zIndex: 9999 }}
+      >
         {gameState === GameState.START ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/95 pointer-events-auto backdrop-blur-md z-50">
+          <div 
+            className="absolute inset-0 flex flex-col items-center justify-center bg-[#0f172a] z-[10000]"
+            style={{ pointerEvents: 'auto' }}
+          >
             <div className="mb-12 text-center animate-in fade-in zoom-in duration-700">
               <h1 className="text-7xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-500 to-yellow-800 mb-2 font-black tracking-tighter italic drop-shadow-2xl">
                 FISHING FRENZY
@@ -153,14 +165,25 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
             </div>
             <div className="flex flex-col gap-4 w-full max-w-xs">
               <button 
-                onClick={onStart}
+                onClick={() => { console.log("Start button clicked"); onStart(); }}
+                onTouchStart={(e) => { console.log("Start button touched"); e.preventDefault(); onStart(); }}
                 className="group relative bg-blue-600 hover:bg-blue-500 text-white px-12 py-5 rounded-2xl font-black text-2xl border-b-8 border-blue-800 hover:border-b-4 hover:translate-y-1 transition-all shadow-[0_20px_50px_rgba(30,64,175,0.3)] active:scale-95"
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
               >
                 VÀO CÂU NGAY
               </button>
               <button 
+                onClick={() => { console.log("Competition button clicked"); onStartCompetition(); }}
+                onTouchStart={(e) => { e.preventDefault(); onStartCompetition(); }}
+                className="group relative bg-orange-600 hover:bg-orange-500 text-white px-12 py-5 rounded-2xl font-black text-xl border-b-8 border-orange-800 hover:border-b-4 hover:translate-y-1 transition-all shadow-[0_20px_50px_rgba(249,115,22,0.3)] active:scale-95"
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+              >
+                CHẾ ĐỘ THI ĐẤU
+              </button>
+              <button 
                 onClick={() => setShowTutorial(true)}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-12 py-4 rounded-2xl font-bold text-sm border-b-4 border-slate-900 transition-all active:scale-95"
+                onTouchEnd={(e) => { e.preventDefault(); setShowTutorial(true); }}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-12 py-4 rounded-2xl font-bold text-sm border-b-4 border-slate-900 transition-all active:scale-95 pointer-events-auto"
               >
                 CÁCH CHƠI?
               </button>
@@ -212,6 +235,25 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                   </div>
                 </div>
               </div>
+              
+              {/* Competition HUD */}
+              {competitionMode && (
+                <div className="absolute top-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-[70] animate-in slide-in-from-top-10 duration-500">
+                  <div className="bg-slate-900/90 backdrop-blur-xl px-8 py-3 rounded-3xl border-2 border-orange-500 shadow-[0_0_40px_rgba(249,115,22,0.3)] flex items-center gap-6">
+                    <div className="flex flex-col items-center">
+                       <span className="text-[8px] text-orange-400 font-black tracking-widest uppercase">THỜI GIAN</span>
+                       <span className={`text-2xl font-black italic ${competitionTimeLeft < 30 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
+                         {Math.floor(competitionTimeLeft / 60)}:{String(competitionTimeLeft % 60).padStart(2, '0')}
+                       </span>
+                    </div>
+                    <div className="w-px h-10 bg-white/10"></div>
+                    <div className="flex flex-col items-center">
+                       <span className="text-[8px] text-orange-400 font-black tracking-widest uppercase">ĐIỂM SỐ</span>
+                       <span className="text-2xl font-black italic text-yellow-400">{competitionScore.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bottom Status */}
@@ -347,7 +389,13 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                             <p className="opacity-80">Đừng để thanh lực ra ngoài vùng quá lâu kẻo đứt dây!</p>
                         </div>
                     </div>
-                    <button onClick={() => setShowTutorial(false)} className="w-full mt-10 py-4 bg-blue-600 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all active:scale-95 shadow-lg">ĐÃ HIỂU!</button>
+                    <button 
+                      onClick={() => setShowTutorial(false)} 
+                      onTouchEnd={(e) => { e.preventDefault(); setShowTutorial(false); }}
+                      className="w-full mt-10 py-4 bg-blue-600 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-500 transition-all active:scale-95 shadow-lg pointer-events-auto"
+                    >
+                      ĐÃ HIỂU!
+                    </button>
                 </div>
             </div>
         )}
@@ -689,9 +737,15 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
               <div className="mt-8">
                  <button 
                   onClick={onResetData}
-                  className="w-full py-4 bg-red-600/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600/20 transition-all active:scale-95"
+                  className="w-full py-4 bg-red-600/10 text-red-500 border border-red-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-600/20 transition-all active:scale-95 mb-4"
                  >
                    XÓA TIẾN TRÌNH & CHƠI LẠI
+                 </button>
+                 <button 
+                  onClick={() => setActiveView(UIView.LEADERBOARD)}
+                  className="w-full py-4 bg-orange-600/10 text-orange-500 border border-orange-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600/20 transition-all active:scale-95"
+                 >
+                   BẢNG XẾP HẠNG THI ĐẤU
                  </button>
               </div>
            </div>
@@ -770,6 +824,73 @@ const UIOverlay: React.FC<UIOverlayProps> = ({
                  </div>
               )
            })}
+        </div>
+        {renderBottomNav()}
+      </div>
+    );
+  }
+
+  if (activeView === UIView.RESULTS) {
+    return (
+      <div className="absolute inset-0 bg-[#0f172a] flex flex-col items-center justify-center pointer-events-auto text-white p-8 z-[200]">
+        <div className="max-w-md w-full bg-slate-900/50 backdrop-blur-2xl border-2 border-orange-500 rounded-[3rem] p-10 flex flex-col items-center text-center animate-in zoom-in duration-500 shadow-[0_0_100px_rgba(249,115,22,0.2)]">
+           <div className="text-6xl mb-6 animate-bounce">🏆</div>
+           <h2 className="text-4xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-orange-500 mb-2">HẾT GIỜ!</h2>
+           <p className="text-xs text-slate-500 font-black tracking-[0.3em] uppercase mb-10">KẾT QUẢ THI ĐẤU</p>
+           
+           <div className="w-full bg-white/5 rounded-3xl p-8 mb-10 border border-white/5">
+              <div className="text-[10px] text-orange-400 font-black tracking-widest uppercase mb-2">TỔNG ĐIỂM ĐẠT ĐƯỢC</div>
+              <div className="text-5xl font-black italic text-white">{competitionScore.toLocaleString()}</div>
+              <div className="text-sm font-bold text-yellow-500 mt-2">VÀNG 💰</div>
+           </div>
+
+           <div className="flex flex-col gap-4 w-full">
+              <button 
+                onClick={() => setActiveView(UIView.LEADERBOARD)}
+                className="w-full py-5 bg-orange-600 hover:bg-orange-500 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg"
+              >
+                XEM BẢNG XẾP HẠNG
+              </button>
+              <button 
+                onClick={() => setActiveView(UIView.GAME)}
+                className="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
+              >
+                QUAY LẠI MENU
+              </button>
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeView === UIView.LEADERBOARD) {
+    return (
+      <div className="absolute inset-0 bg-[#0a0f1d] flex flex-col pointer-events-auto text-white overflow-hidden pb-20 animate-in fade-in duration-300">
+        {renderHeader("BẢNG XẾP HẠNG")}
+        <div className="flex-1 px-6 py-6 overflow-y-auto pb-10">
+           <div className="bg-slate-900/50 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
+              <div className="bg-white/5 p-6 flex justify-between items-center border-b border-white/5">
+                 <span className="text-[10px] font-black tracking-widest opacity-40 uppercase">Hạng / Ngày</span>
+                 <span className="text-[10px] font-black tracking-widest opacity-40 uppercase">Điểm số</span>
+              </div>
+              <div className="divide-y divide-white/5">
+                 {leaderboard.length === 0 ? (
+                   <div className="py-20 text-center opacity-30 italic font-bold">Chưa có dữ liệu thi đấu...</div>
+                 ) : (
+                   leaderboard.map((entry, i) => (
+                    <div key={i} className={`p-6 flex justify-between items-center ${i === 0 ? 'bg-yellow-500/5' : ''}`}>
+                       <div className="flex items-center gap-4">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${i === 0 ? 'bg-yellow-500 text-black' : i === 1 ? 'bg-slate-300 text-black' : i === 2 ? 'bg-orange-500 text-black' : 'bg-white/10 text-white'}`}>
+                            {i + 1}
+                          </div>
+                          <div className="text-[10px] font-bold opacity-60">{entry.date}</div>
+                       </div>
+                       <div className="text-xl font-black italic text-yellow-400">{entry.score.toLocaleString()}</div>
+                    </div>
+                   ))
+                 )}
+              </div>
+           </div>
         </div>
         {renderBottomNav()}
       </div>

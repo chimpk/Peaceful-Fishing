@@ -75,6 +75,7 @@ const App: React.FC = () => {
         if (data.skills) setSkills(data.skills);
         if (data.currentLocation) setCurrentLocation(data.currentLocation);
         if (data.sessionFishCount !== undefined) setSessionFishCount(data.sessionFishCount);
+        if (data.leaderboard) setLeaderboard(data.leaderboard);
         
         const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
@@ -144,10 +145,11 @@ const App: React.FC = () => {
       skills,
       dailyMarketBoosts,
       currentLocation,
-      sessionFishCount
+      sessionFishCount,
+      leaderboard
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(dataToSave));
-  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts, currentLocation, sessionFishCount]);
+  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts, currentLocation, sessionFishCount, leaderboard]);
 
   const handleBossDefeated = useCallback(() => {
     setGold(g => g + 5000);
@@ -186,6 +188,44 @@ const App: React.FC = () => {
     setActiveView(UIView.GAME);
     setNotification('Dữ liệu đã được reset!');
   }, []);
+
+  // --- COMPETITION LOGIC ---
+  useEffect(() => {
+    let timer: any;
+    if (competitionMode && competitionTimeLeft > 0 && gameState !== GameState.BOSS_FIGHT) {
+      timer = setInterval(() => {
+        setCompetitionTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setCompetitionMode(false);
+            setGameState(GameState.START);
+            setActiveView(UIView.RESULTS);
+            
+            // Save to leaderboard
+            setLeaderboard(prevLb => {
+              const newEntry = { score: competitionScore, date: new Date().toLocaleDateString('vi-VN') };
+              const newList = [...prevLb, newEntry].sort((a, b) => b.score - a.score).slice(0, 10);
+              return newList;
+            });
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [competitionMode, competitionTimeLeft, gameState, competitionScore]);
+
+  const startCompetition = () => {
+    setCompetitionMode(true);
+    setCompetitionTimeLeft(180);
+    setCompetitionScore(0);
+    setSessionFishCount(0);
+    setGameState(GameState.IDLE);
+    setActiveView(UIView.GAME);
+    setNotification("CHẾ ĐỘ THI ĐẤU BẮT ĐẦU! Cố gắng kiếm nhiều vàng nhất trong 3 phút!");
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   // --- GAMEPLAY LOGIC ---
 
@@ -250,22 +290,15 @@ const App: React.FC = () => {
   }, [currentBait.id]);
 
   const startGame = () => {
-    try { soundManager.playClick(); } catch(e) {}
-    try { (soundManager as any).startAmbient?.(); } catch(e) {}
-    const count = baitCounts[currentBait.id] || 0;
-    const hasRod = ownedRods.includes(currentRod.id);
-    if (!hasRod) {
-      setNotification("Bạn không có cần câu để bắt đầu. Hãy mua lại cần mới.");
-      setTimeout(() => setNotification(null), 3000);
-      return;
-    }
-    if (count <= 0) {
-      setNotification("Bạn không có thẻo để câu. Hãy mua thêm thẻo ở Cửa hàng.");
-      setTimeout(() => setNotification(null), 3000);
-      return;
-    }
+    console.log("!!! startGame triggered !!!");
     setGameState(GameState.IDLE);
     setActiveView(UIView.GAME);
+    
+    // Play sounds after state transition to ensure no blocking
+    setTimeout(() => {
+      try { soundManager.playClick(); } catch(e) { console.error("Sound click error", e); }
+      try { (soundManager as any).startAmbient?.(); } catch(e) { console.error("Sound ambient error", e); }
+    }, 10);
   };
 
   const addFishToInventory = useCallback((fish: FishType, isGolden: boolean) => {
@@ -287,6 +320,10 @@ const App: React.FC = () => {
 
     const finalValue = Math.floor((isGolden ? fish.value * 2 : fish.value) * comboMultiplier);
     
+    if (competitionMode) {
+      setCompetitionScore(prev => prev + finalValue);
+    }
+
     const isEpic = fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC || isGolden;
     if (isEpic) {
         soundManager.playSuccess();
@@ -550,6 +587,11 @@ const App: React.FC = () => {
           timeOfDay={timeOfDay}
           streak={streak}
           onChangeLocation={(loc) => setCurrentLocation(loc)}
+          competitionMode={competitionMode}
+          competitionTimeLeft={competitionTimeLeft}
+          competitionScore={competitionScore}
+          leaderboard={leaderboard}
+          onStartCompetition={startCompetition}
         />
       </div>
     </div>

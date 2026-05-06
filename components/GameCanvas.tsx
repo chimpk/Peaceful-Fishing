@@ -593,15 +593,25 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     if (gameState === GameState.BOSS_FIGHT) {
-      // Boss fight logic
+      // --- BOSS FIGHT AI ---
+      const time = frameCount.current * 0.05;
+      
+      // Dynamic Boss Movement
+      bossX.current = CANVAS_WIDTH / 2 + Math.cos(time * 0.8) * 150;
+      bossY.current = CANVAS_HEIGHT / 2 + Math.sin(time * 1.2) * 80;
+      
       bossAttackTimer.current++;
-      if (bossAttackTimer.current > 120) { // Attack every 2 seconds
-        playerHP.current = Math.max(0, playerHP.current - 10); // Boss attacks player
+      if (bossAttackTimer.current > 100) { 
+        playerHP.current = Math.max(0, playerHP.current - 12);
         bossAttackTimer.current = 0;
+        shakeIntensity.current = 10; // Screen shake on hit
+        vfxParticlesRef.current.push({
+            x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, 
+            size: 100, speed: 0, opacity: 0.3, life: 10, color: '#ff0000', type: 'ripple'
+        });
         if (playerHP.current <= 0) {
-          // Player defeated
           setTimeout(() => {
-            setNotification("Thua Boss! Thử lại sau.");
+            setNotification("BẠN ĐÃ THẤT BẠI! Hãy nâng cấp kỹ năng để thử lại.");
             setGameState(GameState.IDLE);
             if (onSessionReset) onSessionReset();
           }, 1000);
@@ -610,55 +620,80 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // Player attack charge
       if (isSpacePressed.current) {
-        playerAttackCharge.current += 2;
+        playerAttackCharge.current += (1.5 + skills.fastHands * 0.5);
         if (playerAttackCharge.current >= 100) {
-          bossHP.current = Math.max(0, bossHP.current - 20); // Player attacks boss
+          bossHP.current = Math.max(0, bossHP.current - (15 + skills.sharpEye * 3));
           playerAttackCharge.current = 0;
-          createSparkles(bossX.current, bossY.current, 20, ['#ff0000', '#ffff00']);
+          createSparkles(bossX.current, bossY.current, 40, ['#ef4444', '#f87171', '#ffffff']);
+          shakeIntensity.current = 5;
           if (bossHP.current <= 0) {
-            // Boss defeated
             setTimeout(() => {
-              setNotification("Thắng Boss! Nhận 5000 vàng!");
+              setNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI! +5000 Vàng");
               if (onBossDefeated) onBossDefeated();
               setGameState(GameState.IDLE);
               if (onSessionReset) onSessionReset();
+              createSparkles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, ['#fbbf24', '#f59e0b', '#ffffff']);
             }, 1000);
           }
         }
       } else {
-        playerAttackCharge.current = Math.max(0, playerAttackCharge.current - 1);
+        playerAttackCharge.current = Math.max(0, playerAttackCharge.current - 0.8);
       }
 
-      // Render boss
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(bossX.current - 50, bossY.current - 50, 100, 100);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '20px Arial';
-      ctx.fillText('BOSS', bossX.current - 20, bossY.current - 20);
+      // --- RENDER BOSS ---
+      ctx.save();
+      ctx.translate(bossX.current, bossY.current);
+      const bossPulse = 1 + Math.sin(time * 2) * 0.1;
+      ctx.scale(bossPulse * 2.5, bossPulse * 2.5);
+      
+      // Boss Glow
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
+      gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
+      gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2); ctx.fill();
 
-      // Boss HP bar
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(50, 50, 200, 20);
-      ctx.fillStyle = '#ff0000';
-      ctx.fillRect(50, 50, (bossHP.current / bossMaxHP.current) * 200, 20);
+      // Boss Body (Placeholder for actual sprite, but looks better now)
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-40, 0); ctx.quadraticCurveTo(0, -30, 40, 0); ctx.quadraticCurveTo(0, 30, -40, 0);
+      ctx.fill(); ctx.stroke();
+      
+      // Eye
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath(); ctx.arc(20, -5, 5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(`Boss HP: ${bossHP.current}/${bossMaxHP.current}`, 60, 65);
+      ctx.beginPath(); ctx.arc(22, -6, 2, 0, Math.PI * 2); ctx.fill();
+      
+      ctx.restore();
 
-      // Player HP bar
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(50, 80, 200, 20);
-      ctx.fillStyle = '#00ff00';
-      ctx.fillRect(50, 80, (playerHP.current / playerMaxHP.current) * 200, 20);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(`Your HP: ${playerHP.current}/${playerMaxHP.current}`, 60, 95);
+      // --- BOSS UI ---
+      // Boss Health
+      const barW = 400; const barH = 12; const barX = (CANVAS_WIDTH - barW) / 2;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.roundRect(barX, 40, barW, barH, 6); ctx.fill();
+      ctx.fillStyle = '#ef4444';
+      ctx.roundRect(barX, 40, (bossHP.current / bossMaxHP.current) * barW, barH, 6); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
+      ctx.fillText(`CÁ QUỶ VƯƠNG (HP: ${Math.ceil(bossHP.current)}%)`, CANVAS_WIDTH/2, 35);
 
-      // Attack bar
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(50, 110, 200, 20);
-      ctx.fillStyle = '#ffff00';
-      ctx.fillRect(50, 110, (playerAttackCharge.current / 100) * 200, 20);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText('Attack Charge', 60, 125);
+      // Player Health
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.roundRect(40, CANVAS_HEIGHT - 60, 200, 10, 5); ctx.fill();
+      ctx.fillStyle = '#22c55e';
+      ctx.roundRect(40, CANVAS_HEIGHT - 60, (playerHP.current / playerMaxHP.current) * 200, 10, 5); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.textAlign = 'left';
+      ctx.fillText(`SỨC BỀN: ${Math.ceil(playerHP.current)}%`, 40, CANVAS_HEIGHT - 65);
+
+      // Attack Charge
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.roundRect(CANVAS_WIDTH - 240, CANVAS_HEIGHT - 60, 200, 10, 5); ctx.fill();
+      ctx.fillStyle = '#eab308';
+      ctx.roundRect(CANVAS_WIDTH - 240, CANVAS_HEIGHT - 60, (playerAttackCharge.current / 100) * 200, 10, 5); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.textAlign = 'right';
+      ctx.fillText('GỒNG LỰC (SPACE)', CANVAS_WIDTH - 40, CANVAS_HEIGHT - 65);
     }
 
     const rodStress = activeFish.current ? activeFish.current.type.value / Math.max(1, currentRod.maxValue ?? 300) : 0;
@@ -700,10 +735,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       width={CANVAS_WIDTH}
       height={CANVAS_HEIGHT}
       className="block cursor-crosshair shadow-inner shadow-black/50"
-      onTouchStart={(e) => { e.preventDefault(); handlePressStart(); }}
-      onTouchEnd={(e) => { e.preventDefault(); handlePressEnd(); }}
-      onMouseDown={handlePressStart}
-      onMouseUp={handlePressEnd}
+      style={{ pointerEvents: gameState === GameState.START ? 'none' : 'auto' }}
+      onTouchStart={(e) => { if (gameState !== GameState.START) { e.preventDefault(); handlePressStart(); } }}
+      onTouchEnd={(e) => { if (gameState !== GameState.START) { e.preventDefault(); handlePressEnd(); } }}
+      onMouseDown={() => { if (gameState !== GameState.START) handlePressStart(); }}
+      onMouseUp={() => { if (gameState !== GameState.START) handlePressEnd(); }}
     />
   );
 };
