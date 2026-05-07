@@ -1,8 +1,12 @@
 
+import { LocationType } from './types';
+
 class SoundManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private isAmbientRunning = false;
+  private ambientNodes: { noise?: AudioBufferSourceNode, lfo?: OscillatorNode, filter?: BiquadFilterNode, gain?: GainNode, oscs?: OscillatorNode[] } = {};
+  private currentLocation: LocationType | 'POND' = 'POND';
 
   private getCtx(): AudioContext | null {
     if (this.ctx) {
@@ -92,6 +96,56 @@ class SoundManager {
     } catch (e) { /* bỏ qua */ }
   }
 
+  playTrophyCatch() {
+    try {
+      const ctx = this.getCtx();
+      const masterGain = this.masterGain;
+      if (!ctx || !masterGain) return;
+      // Hợp âm hoành tráng (C major 7th chord spread out)
+      const notes = [523.25, 659.25, 783.99, 987.77, 1046.50]; 
+      
+      notes.forEach((freq, i) => {
+        try {
+          const osc = ctx.createOscillator();
+          osc.type = i % 2 === 0 ? 'triangle' : 'sine';
+          osc.frequency.value = freq;
+          const gain = ctx.createGain();
+          // Chơi cùng lúc nhưng fade out dài hơn
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0);
+          osc.connect(gain);
+          gain.connect(masterGain);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 2.1);
+        } catch (e2) { }
+      });
+    } catch (e) { }
+  }
+
+  playBossWarning() {
+    try {
+      const ctx = this.getCtx();
+      const masterGain = this.masterGain;
+      if (!ctx || !masterGain) return;
+      
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(800, ctx.currentTime + 0.5);
+      osc.frequency.linearRampToValueAtTime(400, ctx.currentTime + 1.0);
+      
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.5);
+      gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 1.0);
+      
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 1.1);
+    } catch (e) { }
+  }
+
   playClick() {
     try {
       const ctx = this.getCtx();
@@ -109,11 +163,35 @@ class SoundManager {
     } catch (e) { /* bỏ qua */ }
   }
 
+  private stopAmbient() {
+    if (this.ambientNodes.noise) {
+      try { this.ambientNodes.noise.stop(); } catch(e) {}
+    }
+    if (this.ambientNodes.lfo) {
+      try { this.ambientNodes.lfo.stop(); } catch(e) {}
+    }
+    if (this.ambientNodes.oscs) {
+      this.ambientNodes.oscs.forEach(osc => {
+        try { osc.stop(); } catch(e) {}
+      });
+    }
+    this.ambientNodes = {};
+    this.isAmbientRunning = false;
+  }
+
+  setAmbientLocation(location: LocationType | 'POND') {
+    this.currentLocation = location;
+    if (this.isAmbientRunning) {
+      this.startAmbient(); // Restart with new location
+    }
+  }
+
   startAmbient() {
-    if (this.isAmbientRunning) return;
     try {
       const ctx = this.getCtx();
       if (!ctx || !this.masterGain) return;
+      
+      this.stopAmbient(); // Stop previous ambient if any
       
       const bufferSize = ctx.sampleRate * 2;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -125,26 +203,62 @@ class SoundManager {
       const noiseSource = ctx.createBufferSource();
       noiseSource.buffer = buffer;
       noiseSource.loop = true;
+      this.ambientNodes.noise = noiseSource;
       
       const lfo = ctx.createOscillator();
       lfo.type = 'sine';
-      lfo.frequency.value = 0.15;
+      this.ambientNodes.lfo = lfo;
       
       const lfoGain = ctx.createGain();
-      lfoGain.gain.value = 400;
       lfo.connect(lfoGain);
       
       const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 350;
+      this.ambientNodes.filter = filter;
       lfoGain.connect(filter.frequency);
       
       const mainGain = ctx.createGain();
-      mainGain.gain.value = 0.03;
+      this.ambientNodes.gain = mainGain;
       
       noiseSource.connect(filter);
       filter.connect(mainGain);
       mainGain.connect(this.masterGain);
+      
+      // Cấu hình theo location
+      if (this.currentLocation === 'POND') {
+        // Tiếng dế / côn trùng rỉ rả
+        lfo.frequency.value = 15; // Rung nhanh
+        lfoGain.gain.value = 1000;
+        filter.type = 'bandpass';
+        filter.frequency.value = 4000;
+        mainGain.gain.value = 0.015;
+        
+      } else if (this.currentLocation === 'OCEAN') {
+        // Tiếng sóng biển (white noise slow sweep)
+        lfo.frequency.value = 0.1; // Chậm
+        lfoGain.gain.value = 800;
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+        mainGain.gain.value = 0.04;
+        
+      } else if (this.currentLocation === 'CAVE') {
+        // Âm vang trầm hang động
+        lfo.frequency.value = 0.05;
+        lfoGain.gain.value = 200;
+        filter.type = 'lowpass';
+        filter.frequency.value = 150;
+        mainGain.gain.value = 0.05;
+        
+        // Thêm oscillator trầm
+        const caveOsc = ctx.createOscillator();
+        caveOsc.type = 'sine';
+        caveOsc.frequency.value = 55; // Low rumble
+        const caveOscGain = ctx.createGain();
+        caveOscGain.gain.value = 0.05;
+        caveOsc.connect(caveOscGain);
+        caveOscGain.connect(this.masterGain);
+        caveOsc.start();
+        this.ambientNodes.oscs = [caveOsc];
+      }
       
       noiseSource.start();
       lfo.start();

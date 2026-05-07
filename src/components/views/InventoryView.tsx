@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import Header from '../ui/Header';
 import BottomNav from '../ui/BottomNav';
-import { UIView, InventoryItem, RodType, BaitType, Quest } from '../../core/types';
+import { UIView, InventoryItem, RodType, BaitType, Quest, Rarity } from '../../core/types';
 
 interface InventoryViewProps {
   gold: number;
@@ -21,6 +21,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({
   setActiveView, onSellFish, onUpgradeCapacity, onSellAll, onUseAsBait 
 }) => {
   const [tab, setTab] = useState<'items' | 'upgrade'>('items');
+  const [confirmSellTarget, setConfirmSellTarget] = useState<InventoryItem | null>(null);
+
+  const handleSellClick = (item: InventoryItem) => {
+    if (item.fish.rarity === Rarity.LEGENDARY || item.fish.rarity === Rarity.MYTHIC || item.fish.rarity === Rarity.EPIC) {
+      setConfirmSellTarget(item);
+    } else {
+      onSellFish(item.timestamp);
+    }
+  };
 
   return (
     <div className="absolute inset-0 bg-slate-950 flex flex-col pointer-events-auto text-white overflow-hidden pb-24 animate-in fade-in duration-500">
@@ -57,7 +66,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                       <h4 className="font-black text-sm italic tracking-tight mb-2 text-white/90 line-clamp-1">{item.fish.name}</h4>
                       <div className="text-yellow-500 font-black text-xs mb-4">{(item.isGolden ? item.fish.value * 2 : item.fish.value).toLocaleString()} 💰</div>
                       <div className="flex gap-2 w-full mt-auto">
-                        <button onClick={() => onSellFish(item.timestamp)} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
+                        <button onClick={() => handleSellClick(item)} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
                         <button onClick={() => onUseAsBait(item.timestamp)} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
                       </div>
                    </div>
@@ -94,6 +103,36 @@ const InventoryView: React.FC<InventoryViewProps> = ({
       </div>
 
       <BottomNav activeView={UIView.INVENTORY} setActiveView={setActiveView} quests={quests} />
+      
+      {/* Confirm Sell Overlay */}
+      {confirmSellTarget && (
+        <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-[200] flex items-center justify-center p-8 animate-in fade-in duration-200 pointer-events-auto">
+          <div className="bg-slate-900 border-2 border-red-500/30 rounded-[3rem] p-8 max-w-sm w-full text-center shadow-[0_30px_60px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-300">
+            <div className="text-6xl mb-6 animate-pulse">⚠️</div>
+            <h3 className="text-2xl font-black italic text-red-400 mb-2">CẢNH BÁO</h3>
+            <p className="text-sm text-slate-300 mb-8 leading-relaxed">
+              Bạn đang bán một con cá hiếm (<span className="text-yellow-400 font-black">{confirmSellTarget.fish.name}</span>). Bạn có chắc chắn muốn bán nó không?
+            </p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setConfirmSellTarget(null)}
+                className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-xs text-slate-400 uppercase tracking-widest transition-all"
+              >
+                HỦY BỎ
+              </button>
+              <button 
+                onClick={() => {
+                  onSellFish(confirmSellTarget.timestamp);
+                  setConfirmSellTarget(null);
+                }}
+                className="flex-1 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-600/30 transition-all active:scale-95"
+              >
+                BÁN LUÔN
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

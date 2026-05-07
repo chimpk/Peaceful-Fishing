@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay } from '../core/types';
+import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay, NotificationType } from '../core/types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../core/gameData';
 import * as Graphics from '../core/graphics';
 import * as BossModels from '../core/fish/BossModels';
@@ -19,12 +19,15 @@ interface GameCanvasProps {
   skills: PlayerSkills;
   location: LocationType;
   timeOfDay: TimeOfDay;
+  streak: number;
   onBossDefeated?: () => void;
   onSessionReset?: () => void;
   onLineBroken: () => void;
-  setNotification: (msg: string | null) => void;
+  addNotification: (msg: string, type: NotificationType) => void;
   liveBait: FishType | null;
   setLiveBait: (bait: FishType | null) => void;
+  isBossSpawned: boolean;
+  setIsBossSpawned: (v: boolean) => void;
 }
 
 interface Particle {
@@ -58,7 +61,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, baitCounts, ownedRods, weather, skills, location, timeOfDay, onBossDefeated, onSessionReset, onLineBroken, setNotification, liveBait, setLiveBait
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, baitCounts, ownedRods, weather, skills, location, timeOfDay, streak, onBossDefeated, onSessionReset, onLineBroken, addNotification, liveBait, setLiveBait, isBossSpawned, setIsBossSpawned
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -120,8 +123,25 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const biteWindowTimer = useRef(0);
   const isBitingHard = useRef(false);
   const baitSettleTimer = useRef(0);
+  const baitSettleTotal = useRef(0); // tracks initial settle duration for progress bar
   const reelRotation = useRef(0);
   const nibbleSide = useRef(1); // 1 = from right, -1 = from left
+
+  // Fishing Frenzy Mode
+  const frenzyActive = useRef(false);
+  const frenzyTimer = useRef(0); // frames remaining in frenzy (20s = 1200 frames)
+  const frenzyNotified = useRef(false);
+
+  // Perfect Cast
+  const perfectCastBonus = useRef(false); // active for this cast session
+
+  // Active Skills
+  const focusActive = useRef(false);     // F - slow tension increase 3s
+  const focusTimer = useRef(0);          // frames remaining
+  const focusCooldown = useRef(0);       // cooldown frames (15s = 900)
+  const powerReelActive = useRef(false); // G - fast reel burst 2s
+  const powerReelTimer = useRef(0);
+  const powerReelCooldown = useRef(0);   // cooldown 20s = 1200 frames
 
   const prevTimeOfDayRef = useRef<TimeOfDay>(timeOfDay);
   const transitionProgressRef = useRef(1); // 0 to 1
@@ -187,11 +207,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     );
     const pool = validFishes.length > 0 ? validFishes : FISH_TYPES;
 
+    // Frenzy + Perfect Cast both boost rarity
+    const frenzyBoost = frenzyActive.current ? 2.5 : 1;
+    const castBoost = perfectCastBonus.current ? 1.2 : 1;
+
     const weightedTypes = pool.map(f => {
       let weight = f.weight;
       const weatherBonus = WEATHER_BONUSES[weather].rarity;
       
-      let finalBoost = rarityBoost;
+      let finalBoost = rarityBoost * frenzyBoost * castBoost;
       if (liveBait) {
           // Live bait dramatically increases chance for high rarity
           if (f.rarity === Rarity.EPIC) finalBoost *= 3;
@@ -263,20 +287,33 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]); 
 
+  // Frenzy: activate when streak crosses 10, deactivate if streak drops below 10
+  useEffect(() => {
+    if (streak >= 10 && !frenzyActive.current) {
+      frenzyActive.current = true;
+      frenzyTimer.current = 1200; // 20 seconds at 60fps
+      frenzyNotified.current = false;
+    }
+    if (streak < 5) {
+      frenzyActive.current = false;
+      frenzyTimer.current = 0;
+    }
+  }, [streak]);
+
   const canStartFishing = useCallback(() => {
     const currentBaitCount = baitCounts[currentBait.id] || 0;
     const hasAvailableRod = ownedRods.includes(currentRod.id);
 
     if (!hasAvailableRod) {
-      setNotification('Không có cần câu. Hãy mua lại cần mới.');
+      addNotification('Không có cần câu. Hãy mua lại cần mới.', 'warning');
       return false;
     }
     if (currentBaitCount <= 0) {
-      setNotification('Không có thẻo để câu. Hãy mua thêm thẻo.');
+      addNotification('Không có thẻo để câu. Hãy mua thêm thẻo.', 'warning');
       return false;
     }
     return true;
-  }, [baitCounts, currentBait.id, currentRod.id, ownedRods, setNotification]);
+  }, [baitCounts, currentBait.id, currentRod.id, ownedRods, addNotification]);
 
   const handleHookAction = useCallback(() => {
     if (gameState === GameState.NIBBLING && activeFish.current) {
@@ -290,6 +327,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             onFishLost("Thẻo bị đứt vì cá quá to!");
             setGameState(GameState.IDLE);
             activeFish.current = null;
+            return;
+        }
+
+        if (collidingFish.id === 'boss_dummy') {
+            setGameState(GameState.BOSS_FIGHT);
+            soundManager.playSuccess();
             return;
         }
 
@@ -342,9 +385,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           chargePower.current = 0;
           chargeDirection.current = 1;
         } else if (gameState === GameState.WAITING) {
-          // Reeling back manually (implemented before)
+          // Reeling back manually
         } else if (gameState === GameState.NIBBLING) {
-           // Handle hook action
            handleHookAction();
         } else if (gameState === GameState.REELING) {
           tensionVelocity.current -= 0.0035;
@@ -352,12 +394,36 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
     }
-  }, [gameState, canStartFishing, handleHookAction]);
+    // Active Skill: F = Focus (slow tension) — only during REELING
+    if (e.code === 'KeyF' && gameState === GameState.REELING) {
+      if (focusCooldown.current <= 0 && !focusActive.current) {
+        focusActive.current = true;
+        focusTimer.current = 180; // 3 seconds at 60fps
+        focusCooldown.current = 900; // 15s cooldown
+        addNotification('TẬP TRUNG! Tension chậm lại 3 giây.', 'info');
+      } else if (focusCooldown.current > 0) {
+        addNotification(`Tập Trung đang hồi chiêu (${Math.ceil(focusCooldown.current / 60)}s)`, 'warning');
+      }
+    }
+    // Active Skill: G = Power Reel (boost reel speed) — only during REELING
+    if (e.code === 'KeyG' && gameState === GameState.REELING) {
+      if (powerReelCooldown.current <= 0 && !powerReelActive.current) {
+        powerReelActive.current = true;
+        powerReelTimer.current = 120; // 2 seconds
+        powerReelCooldown.current = 1200; // 20s cooldown
+        addNotification('KÉO MẠNH! Reeling tăng tốc 2 giây!', 'success');
+      } else if (powerReelCooldown.current > 0) {
+        addNotification(`Kéo Mạnh đang hồi chiêu (${Math.ceil(powerReelCooldown.current / 60)}s)`, 'warning');
+      }
+    }
+  }, [gameState, canStartFishing, handleHookAction, addNotification]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
       isSpacePressed.current = false;
       if (gameState === GameState.CHARGING) {
+        // Perfect Cast: power >= 95%
+        perfectCastBonus.current = chargePower.current >= 95;
         targetHookX.current = 220 + (chargePower.current / 100) * 500;
         targetHookY.current = 250 + (chargePower.current / 100) * 300;
         castProgress.current = 0;
@@ -388,6 +454,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const handlePressEnd = useCallback(() => {
     isSpacePressed.current = false;
     if (gameState === GameState.CHARGING) {
+      // Perfect Cast: power >= 95%
+      perfectCastBonus.current = chargePower.current >= 95;
       targetHookX.current = 220 + (chargePower.current / 100) * 500;
       targetHookY.current = 250 + (chargePower.current / 100) * 300;
       castProgress.current = 0;
@@ -431,7 +499,49 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
+
+    // --- FRENZY MODE COUNTDOWN ---
+    if (frenzyActive.current) {
+      frenzyTimer.current--;
+      // Notify on activation
+      if (!frenzyNotified.current) {
+        frenzyNotified.current = true;
+        addNotification('🔥 FISHING FRENZY! Cá hiếm xuất hiện nhiều hơn!', 'achievement');
+      }
+      // Frenzy ends when timer hits 0
+      if (frenzyTimer.current <= 0) {
+        frenzyActive.current = false;
+        frenzyTimer.current = 0;
+        addNotification('Frenzy kết thúc...', 'info');
+      }
+      // Every 60 frames during frenzy: spawn an extra fish for density
+      if (frameCount.current % 60 === 0 && fishRef.current.length < 25) {
+        fishRef.current.push(spawnSingleFish());
+      }
+      // Frenzy screen tint: pulsing red/orange glow at edges
+      const frenzyPulse = 0.08 + Math.sin(frameCount.current * 0.12) * 0.04;
+      const frenzyGrad = ctx.createRadialGradient(
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.3,
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.9
+      );
+      frenzyGrad.addColorStop(0, 'rgba(0,0,0,0)');
+      frenzyGrad.addColorStop(1, `rgba(239,68,68,${frenzyPulse})`);
+      ctx.fillStyle = frenzyGrad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Frenzy timer bar at top
+      const frenzyBarW = 300;
+      const frenzyBarX = (CANVAS_WIDTH - frenzyBarW) / 2;
+      const frenzyRatio = frenzyTimer.current / 1200;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.roundRect(frenzyBarX - 2, 14, frenzyBarW + 4, 12, 6); ctx.fill();
+      const frenzyColor = frenzyTimer.current < 300 ? '#ef4444' : '#f97316';
+      ctx.fillStyle = frenzyColor;
+      ctx.roundRect(frenzyBarX, 16, frenzyBarW * frenzyRatio, 8, 4); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center';
+      ctx.fillText(`🔥 FRENZY ${Math.ceil(frenzyTimer.current / 60)}s`, CANVAS_WIDTH / 2, 13);
+    }
+
     // Update Time Transition
     if (transitionProgressRef.current < 1) {
         transitionProgressRef.current += 0.003; // ~5.5 seconds transition at 60fps
@@ -450,6 +560,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         prevTimeOfDayRef.current, 
         transitionProgressRef.current
     );
+
+    // --- AMBIENT EFFECTS ---
+    // God Rays: Ocean + Day/Sunset only
+    if (location === 'OCEAN' && timeOfDay !== 'NIGHT') {
+      Graphics.drawGodRays(ctx, frameCount.current);
+    }
+    // Fireflies + Leaf Fall: Pond Night only
+    if (location === 'POND' && timeOfDay === 'NIGHT') {
+      Graphics.drawAmbientNight(ctx, frameCount.current);
+    }
 
     bubblesRef.current.forEach(b => {
       b.y -= b.speed; if (b.y < 200) b.y = CANVAS_HEIGHT + 20;
@@ -493,21 +613,40 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const attractRange = currentBait.attraction * WEATHER_BONUSES[weather].attraction * (0.6 + sizeMatchRatio * 0.6) + 60;
       const interestChance = 0.4 + sizeMatchRatio * 0.5;
       f.stateTimer--;
-      if (canAttractFish && distSq < attractRange * attractRange && Math.random() < interestChance) {
+      if (canAttractFish && distSq < attractRange * attractRange) {
         const isNearPier = hookX.current < 300;
         const scaredRange = isNearPier ? 60 : 100; // Less scared if cast near pier
 
-        if (f.personality === 'shy' && distSq < scaredRange * scaredRange) {
-          f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120;
-        } else if (f.state !== 'scared') {
-          f.state = 'interested'; 
-          // Update target to hook position
-          f.targetAngle = Math.atan2(dy, dx);
-          f.targetY = hookY.current; 
+        // Only roll to change state if not already reacting to the bait
+        if (f.state !== 'interested' && f.state !== 'scared') {
+          // Adjust random chance because it runs every frame (~60fps). 
+          // Divide by 20 so it reacts naturally over time instead of flickering.
+          if (Math.random() < interestChance / 20) {
+            if (f.personality === 'shy' && distSq < scaredRange * scaredRange) {
+              f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120;
+            } else {
+              f.state = 'interested'; 
+            }
+          }
+        }
 
-          if ([Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity)) {
-            if (!highestInterestedRarity || f.type.rarity === Rarity.MYTHIC || (f.type.rarity === Rarity.LEGENDARY && highestInterestedRarity === Rarity.EPIC)) {
-              highestInterestedRarity = f.type.rarity;
+        if (f.state === 'scared') {
+          f.targetAngle = Math.atan2(-dy, -dx);
+        } else if (f.state === 'interested') {
+          // Shy fish gets spooked if it gets too close
+          if (f.personality === 'shy' && distSq < scaredRange * scaredRange) {
+            f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120;
+          } else {
+            // Prevent target angle from snapping/flipping wildly when extremely close to hook
+            if (distSq > 150) {
+                f.targetAngle = Math.atan2(dy, dx);
+            }
+            f.targetY = hookY.current; 
+
+            if ([Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity)) {
+              if (!highestInterestedRarity || f.type.rarity === Rarity.MYTHIC || (f.type.rarity === Rarity.LEGENDARY && highestInterestedRarity === Rarity.EPIC)) {
+                highestInterestedRarity = f.type.rarity;
+              }
             }
           }
         }
@@ -591,10 +730,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       if (castProgress.current >= 1) {
         hookX.current = targetHookX.current; hookY.current = targetHookY.current;
-        createSplash(hookX.current, hookY.current, 1.2);
+        createSplash(hookX.current, hookY.current, perfectCastBonus.current ? 2.0 : 1.2);
         setGameState(GameState.WAITING);
-        // Random wait after cast: 5s to 10s
-        baitSettleTimer.current = 300 + Math.random() * 300; 
+        // Settle timer: Perfect Cast = faster (2-3s), Normal = 4-8s, Frenzy = 1.5-3s
+        const baseSettle = frenzyActive.current
+          ? 90 + Math.random() * 90     // Frenzy: 1.5–3s
+          : perfectCastBonus.current
+            ? 120 + Math.random() * 60  // Perfect: 2–3s
+            : 240 + Math.random() * 240; // Normal: 4–8s
+        baitSettleTimer.current = baseSettle;
+        baitSettleTotal.current = baseSettle;
+        if (perfectCastBonus.current) {
+          addNotification('QUĂNG HOÀN HẢO! +20% Attraction', 'success');
+        }
       }
     }
 
@@ -615,7 +763,53 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         hookY.current += Math.sin(frameCount.current * 0.1) * 0.3;
       }
 
-      const collidingFish = (baitSettleTimer.current <= 0) ? fishRef.current.find(f => {
+      // --- BAIT SETTLE VISUAL BAR (no text, bar only) ---
+      if (baitSettleTimer.current > 0) {
+        baitSettleTimer.current--;
+        const settleRatio = baitSettleTimer.current / Math.max(1, baitSettleTotal.current);
+        const bx = hookX.current - 35;
+        const by = hookY.current - 30;
+        const barW = 70;
+        const barH = 7;
+
+        // Track background
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.beginPath(); ctx.roundRect(bx - 2, by - 2, barW + 4, barH + 4, 5); ctx.fill();
+
+        // Progress fill — yellow → green when ready
+        const fillW = barW * (1 - settleRatio);
+        ctx.fillStyle = settleRatio > 0 ? '#facc15' : '#22c55e';
+        ctx.beginPath(); ctx.roundRect(bx, by, Math.max(2, fillW), barH, 3); ctx.fill();
+      }
+
+      const isBossBite = isBossSpawned && baitSettleTimer.current <= 0;
+
+      const collidingFish = isBossBite ? {
+          id: 'boss_dummy',
+          type: {
+              name: location === 'OCEAN' ? 'KRAKEN VỰC THẲM' : (location === 'CAVE' ? 'BẠCH TUỘC MA' : 'CÁ MẬP CƠ KHÍ'),
+              value: 5000,
+              weight: 9999,
+              rarity: Rarity.MYTHIC,
+              size: 100,
+              speed: 5.0,
+              description: 'Boss huyền thoại',
+              spriteInfo: { color: '#ef4444', shape: 'shark' }
+          },
+          x: hookX.current,
+          y: hookY.current,
+          targetY: hookY.current,
+          angle: 0,
+          targetAngle: 0,
+          personality: 'brave' as FishPersonality,
+          swimStyle: 'charger' as FishSwimStyle,
+          state: 'interested' as FishAIState,
+          stateTimer: 60,
+          velocity: { x: 0, y: 0 },
+          baseSpeed: 5.0,
+          isGolden: false,
+          direction: 1
+      } : (baitSettleTimer.current <= 0) ? fishRef.current.find(f => {
         // Calculate mouth position based on angle and size
         const mouthX = f.x + Math.cos(f.angle) * f.type.size;
         const mouthY = f.y + Math.sin(f.angle) * f.type.size;
@@ -643,10 +837,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         nibbleTimer.current = 30 + Math.random() * 40;
         nibbleCount.current = 0;
         
-        // Randomize nibbles based on rarity
         const rarity = collidingFish.type.rarity;
         let minN = 1, maxN = 3;
-        if (rarity === Rarity.RARE) { minN = 2; maxN = 4; }
+        if (isBossBite) { minN = 5; maxN = 8; }
+        else if (rarity === Rarity.RARE) { minN = 2; maxN = 4; }
         else if (rarity === Rarity.EPIC) { minN = 3; maxN = 5; }
         else if (rarity === Rarity.LEGENDARY) { minN = 4; maxN = 6; }
         else if (rarity === Rarity.MYTHIC) { minN = 5; maxN = 8; }
@@ -716,7 +910,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 }
             }
         }
-        
         // Horizontal shake only
         hookX.current += (Math.random() - 0.5) * 0.8;
 
@@ -725,7 +918,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             { x: activeFish.current.x, y: activeFish.current.y, angle: activeFish.current.angle, direction: -nibbleSide.current }, 
             0.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
 
-        // Suble visual cue for biting
+        // Bite indicator (Only show !, no fish names)
         if (isBitingHard.current) {
             ctx.save();
             ctx.font = 'bold 60px Arial';
@@ -813,8 +1006,30 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      if (isSpacePressed.current) tensionVelocity.current -= finalLift;
-      else tensionVelocity.current += finalGravity;
+      // --- ACTIVE SKILL TIMERS & EFFECTS ---
+      if (focusActive.current) {
+        focusTimer.current--;
+        if (focusTimer.current <= 0) {
+          focusActive.current = false;
+        }
+      }
+      if (focusCooldown.current > 0) focusCooldown.current--;
+
+      if (powerReelActive.current) {
+        powerReelTimer.current--;
+        if (powerReelTimer.current <= 0) {
+          powerReelActive.current = false;
+        }
+      }
+      if (powerReelCooldown.current > 0) powerReelCooldown.current--;
+
+      // Focus: reduce gravity by 60%
+      const focusMultiplier = focusActive.current ? 0.4 : 1;
+      // PowerReel: boosted lift
+      const powerReelLift = powerReelActive.current ? 1.8 : 1;
+
+      if (isSpacePressed.current) tensionVelocity.current -= finalLift * powerReelLift;
+      else tensionVelocity.current += finalGravity * focusMultiplier;
       tensionVelocity.current *= 0.95;
       tensionCursor.current += tensionVelocity.current;
       tensionCursor.current = Math.max(0, Math.min(1, tensionCursor.current));
@@ -846,12 +1061,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const isInZone = Math.abs(tensionCursor.current - tensionZone.current) < hz;
       
       const progressFactor = 0.8 + sizeMatch * 0.2;
+      const powerReelBoost = powerReelActive.current ? 2.0 : 1;
       if (isInZone) {
-        reelingProgress.current += Math.max(0.12, 0.35 - (ft / 450)) * (1 + skills.fastHands * 0.25) * progressFactor;
-        lineHealth.current = Math.min(100, lineHealth.current + 0.35 * progressFactor); 
+        reelingProgress.current += Math.max(0.12, 0.35 - (ft / 450)) * (1 + skills.fastHands * 0.25) * progressFactor * powerReelBoost;
+        lineHealth.current = Math.min(100, lineHealth.current + 0.5 * progressFactor); // faster recovery
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
-        let damage = (0.35 + (ft / 250) + mismatchPenalty * 0.25) / currentRod.lineStrength; 
+        // Reduced damage: 0.15 base (was 0.35) so bar stays green longer for casual play
+        let damage = (0.15 + (ft / 600) + mismatchPenalty * 0.15) / currentRod.lineStrength; 
         
         // Behavior penalties
         if (isBehaviorActive.current) {
@@ -917,6 +1134,45 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillText(label, CANVAS_WIDTH / 2, 170);
         ctx.restore();
       }
+
+      // --- Active Skill HUD (bottom right corner) ---
+      const skillHudX = CANVAS_WIDTH - 180;
+      const skillHudY = CANVAS_HEIGHT - 110;
+      ctx.save();
+      // Focus skill (F)
+      const focusReady = focusCooldown.current <= 0 && !focusActive.current;
+      ctx.globalAlpha = focusActive.current ? 1 : (focusReady ? 0.9 : 0.45);
+      ctx.fillStyle = focusActive.current ? '#60a5fa' : (focusReady ? '#1e40af' : '#334155');
+      ctx.roundRect(skillHudX, skillHudY, 76, 40, 8); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('[F] TẬP TRUNG', skillHudX + 38, skillHudY + 13);
+      if (focusActive.current) {
+        ctx.fillStyle = '#bfdbfe';
+        ctx.fillText(`${Math.ceil(focusTimer.current / 60)}s`, skillHudX + 38, skillHudY + 30);
+      } else if (!focusReady) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`${Math.ceil(focusCooldown.current / 60)}s CD`, skillHudX + 38, skillHudY + 30);
+      } else {
+        ctx.fillStyle = '#93c5fd'; ctx.fillText('SẶN SÀNG', skillHudX + 38, skillHudY + 30);
+      }
+      // PowerReel skill (G)
+      const prReady = powerReelCooldown.current <= 0 && !powerReelActive.current;
+      ctx.globalAlpha = powerReelActive.current ? 1 : (prReady ? 0.9 : 0.45);
+      ctx.fillStyle = powerReelActive.current ? '#fb923c' : (prReady ? '#9a3412' : '#334155');
+      ctx.roundRect(skillHudX + 84, skillHudY, 76, 40, 8); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.textAlign = 'center';
+      ctx.fillText('[G] KÉO MẠNH', skillHudX + 122, skillHudY + 13);
+      if (powerReelActive.current) {
+        ctx.fillStyle = '#fed7aa';
+        ctx.fillText(`${Math.ceil(powerReelTimer.current / 60)}s`, skillHudX + 122, skillHudY + 30);
+      } else if (!prReady) {
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`${Math.ceil(powerReelCooldown.current / 60)}s CD`, skillHudX + 122, skillHudY + 30);
+      } else {
+        ctx.fillStyle = '#fdba74'; ctx.fillText('SẴN SÀNG', skillHudX + 122, skillHudY + 30);
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
     }
 
     if (gameState === GameState.CAUGHT && activeFish.current) {
@@ -989,44 +1245,42 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         });
         
         if (playerHP.current <= 0) {
-          setTimeout(() => {
-            setNotification("BẠN ĐÃ THẤT BẠI! Hãy nâng cấp kỹ năng để thử lại.");
-            setTimeout(() => setNotification(null), 2000);
-            setGameState(GameState.IDLE);
-            if (onSessionReset) onSessionReset();
-          }, 1000);
+            setGameState(GameState.GAMEOVER);
+            setIsBossSpawned(false);
+            addNotification("BẠN ĐÃ THẤT BẠI trước BOSS...", 'warning');
         }
       }
 
-      // Player Attack: Charge & Release
       if (isSpacePressed.current) {
         playerAttackCharge.current = Math.min(100, playerAttackCharge.current + (2.0 + skills.fastHands * 0.8));
       } else if (playerAttackCharge.current > 20) {
-        // --- PLAYER STRIKE ---
         const charge = playerAttackCharge.current;
         let damage = (charge / 100) * (20 + skills.sharpEye * 5);
         
-        // PARRY MECHANIC: Strike during warning
         if (isWarning) {
             damage *= 2.5;
-            setNotification("PHẢN ĐÒN HOÀN HẢO! (CRITICAL)");
-            setTimeout(() => setNotification(null), 1000);
+            addNotification("PHẢN ĐÒN HOÀN HẢO! (CRITICAL)", 'success');
             createSparkles(bossX.current, bossY.current, 60, ['#ffffff', '#fef08a', '#fbbf24']);
-            bossAttackTimer.current = -30; // Stun boss slightly
+            bossAttackTimer.current = -30;
         } else {
             createSparkles(bossX.current, bossY.current, 30, ['#ef4444', '#f87171', '#ffffff']);
         }
 
         bossHP.current = Math.max(0, bossHP.current - damage);
+        Graphics.triggerBossHitFlash();
         playerAttackCharge.current = 0;
         shakeIntensity.current = 8;
 
         if (bossHP.current <= 0) {
           setTimeout(() => {
-            setNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI! +5000 Vàng");
-            setTimeout(() => setNotification(null), 2500);
+            addNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI!", 'success');
+            setIsBossSpawned(false);
+            setGameState(GameState.CAUGHT);
+            isJumping.current = true;
+            jumpProgress.current = 0;
+            hookX.current = bossX.current;
+            hookY.current = bossY.current;
             if (onBossDefeated) onBossDefeated();
-            setGameState(GameState.IDLE);
             if (onSessionReset) onSessionReset();
             createSparkles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, ['#fbbf24', '#f59e0b', '#ffffff']);
           }, 1000);
@@ -1054,19 +1308,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.restore();
 
       // --- BOSS UI (Enhanced) ---
-      // Boss Health Bar
+      // --- Boss Health Bar (with hit flash) ---
       const barW = 450; const barH = 14; const barX = (CANVAS_WIDTH - barW) / 2;
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.roundRect(barX - 4, 36, barW + 8, barH + 8, 10); ctx.fill();
-      
-      // Animated Health BG
-      ctx.fillStyle = '#450a0a';
-      ctx.roundRect(barX, 40, barW, barH, 6); ctx.fill();
-      
-      // Health Fill
-      const hpColor = isEnraged ? '#ef4444' : '#991b1b';
-      ctx.fillStyle = hpColor;
-      ctx.roundRect(barX, 40, (bossHP.current / bossMaxHP.current) * barW, barH, 6); ctx.fill();
+      Graphics.drawBossHealthBarFlash(ctx, bossHP.current, bossMaxHP.current, barX, barW, barH, 40, isEnraged, frameCount.current);
       
       // Boss Title
       ctx.fillStyle = isWarning ? '#ef4444' : 'white';
@@ -1105,7 +1349,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx, gameState, pX, pY, rodEndX, rodEndY, hookX.current, hookY.current, 
       gameState === GameState.CASTING, lineHealth.current,
       rodBendAmount, currentRod, chargePower.current, currentBait,
-      frameCount.current, reelRotation.current
+      frameCount.current, reelRotation.current, location
     );
     ctx.restore();
   }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);

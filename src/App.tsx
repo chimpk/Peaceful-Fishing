@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay } from './core/types';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem, NotificationType } from './core/types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './core/gameData';
 import GameCanvas from './components/GameCanvas';
 import UIOverlay from './components/UIOverlay';
@@ -15,7 +15,16 @@ const App: React.FC = () => {
   const [gold, setGold] = useState(0);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [inventoryCapacity, setInventoryCapacity] = useState(20);
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  const addNotification = useCallback((message: string, type: NotificationType = 'info') => {
+    const id = Math.random().toString(36).substring(2, 9);
+    const newNote: NotificationItem = { id, message, type, timestamp: Date.now() };
+    setNotifications(prev => [...prev, newNote]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  }, []);
   const [currentRod, setCurrentRod] = useState<RodType>(RODS[0]);
   const [currentBait, setCurrentBait] = useState<BaitType>(BAITS[0]);
   const [ownedRods, setOwnedRods] = useState<string[]>(['rod_1']);
@@ -45,6 +54,7 @@ const App: React.FC = () => {
   const [competitionScore, setCompetitionScore] = useState<number>(0);
   const [leaderboard, setLeaderboard] = useState<{ score: number; date: string }[]>([]);
   const [liveBait, setLiveBait] = useState<FishType | null>(null);
+  const [isBossSpawned, setIsBossSpawned] = useState<boolean>(false);
 
   // --- TIME OF DAY CYCLE ---
   useEffect(() => {
@@ -57,6 +67,48 @@ const App: React.FC = () => {
     }, 90000); // Đổi thời gian mỗi 1.5 phút
     return () => clearInterval(interval);
   }, []);
+
+  // --- DYNAMIC WEATHER CYCLE ---
+  useEffect(() => {
+    if (!isDataLoaded) return;
+    const weatherOptions: ('sunny' | 'rainy' | 'stormy')[] = ['sunny', 'sunny', 'sunny', 'rainy', 'stormy'];
+    const weatherNames = { sunny: '☀️ Trời Nắng', rainy: '🌧️ Trời Mưa', stormy: '⛈️ Bão Lớn' };
+    // Random interval: 3-5 minutes
+    const nextInterval = 180000 + Math.random() * 120000;
+    const timer = setTimeout(() => {
+      const next = weatherOptions[Math.floor(Math.random() * weatherOptions.length)];
+      setWeather(next);
+      addNotification(`Thời tiết thay đổi: ${weatherNames[next]}`, 'info');
+    }, nextInterval);
+    return () => clearTimeout(timer);
+  // Re-trigger every time weather changes to schedule the NEXT change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weather, isDataLoaded]);
+
+  // --- HANDLE TAB SWITCHING DURING GAMEPLAY ---
+  useEffect(() => {
+    if (activeView !== UIView.GAME) {
+      setGameState(prev => {
+        if ([
+          GameState.CHARGING,
+          GameState.CASTING, 
+          GameState.WAITING, 
+          GameState.NIBBLING, 
+          GameState.REELING
+        ].includes(prev)) {
+          return GameState.IDLE;
+        }
+        return prev;
+      });
+    }
+  }, [activeView]);
+
+  // --- AMBIENT SOUND LOCATION UPDATE ---
+  useEffect(() => {
+    if (activeView === UIView.GAME) {
+       soundManager.setAmbientLocation(currentLocation);
+    }
+  }, [currentLocation, activeView]);
 
   // --- PERSISTENCE LOGIC ---
   
@@ -120,11 +172,17 @@ const App: React.FC = () => {
       setDailyMarketBoosts(boosts);
     }
     
-    // Random weather on load
+    // Random weather on load and then every 3 minutes
     const weathers: ('sunny' | 'rainy' | 'stormy')[] = ['sunny', 'sunny', 'sunny', 'rainy', 'stormy'];
     setWeather(weathers[Math.floor(Math.random() * weathers.length)]);
     
+    const weatherInterval = setInterval(() => {
+      setWeather(weathers[Math.floor(Math.random() * weathers.length)]);
+    }, 180000);
+    
     setIsDataLoaded(true);
+    
+    return () => clearInterval(weatherInterval);
   }, []);
 
   useEffect(() => {
@@ -187,8 +245,8 @@ const App: React.FC = () => {
     setStreak(0);
     setGameState(GameState.START);
     setActiveView(UIView.GAME);
-    setNotification('Dữ liệu đã được reset!');
-  }, []);
+    addNotification('Dữ liệu đã được reset!', 'info');
+  }, [addNotification]);
 
   // --- COMPETITION LOGIC ---
   useEffect(() => {
@@ -204,9 +262,29 @@ const App: React.FC = () => {
             
             // Save to leaderboard
             setLeaderboard(prevLb => {
-              const newEntry = { score: competitionScore, date: new Date().toLocaleDateString('vi-VN') };
-              const newList = [...prevLb, newEntry].sort((a, b) => b.score - a.score).slice(0, 10);
-              return newList;
+              // We need to use a functional update for competitionScore as well to avoid stale closure
+              setCompetitionScore(currentScore => {
+                 const newEntry = { score: currentScore, date: new Date().toLocaleDateString('vi-VN') };
+                 const newList = [...prevLb, newEntry].sort((a, b) => b.score - a.score).slice(0, 10);
+                 return currentScore; // Keep score as is, we just needed it for the leaderboard
+              });
+              
+              // We return prevLb initially, the actual update happens via a separate setLeaderboard call inside
+              // Or better, since we can't easily access the latest competitionScore inside setLeaderboard's callback without a ref,
+              // let's just do it directly. A slight hack: we rely on the fact that competitionScore changes might trigger this effect,
+              // but we only care about the value when time runs out. The functional update above is a bit messy.
+              // Let's use a cleaner approach in the useEffect dependencies.
+              return prevLb; 
+            });
+            
+            // To properly fix the leaderboard, let's use functional state updates where possible or a ref.
+            // Since we don't have a ref, we'll use a functional update trick.
+            setCompetitionScore(finalScore => {
+               setLeaderboard(prevLb => {
+                 const newEntry = { score: finalScore, date: new Date().toLocaleDateString('vi-VN') };
+                 return [...prevLb, newEntry].sort((a, b) => b.score - a.score).slice(0, 10);
+               });
+               return finalScore;
             });
             return 0;
           }
@@ -224,8 +302,7 @@ const App: React.FC = () => {
     setSessionFishCount(0);
     setGameState(GameState.IDLE);
     setActiveView(UIView.GAME);
-    setNotification("CHẾ ĐỘ THI ĐẤU BẮT ĐẦU! Cố gắng kiếm nhiều vàng nhất trong 3 phút!");
-    setTimeout(() => setNotification(null), 1500);
+    addNotification("CHẾ ĐỘ THI ĐẤU BẮT ĐẦU! Cố gắng kiếm nhiều vàng nhất trong 3 phút!", 'info');
   };
 
   // --- GAMEPLAY LOGIC ---
@@ -256,7 +333,7 @@ const App: React.FC = () => {
       
       const completed = newProgress >= ach.target;
       if (completed && !ach.isCompleted) {
-        setNotification(`Thành tựu mới: ${ach.title}! +${ach.reward} vàng`);
+        addNotification(`Thành tựu mới: ${ach.title}! +${ach.reward} vàng`, 'achievement');
         setGold(g => g + ach.reward);
         setStats(s => ({ ...s, totalGoldEarned: s.totalGoldEarned + ach.reward }));
       }
@@ -271,24 +348,25 @@ const App: React.FC = () => {
       
       const completed = newProgress >= q.target;
       if (completed && !q.isCompleted) {
-        setNotification(`Nhiệm vụ hoàn tất: ${q.title}! Hãy nhận thưởng.`);
+        addNotification(`Nhiệm vụ hoàn tất: ${q.title}! Hãy nhận thưởng.`, 'success');
       }
       return { ...q, progress: Math.min(q.target, newProgress), isCompleted: completed };
     }));
-  }, []);
+  }, [addNotification]);
 
   const handleLineBroken = useCallback(() => {
     setBaitCounts(prev => {
       const currentCount = prev[currentBait.id] || 0;
-      const nextCount = Math.max(0, currentCount - 1);
+      if (currentCount <= 0) return prev; // Guard against negative count
+      
+      const nextCount = currentCount - 1;
       if (nextCount <= 0) {
         setCurrentBait(BAITS[0]);
       }
       return { ...prev, [currentBait.id]: nextCount };
     });
-    setNotification('Thẻo bị đứt! Hãy mua thẻo mới.');
-    setTimeout(() => setNotification(null), 1200);
-  }, [currentBait.id]);
+    addNotification('Thẻo bị đứt! Hãy mua thẻo mới.', 'warning');
+  }, [currentBait.id, addNotification]);
 
   const startGame = () => {
     console.log("!!! startGame triggered !!!");
@@ -298,36 +376,42 @@ const App: React.FC = () => {
     // Play sounds after state transition to ensure no blocking
     setTimeout(() => {
       try { soundManager.playClick(); } catch(e) { console.error("Sound click error", e); }
-      try { (soundManager as any).startAmbient?.(); } catch(e) { console.error("Sound ambient error", e); }
+      try { soundManager.setAmbientLocation(currentLocation); } catch(e) { console.error("Sound ambient error", e); }
     }, 10);
   };
 
   const addFishToInventory = useCallback((fish: FishType, isGolden: boolean) => {
     if (inventory.length >= inventoryCapacity) {
-      setNotification("Túi đồ đã đầy! Hãy bán bớt cá hoặc nâng cấp túi.");
+      addNotification("Túi đồ đã đầy! Hãy bán bớt cá hoặc nâng cấp túi.", "warning");
       setGameState(GameState.IDLE);
-      setTimeout(() => setNotification(null), 1500);
       return;
     }
 
     setInventory(prev => [{ fish, timestamp: Date.now(), isGolden }, ...prev]);
     
-    setStreak(prev => prev + 1);
-    const newStreak = streak + 1;
-    let comboMultiplier = 1;
-    if (newStreak >= 10) comboMultiplier = 3;
-    else if (newStreak >= 6) comboMultiplier = 2;
-    else if (newStreak >= 3) comboMultiplier = 1.5;
-
-    const finalValue = Math.floor((isGolden ? fish.value * 2 : fish.value) * comboMultiplier);
+    let finalValue = 0;
     
-    if (competitionMode) {
-      setCompetitionScore(prev => prev + finalValue);
-    }
+    setStreak(prev => {
+      const newStreak = prev + 1;
+      let comboMultiplier = 1;
+      if (newStreak >= 10) comboMultiplier = 3;
+      else if (newStreak >= 6) comboMultiplier = 2;
+      else if (newStreak >= 3) comboMultiplier = 1.5;
+
+      finalValue = Math.floor((isGolden ? fish.value * 2 : fish.value) * comboMultiplier);
+      return newStreak;
+    });
+    
+    // Use a small timeout to allow setStreak to calculate finalValue before using it
+    setTimeout(() => {
+      if (competitionMode) {
+        setCompetitionScore(prev => prev + finalValue);
+      }
+    }, 0);
 
     const isEpic = fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC || isGolden;
     if (isEpic) {
-        soundManager.playSuccess();
+        soundManager.playTrophyCatch();
         setEpicCatch({ fish, isGolden });
         setTimeout(() => setEpicCatch(null), 2000);
     }
@@ -343,7 +427,7 @@ const App: React.FC = () => {
        return prev;
     });
 
-    setNotification(`Bắt được ${isGolden ? 'CÁ VÀNG ' : ''}${fish.name}! +${finalValue} vàng${bonusMessage}`);
+    addNotification(`Bắt được ${isGolden ? 'CÁ VÀNG ' : ''}${fish.name}!${bonusMessage}`, 'success');
     setGameState(GameState.CAUGHT);
     updateStatsAndQuests(fish, isGolden);
 
@@ -357,8 +441,7 @@ const App: React.FC = () => {
         setCurrentRod(nextRod);
         return remaining;
       });
-      setNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy mua lại cần mới.");
-      setTimeout(() => setNotification(null), 1500);
+      addNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy mua lại cần mới.", "warning");
     }
     
     // Check for boss after catching fish
@@ -366,29 +449,27 @@ const App: React.FC = () => {
       const newCount = prev + 1;
       if (newCount >= 20) {
         setTimeout(() => {
-          setNotification("BOSS xuất hiện! Chuẩn bị chiến đấu!");
+          soundManager.playBossWarning();
+          addNotification("BOSS xuất hiện! Chuẩn bị chiến đấu!", "boss");
           setTimeout(() => {
-            setNotification(null);
-            setGameState(GameState.BOSS_FIGHT);
+            setIsBossSpawned(true);
           }, 1200);
         }, 2500);
-        return newCount;
+        return 0; // Reset session fish count when boss appears
       } else {
         setTimeout(() => {
-          setNotification(null);
           setGameState(GameState.IDLE);
         }, 1200);
         return newCount;
       }
     });
-  }, [updateStatsAndQuests, inventory.length, inventoryCapacity, currentRod, ownedRods]);
+  }, [updateStatsAndQuests, inventory.length, inventoryCapacity, currentRod, ownedRods, addNotification]);
 
   const onFishLost = useCallback((reason: string = "Cá đã thoát rồi...") => {
-    setNotification(reason);
+    addNotification(reason, 'info');
     setGameState(GameState.IDLE);
     setStreak(0);
-    setTimeout(() => setNotification(null), 1000);
-  }, []);
+  }, [addNotification]);
 
   const sellAllFish = () => {
     const totalValue = inventory.reduce((sum, item) => {
@@ -405,7 +486,7 @@ const App: React.FC = () => {
           const newProgress = q.progress + totalValue;
           const completed = newProgress >= q.target;
           if (completed && !q.isCompleted) {
-            setNotification(`Nhiệm vụ hoàn tất: ${q.title}! Hãy nhận thưởng.`);
+            addNotification(`Nhiệm vụ hoàn tất: ${q.title}! Hãy nhận thưởng.`, 'success');
           }
           return { ...q, progress: Math.min(q.target, newProgress), isCompleted: completed };
         }
@@ -417,7 +498,7 @@ const App: React.FC = () => {
           const newProgress = Math.min(ach.target, stats.totalGoldEarned + totalValue);
           const completed = newProgress >= ach.target;
           if (completed) {
-            setNotification(`Thành tựu mới: ${ach.title}! +${ach.reward} vàng`);
+            addNotification(`Thành tựu mới: ${ach.title}! +${ach.reward} vàng`, 'achievement');
             setGold(g => g + ach.reward);
             setStats(s => ({ ...s, totalGoldEarned: s.totalGoldEarned + ach.reward }));
           }
@@ -427,8 +508,7 @@ const App: React.FC = () => {
       }));
 
       setInventory([]);
-      setNotification(`Đã bán toàn bộ cá! Nhận được ${totalValue} vàng`);
-      setTimeout(() => setNotification(null), 1200);
+      addNotification(`Đã bán toàn bộ cá! Nhận được ${totalValue} vàng`, 'success');
     }
   };
 
@@ -448,8 +528,7 @@ const App: React.FC = () => {
       }
       return q;
     }));
-    setNotification(`Đã bán ${item.fish.name}! +${value} vàng`);
-    setTimeout(() => setNotification(null), 1000);
+    addNotification(`Đã bán ${item.fish.name}! +${value} vàng`, 'success');
   };
 
   const useFishAsBait = (timestamp: number) => {
@@ -461,8 +540,7 @@ const App: React.FC = () => {
     
     setLiveBait(item.fish);
     setInventory(prev => prev.filter(i => i.timestamp !== timestamp));
-    setNotification(`Đã sử dụng ${item.fish.name} làm mồi sống!`);
-    setTimeout(() => setNotification(null), 1200);
+    addNotification(`Đã sử dụng ${item.fish.name} làm mồi sống!`, 'success');
   };
 
   const claimQuest = (questId: string) => {
@@ -477,8 +555,7 @@ const App: React.FC = () => {
         }));
       }
       setQuests(prev => prev.map(q => q.id === questId ? { ...q, isClaimed: true } : q));
-      setNotification(`Đã nhận thưởng nhiệm vụ: +${quest.rewardGold} vàng!`);
-      setTimeout(() => setNotification(null), 1200);
+      addNotification(`Đã nhận thưởng nhiệm vụ: +${quest.rewardGold} vàng!`, 'success');
     }
   };
 
@@ -497,11 +574,9 @@ const App: React.FC = () => {
         }));
         setCurrentBait(bait); 
       }
-      setNotification(`Đã mua ${item.name}!`);
-      setTimeout(() => setNotification(null), 1200);
+      addNotification(`Đã mua ${item.name}!`, 'success');
     } else {
-      setNotification('Không đủ tiền!');
-      setTimeout(() => setNotification(null), 1200);
+      addNotification('Không đủ tiền!', 'warning');
     }
   };
 
@@ -519,11 +594,9 @@ const App: React.FC = () => {
     if (gold >= cost) {
       setGold(prev => prev - cost);
       setInventoryCapacity(prev => prev + 5);
-      setNotification(`Đã nâng cấp túi đồ lên ${inventoryCapacity + 5} ô!`);
-      setTimeout(() => setNotification(null), 1200);
+      addNotification(`Đã nâng cấp túi đồ lên ${inventoryCapacity + 5} ô!`, 'success');
     } else {
-      setNotification('Không đủ tiền nâng cấp!');
-      setTimeout(() => setNotification(null), 1200);
+      addNotification('Không đủ tiền nâng cấp!', 'warning');
     }
   };
 
@@ -533,11 +606,9 @@ const App: React.FC = () => {
      if (gold >= cost) {
         setGold(prev => prev - cost);
         setSkills(prev => ({ ...prev, [skillId]: currentLevel + 1 }));
-        setNotification(`Đã nâng cấp kỹ năng!`);
-        setTimeout(() => setNotification(null), 1200);
+        addNotification(`Đã nâng cấp kỹ năng!`, 'success');
      } else {
-        setNotification('Không đủ tiền nâng cấp!');
-        setTimeout(() => setNotification(null), 2000);
+        addNotification('Không đủ tiền nâng cấp!', 'warning');
      }
   };
 
@@ -561,12 +632,15 @@ const App: React.FC = () => {
             skills={skills}
             location={currentLocation}
             timeOfDay={timeOfDay}
+            streak={streak}
             onBossDefeated={handleBossDefeated}
             onSessionReset={handleSessionReset}
             onLineBroken={handleLineBroken}
-            setNotification={setNotification}
+            addNotification={addNotification}
             liveBait={liveBait}
             setLiveBait={setLiveBait}
+            isBossSpawned={isBossSpawned}
+            setIsBossSpawned={setIsBossSpawned}
           />
         )}
         
@@ -577,7 +651,7 @@ const App: React.FC = () => {
           gold={gold}
           inventory={inventory}
           inventoryCapacity={inventoryCapacity}
-          notification={notification}
+          notifications={notifications}
           currentRod={currentRod}
           currentBait={currentBait}
           baitCounts={baitCounts}

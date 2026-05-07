@@ -134,3 +134,12 @@ export interface PlayerSkills {
   fastHands: number;
   lucky: number;
 }
+
+export type NotificationType = 'info' | 'success' | 'warning' | 'achievement' | 'boss';
+
+export interface NotificationItem {
+  id: string;
+  message: string;
+  type: NotificationType;
+  timestamp: number;
+}

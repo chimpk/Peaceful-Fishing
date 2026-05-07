@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay } from '../core/types';
+import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem } from '../core/types';
 
 // Views
 import GameView from './views/GameView';
@@ -18,7 +18,7 @@ interface UIOverlayProps {
   gold: number;
   inventory: InventoryItem[];
   inventoryCapacity: number;
-  notification: string | null;
+  notifications: NotificationItem[];
   currentRod: RodType;
   currentBait: BaitType;
   baitCounts: Record<string, number>;
@@ -113,7 +113,12 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none">
-      {renderView()}
+      <div 
+        key={activeView}
+        className="absolute inset-0 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out"
+      >
+        {renderView()}
+      </div>
     </div>
   );
 };

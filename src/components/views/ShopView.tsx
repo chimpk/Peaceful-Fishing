@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import Header from '../ui/Header';
 import BottomNav from '../ui/BottomNav';
-import { UIView, RodType, BaitType, Quest } from '../../core/types';
+import { UIView, RodType, BaitType, Quest, InventoryItem, FishType } from '../../core/types';
 import { RODS, BAITS } from '../../core/gameData';
 
 interface ShopViewProps {
@@ -14,12 +14,15 @@ interface ShopViewProps {
   setActiveView: (view: UIView) => void;
   onBuy: (item: RodType | BaitType, type: 'rod' | 'bait') => void;
   onSelect: (item: RodType | BaitType, type: 'rod' | 'bait') => void;
-  setProfileTab?: (tab: any) => void;
+  setProfileTab?: (tab: 'stats' | 'inventory' | 'collection' | 'skills') => void;
+  inventory?: InventoryItem[];
+  onUseAsBait?: (timestamp: number) => void;
+  liveBait?: FishType | null;
 }
 
 const ShopView: React.FC<ShopViewProps> = ({ 
   gold, ownedRods, currentRod, baitCounts, quests,
-  setActiveView, onBuy, onSelect, setProfileTab 
+  setActiveView, onBuy, onSelect, setProfileTab, inventory = [], onUseAsBait, liveBait
 }) => {
   const [shopTab, setShopTab] = useState<'rod' | 'bait'>('rod');
 
@@ -78,12 +81,75 @@ const ShopView: React.FC<ShopViewProps> = ({
                       MUA x{bait.count} ({bait.price.toLocaleString()} 💰)
                     </button>
                  </div>
-                 <div className="absolute top-4 right-4 bg-slate-950/80 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 shadow-2xl">
-                    CÓ: {baitCounts[bait.id] || 0}
+                  <div className="absolute top-4 right-4 bg-slate-950/80 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black border border-white/10 shadow-2xl">
+                     CÓ: {baitCounts[bait.id] || 0}
+                  </div>
+               </div>
+             ))}
+
+             {shopTab === 'bait' && (
+               <div className="mt-8 mb-4 border-t border-white/10 pt-8">
+                 <div className="flex items-center justify-between mb-2">
+                   <h3 className="font-black italic text-xl tracking-tight text-white">🦐 MỒI SỐNG TỪ TÚI ĐỒ</h3>
+                   {liveBait && (
+                     <div className="flex items-center gap-2 bg-blue-600/20 border border-blue-500/40 px-4 py-1.5 rounded-full animate-pulse">
+                       <span className="text-blue-400 text-[9px] font-black uppercase tracking-widest">Đang dùng:</span>
+                       <span className="text-white text-[10px] font-black">{liveBait.name}</span>
+                     </div>
+                   )}
                  </div>
-              </div>
-            ))}
-         </div>
+                 <p className="text-[10px] text-slate-400 mb-6 font-medium leading-relaxed">
+                   Dùng cá làm mồi sống. Thu hút cá hiếm và lớn hơn mạnh hơn mồi thường.
+                   Cá <span className="text-green-400 font-black">HIẾM+</span> làm mồi hiệu quả hơn.
+                 </p>
+                 
+                 <div className="grid grid-cols-2 gap-4">
+                   {inventory.length === 0 ? (
+                     <div className="col-span-2 text-center py-10 border border-white/5 border-dashed rounded-3xl bg-white/3 opacity-50 text-xs flex flex-col gap-2 items-center">
+                       <span className="text-3xl">🎣</span>
+                       <span className="text-slate-400">Túi đồ trống. Hãy câu thêm cá!</span>
+                     </div>
+                   ) : (
+                     inventory.slice(0, 12).map(item => {
+                       const isEquipped = liveBait?.name === item.fish.name;
+                       const rarityColorMap: Record<string, string> = {
+                         'RÁC': 'border-slate-600/30 bg-slate-800/40',
+                         'PHỔ THÔNG': 'border-white/8 bg-slate-900/60',
+                         'KHÔNG PHỔ BIẾN': 'border-green-500/30 bg-green-900/20',
+                         'HIẾM': 'border-blue-500/40 bg-blue-900/20',
+                         'SỬ THI': 'border-purple-500/40 bg-purple-900/20',
+                         'HUYỀN THOẠI': 'border-yellow-500/40 bg-yellow-900/20',
+                         'THẦN THOẠI': 'border-pink-500/40 bg-pink-900/20',
+                       };
+                       const rarityTextMap: Record<string, string> = {
+                         'RÁC': 'text-slate-500', 'PHỔ THÔNG': 'text-slate-400',
+                         'KHÔNG PHỔ BIẾN': 'text-green-400', 'HIẾM': 'text-blue-400',
+                         'SỬ THI': 'text-purple-400', 'HUYỀN THOẠI': 'text-yellow-400', 'THẦN THOẠI': 'text-pink-400',
+                       };
+                       const borderClass = rarityColorMap[item.fish.rarity] || 'border-white/5 bg-slate-900/60';
+                       const textClass = rarityTextMap[item.fish.rarity] || 'text-slate-400';
+                       return (
+                         <div key={item.timestamp} className={`p-4 rounded-[2rem] border text-center flex flex-col gap-2 transition-all ${borderClass} ${isEquipped ? 'ring-2 ring-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.2)]' : ''}`}>
+                           <div className="text-2xl">{item.isGolden ? '⭐' : '🐟'}</div>
+                           <div className="font-black text-xs text-white leading-tight">{item.fish.name}</div>
+                           <div className={`text-[9px] font-black uppercase ${textClass}`}>{item.fish.rarity}</div>
+                           <div className="text-[9px] text-yellow-400 font-bold">{item.fish.value.toLocaleString()} 💰</div>
+                           <button 
+                             onClick={() => onUseAsBait?.(item.timestamp)}
+                             disabled={isEquipped}
+                             className={`w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${isEquipped ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'}`}
+                           >
+                             {isEquipped ? '✓ ĐANG DÙNG' : 'LÀM MỒI 🦐'}
+                           </button>
+                         </div>
+                       )
+                     })
+                   )}
+                 </div>
+               </div>
+             )}
+
+          </div>
       </div>
       <BottomNav activeView={UIView.SHOP} setActiveView={setActiveView} quests={quests} setProfileTab={setProfileTab} />
     </div>

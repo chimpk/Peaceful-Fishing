@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import BottomNav from '../ui/BottomNav';
-import { UIView, GameState, FishType, RodType, BaitType, LocationType, TimeOfDay, InventoryItem, Quest } from '../../core/types';
+import { UIView, GameState, FishType, RodType, BaitType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem } from '../../core/types';
 
 interface GameViewProps {
   gameState: GameState;
@@ -18,14 +18,14 @@ interface GameViewProps {
   competitionMode: boolean;
   competitionTimeLeft: number;
   competitionScore: number;
-  notification: string | null;
+  notifications: NotificationItem[];
   epicCatch: { fish: { name: string; rarity: string; value: number }; isGolden: boolean } | null;
   quests: Quest[];
   onStart: () => void;
   onStartCompetition: () => void;
   onChangeLocation: (loc: LocationType) => void;
   setActiveView: (view: UIView) => void;
-  setProfileTab: (tab: any) => void;
+  setProfileTab: (tab: 'stats' | 'inventory' | 'collection' | 'skills') => void;
   setShowTutorial: (show: boolean) => void;
   showTutorial: boolean;
   liveBait: FishType | null;
@@ -34,7 +34,7 @@ interface GameViewProps {
 const GameView: React.FC<GameViewProps> = ({ 
   gameState, gold, inventory, inventoryCapacity, currentRod, currentBait, baitCounts,
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
-  notification, epicCatch, quests, onStart, onStartCompetition, onChangeLocation,
+  notifications, epicCatch, quests, onStart, onStartCompetition, onChangeLocation,
   setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
@@ -53,8 +53,8 @@ const GameView: React.FC<GameViewProps> = ({
 
   return (
     <div 
-      className="absolute inset-0 text-white font-sans overflow-hidden"
-      style={{ pointerEvents: gameState === GameState.START ? 'auto' : 'none', zIndex: 9999 }}
+      className="absolute inset-0 text-white font-sans overflow-hidden pointer-events-none"
+      style={{ zIndex: 9999 }}
     >
       {gameState === GameState.START ? (
         <div 
@@ -170,7 +170,7 @@ const GameView: React.FC<GameViewProps> = ({
               
               <div className="flex gap-2">
                  <div 
-                  onClick={() => { setActiveView(UIView.PROFILE); setProfileTab('inventory'); }}
+                  onClick={() => { setActiveView(UIView.INVENTORY); }}
                   className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 cursor-pointer hover:bg-slate-800 transition-all shadow-2xl group"
                 >
                   <span className="text-2xl group-hover:scale-125 transition-transform">🎒</span>
@@ -193,13 +193,13 @@ const GameView: React.FC<GameViewProps> = ({
                 <div className="text-sm font-black text-blue-100 truncate max-w-[150px]">{currentRod.name}</div>
               </div>
             </div>
-            <div className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl relative overflow-visible hover:translate-x-2 transition-all">
+            <div className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl relative hover:translate-x-2 transition-all">
               <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 text-lg shadow-inner">🪱</div>
               <div>
                 <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest opacity-60">MỒI CÂU</div>
                 <div className="text-sm font-black text-green-100 truncate max-w-[150px]">{currentBait.name}</div>
               </div>
-              <div className="absolute -top-2 -right-3 bg-red-500 text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)] border-2 border-slate-950 animate-in zoom-in duration-300">
+              <div className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-[10px] font-black px-2 py-1 rounded-full shadow-[0_0_15px_rgba(239,68,68,0.5)] border border-slate-950 animate-in zoom-in duration-300 z-20">
                 x{currentBaitCount}
               </div>
             </div>
@@ -215,13 +215,6 @@ const GameView: React.FC<GameViewProps> = ({
             )}
           </div>
           
-          {/* Streak Indicator */}
-          {streak >= 3 && (
-            <div className="absolute top-32 right-6 bg-orange-500/20 border border-orange-500/50 px-4 py-2 rounded-full animate-bounce flex items-center gap-2 pointer-events-none shadow-lg z-50">
-               <span className="text-xl">🔥</span>
-               <span className="font-black text-orange-400 tracking-wider">COMBO x{streak >= 10 ? '3' : streak >= 6 ? '2' : '1.5'}</span>
-            </div>
-          )}
           
           {gameState === GameState.IDLE && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 bg-black/70 px-10 py-4 rounded-3xl border-2 border-white/10 backdrop-blur-xl pointer-events-none flex flex-col items-center gap-3">
@@ -233,23 +226,43 @@ const GameView: React.FC<GameViewProps> = ({
             </div>
           )}
 
-          {notification && (
-            <div className="absolute top-[15%] left-1/2 -translate-x-1/2 z-[500] pointer-events-none animate-in fade-in slide-in-from-top-10 zoom-in-95 duration-500">
-              <div className="bg-slate-900/80 backdrop-blur-3xl px-12 py-7 rounded-[3rem] border-2 border-white/10 shadow-[0_50px_100px_rgba(0,0,0,0.8)] flex items-center gap-8 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-transparent opacity-50"></div>
-                <div className="relative w-20 h-20 bg-blue-600/20 rounded-[2rem] flex items-center justify-center text-4xl shadow-inner border border-white/10 animate-float">
-                  {notification.includes('achievement') || notification.includes('thành tựu') ? '🏆' : '✨'}
-                </div>
-                <div className="relative flex flex-col">
-                  <span className="text-[10px] text-blue-400 font-black tracking-[0.4em] uppercase mb-1 opacity-60">THÔNG BÁO</span>
-                  <div className="text-2xl font-black italic text-white tracking-tight leading-tight max-w-[400px] drop-shadow-lg">
-                    {notification}
+          {/* Notifications Stack */}
+          <div className="absolute top-[10%] left-1/2 -translate-x-1/2 z-[500] flex flex-col gap-4 pointer-events-none w-full max-w-xl px-8 items-center">
+            {notifications.slice(0, 3).map((note) => {
+              const typeColors = {
+                info: 'from-blue-600/20 to-blue-600/5 border-blue-500/20 text-blue-400',
+                success: 'from-green-600/20 to-green-600/5 border-green-500/20 text-green-400',
+                warning: 'from-red-600/20 to-red-600/5 border-red-500/20 text-red-400',
+                achievement: 'from-yellow-600/20 to-yellow-600/5 border-yellow-500/20 text-yellow-400',
+                boss: 'from-purple-600/20 to-purple-600/5 border-purple-500/20 text-purple-400'
+              }[note.type];
+              
+              const typeIcon = {
+                info: '✨',
+                success: '✅',
+                warning: '⚠️',
+                achievement: '🏆',
+                boss: '👹'
+              }[note.type];
+
+              return (
+                <div key={note.id} className={`w-full bg-slate-950/80 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border-2 flex items-center gap-6 relative overflow-hidden animate-in fade-in slide-in-from-top-10 zoom-in-95 duration-500 bg-gradient-to-r ${typeColors}`}>
+                  <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-white/10 shrink-0">
+                    {typeIcon}
                   </div>
+                  <div className="flex flex-col flex-1">
+                    <span className="text-[8px] font-black tracking-[0.4em] uppercase mb-0.5 opacity-50 text-white">
+                      {note.type === 'boss' ? 'MỐI NGUY HIỂM' : note.type === 'achievement' ? 'THÀNH TỰU' : 'HỆ THỐNG'}
+                    </span>
+                    <div className="text-lg font-black italic text-white tracking-tight leading-tight drop-shadow-lg">
+                      {note.message}
+                    </div>
+                  </div>
+                  <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/5 blur-3xl rounded-full"></div>
                 </div>
-                <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-600/20 blur-[50px] rounded-full group-hover:bg-blue-600/40 transition-all duration-1000"></div>
-              </div>
-            </div>
-          )}
+              );
+            })}
+          </div>
 
           <BottomNav activeView={UIView.GAME} setActiveView={setActiveView} quests={quests} setProfileTab={setProfileTab} />
         </>
