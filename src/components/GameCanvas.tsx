@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { GameState, FishInstance, FishType, RodType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay, NotificationType } from '../core/types';
+import { GameState, FishInstance, FishType, RodType, TackleType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay, NotificationType } from '../core/types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../core/gameData';
 import * as Graphics from '../core/graphics';
 import * as BossModels from '../core/fish/BossModels';
@@ -12,9 +12,11 @@ interface GameCanvasProps {
   onFishCaught: (fish: FishType, isGolden: boolean) => void;
   onFishLost: (reason?: string) => void;
   currentRod: RodType;
+  currentTackle: TackleType;
   currentBait: BaitType;
   baitCounts: Record<string, number>;
   ownedRods: string[];
+  ownedTackles: string[];
   weather: 'sunny' | 'rainy' | 'stormy';
   skills: PlayerSkills;
   location: LocationType;
@@ -23,6 +25,8 @@ interface GameCanvasProps {
   onBossDefeated?: () => void;
   onSessionReset?: () => void;
   onLineBroken: () => void;
+  onRodBroken: () => void;
+  onCast: () => void;
   addNotification: (msg: string, type: NotificationType) => void;
   liveBait: FishType | null;
   setLiveBait: (bait: FishType | null) => void;
@@ -61,7 +65,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentBait, baitCounts, ownedRods, weather, skills, location, timeOfDay, streak, onBossDefeated, onSessionReset, onLineBroken, addNotification, liveBait, setLiveBait, isBossSpawned, setIsBossSpawned
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentTackle, currentBait, baitCounts, ownedRods, ownedTackles, weather, skills, location, timeOfDay, streak, onBossDefeated, onSessionReset, onLineBroken, onRodBroken, onCast, addNotification, liveBait, setLiveBait, isBossSpawned, setIsBossSpawned
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -106,6 +110,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const playerMaxHP = useRef(100);
   const bossAttackTimer = useRef(0);
   const playerAttackCharge = useRef(0);
+  const isBossCharging = useRef(false);
   const bossX = useRef(CANVAS_WIDTH / 2);
   const bossY = useRef(CANVAS_HEIGHT / 2);
   
@@ -239,7 +244,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [weather, location, timeOfDay, liveBait]);
 
   const spawnSingleFish = useCallback(() => {
-    const type = getRandomFishType(currentBait.rarityBoost + skills.lucky * 1.5);
+    const type = getRandomFishType(currentTackle.rarityBoost + currentBait.rarityBoost + skills.lucky * 1.5);
     const y = 300 + Math.random() * 250;
     const initialDir = Math.random() > 0.5 ? 1 : -1;
     const baseSpeed = (0.4 + Math.random() * 0.6) * WEATHER_BONUSES[weather].speed;
@@ -251,7 +256,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     return {
       id: Math.random().toString(36).substr(2, 9),
       x: initialDir === 1 ? -150 : CANVAS_WIDTH + 150,
-      y: y, targetY: y, speed: baseSpeed, baseSpeed, direction: initialDir, type,
+      y: y, targetY: y, speed: baseSpeed, baseSpeed: baseSpeed, direction: initialDir, type,
       angle: initialDir === 1 ? 0 : Math.PI, targetAngle: initialDir === 1 ? 0 : Math.PI,
       personality: personalities[Math.floor(Math.random() * personalities.length)],
       swimStyle: swimStyles[Math.floor(Math.random() * swimStyles.length)],
@@ -259,7 +264,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       velocity: { x: initialDir * baseSpeed, y: 0 },
       isGolden
     };
-  }, [currentBait, getRandomFishType, skills.lucky]);
+  }, [currentBait, currentTackle, getRandomFishType, skills.lucky, weather]);
 
   const spawnInitialFish = useCallback(() => {
     const initialFish: EnhancedFishInstance[] = [];
@@ -309,7 +314,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       return false;
     }
     if (currentBaitCount <= 0) {
-      addNotification('Không có thẻo để câu. Hãy mua thêm thẻo.', 'warning');
+      addNotification('Đã hết mồi câu. Vui lòng mua thêm mồi câu.', 'warning');
       return false;
     }
     return true;
@@ -320,11 +325,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (isBitingHard.current) {
         // Success!
         const collidingFish = activeFish.current;
-        const lineLimit = currentBait.maxValue || 300;
+        const lineLimit = currentTackle.maxValue || 300;
+        const rodLimit = currentRod.maxValue || 300;
         
         if (collidingFish.type.value > lineLimit) {
             onLineBroken();
             onFishLost("Thẻo bị đứt vì cá quá to!");
+            setGameState(GameState.IDLE);
+            activeFish.current = null;
+            return;
+        }
+
+        if (collidingFish.type.value > rodLimit) {
+            onRodBroken();
+            onFishLost("Cần câu đã gãy vì cá quá nặng!");
             setGameState(GameState.IDLE);
             activeFish.current = null;
             return;
@@ -348,7 +362,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         
         const sizeMatch = Math.min(1, collidingFish.type.value / lineLimit);
         const mismatchPenalty = 1 - sizeMatch;
-        tensionZoneSize.current = Math.max(0.18, 0.48 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18);
+        tensionZoneSize.current = Math.max(0.18, 0.48 - (collidingFish.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18 + (currentBait.attraction / 1000));
         tensionZone.current = 0.5 - tensionZoneSize.current / 2;
 
         const goldenBoost = (currentRod.control - 1) * 0.2; 
@@ -364,7 +378,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
         soundManager.playSuccess();
-        // Removed notification as requested
       } else {
         // Too early
         createSplash(hookX.current, hookY.current, 1.2);
@@ -372,7 +385,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         activeFish.current = null;
       }
     }
-  }, [gameState, liveBait, onFishLost, setGameState, setLiveBait, currentBait.maxValue, onLineBroken, skills.sharpEye, currentRod.control, frameCount]);
+  }, [gameState, liveBait, onFishLost, setGameState, setLiveBait, currentTackle.maxValue, currentRod.maxValue, onLineBroken, onRodBroken, skills.sharpEye, currentRod.control, currentBait.attraction, frameCount]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
@@ -416,7 +429,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         addNotification(`Kéo Mạnh đang hồi chiêu (${Math.ceil(powerReelCooldown.current / 60)}s)`, 'warning');
       }
     }
-  }, [gameState, canStartFishing, handleHookAction, addNotification]);
+  }, [gameState, canStartFishing, handleHookAction, addNotification, focusActive, focusCooldown, powerReelActive, powerReelCooldown, skills.fastHands]);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
@@ -427,10 +440,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         targetHookX.current = 220 + (chargePower.current / 100) * 500;
         targetHookY.current = 250 + (chargePower.current / 100) * 300;
         castProgress.current = 0;
+        onCast();
         setGameState(GameState.CASTING);
       }
     }
-  }, [gameState, setGameState]);
+  }, [gameState, setGameState, onCast]);
 
 
   const handlePressStart = useCallback(() => {
@@ -443,6 +457,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         chargeDirection.current = 1;
       } else if (gameState === GameState.NIBBLING) {
         handleHookAction();
+      } else if (gameState === GameState.BOSS_FIGHT) {
+        isBossCharging.current = true;
       }
       if (gameState === GameState.REELING) {
         tensionVelocity.current -= 0.0035;
@@ -459,9 +475,51 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       targetHookX.current = 220 + (chargePower.current / 100) * 500;
       targetHookY.current = 250 + (chargePower.current / 100) * 300;
       castProgress.current = 0;
+      onCast();
       setGameState(GameState.CASTING);
+    } else if (gameState === GameState.BOSS_FIGHT) {
+      isBossCharging.current = false;
+      
+      // Execute attack if charge is high enough
+      if (playerAttackCharge.current > 20) {
+        const charge = playerAttackCharge.current;
+        let damage = (charge / 100) * (20 + skills.sharpEye * 5);
+        
+        const hpRatio = bossHP.current / bossMaxHP.current;
+        const attackThreshold = hpRatio < 0.5 ? 70 : 100;
+        const isWarning = bossAttackTimer.current > attackThreshold - 25;
+        
+        if (isWarning) {
+            damage *= 2.5;
+            addNotification('PHẢN ĐÒN HOÀN HẢO! (CRITICAL)', 'success');
+            createSparkles(bossX.current, bossY.current, 60, ['#ffffff', '#fef08a', '#fbbf24']);
+            bossAttackTimer.current = -30;
+        } else {
+            createSparkles(bossX.current, bossY.current, 30, ['#ef4444', '#f87171', '#ffffff']);
+        }
+
+        bossHP.current = Math.max(0, bossHP.current - damage);
+        Graphics.triggerBossHitFlash();
+        playerAttackCharge.current = 0;
+        shakeIntensity.current = 8;
+
+        if (bossHP.current <= 0) {
+          setTimeout(() => {
+            addNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI!", 'success');
+            setIsBossSpawned(false);
+            setGameState(GameState.CAUGHT);
+            isJumping.current = true;
+            jumpProgress.current = 0;
+            hookX.current = bossX.current;
+            hookY.current = bossY.current;
+            if (onBossDefeated) onBossDefeated();
+            if (onSessionReset) onSessionReset();
+            createSparkles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, ['#fbbf24', '#f59e0b', '#ffffff']);
+          }, 1000);
+        }
+      }
     }
-  }, [gameState, setGameState]);
+  }, [gameState, setGameState, addNotification, onBossDefeated, onSessionReset, onCast, skills.sharpEye, bossMaxHP, bossHP]);
 
   useEffect(() => {
     const handleBlur = () => { isSpacePressed.current = false; };
@@ -608,9 +666,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (activeFish.current?.id === f.id) return; 
       const dx = hookX.current - f.x; const dy = hookY.current - f.y;
       const distSq = dx * dx + dy * dy;
-      const lineLimit = currentBait.maxValue || 300;
+      const lineLimit = currentTackle.maxValue || 300;
       const sizeMatchRatio = Math.min(1, f.type.value / lineLimit);
-      const attractRange = currentBait.attraction * WEATHER_BONUSES[weather].attraction * (0.6 + sizeMatchRatio * 0.6) + 60;
+      const attractRange = (currentTackle.attraction + currentBait.attraction) * WEATHER_BONUSES[weather].attraction * (0.6 + sizeMatchRatio * 0.6) + 60;
       const interestChance = 0.4 + sizeMatchRatio * 0.5;
       f.stateTimer--;
       if (canAttractFish && distSq < attractRange * attractRange) {
@@ -794,6 +852,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
               size: 100,
               speed: 5.0,
               description: 'Boss huyền thoại',
+              color: '#ef4444',
+              tension: 90,
               spriteInfo: { color: '#ef4444', shape: 'shark' }
           },
           x: hookX.current,
@@ -808,8 +868,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           velocity: { x: 0, y: 0 },
           baseSpeed: 5.0,
           isGolden: false,
+          speed: 5.0,
           direction: 1
       } : (baitSettleTimer.current <= 0) ? fishRef.current.find(f => {
+        if (!f) return false;
         // Calculate mouth position based on angle and size
         const mouthX = f.x + Math.cos(f.angle) * f.type.size;
         const mouthY = f.y + Math.sin(f.angle) * f.type.size;
@@ -961,7 +1023,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           Graphics.drawBehaviorIcon(ctx, hookX.current, hookY.current, behaviorType.current as any);
       }
 
-      const lineLimit = currentBait.maxValue || 300;
+      const lineLimit = currentTackle.maxValue || 300;
       const sizeMatch = Math.min(1, activeFish.current.type.value / lineLimit);
       const mismatchPenalty = 1 - sizeMatch;
       const dx = rodEndX - hookX.current; const dy = rodEndY - hookY.current;
@@ -1094,7 +1156,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']);
       }      
       if (lineHealth.current <= 0) {
-        const lineLimit = currentBait.maxValue || 300;
+        const lineLimit = currentTackle.maxValue || 300;
+        const rodLimit = currentRod.maxValue || 300;
         
         // --- 3. LOSS ANIMATION (Task #3) ---
         createSplash(hookX.current, hookY.current, 1.2);
@@ -1110,6 +1173,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (activeFish.current?.type.value > lineLimit) {
           onLineBroken(); 
           onFishLost("Thẻo bị đứt vì cá quá to!");
+        } else if (activeFish.current?.type.value > rodLimit) {
+          onRodBroken();
+          onFishLost("Cần câu đã gãy vì cá quá nặng!");
         } else {
           onFishLost("Cá đã sổng mất rồi!");
         }
@@ -1251,40 +1317,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
-      if (isSpacePressed.current) {
+      if (isBossCharging.current) {
         playerAttackCharge.current = Math.min(100, playerAttackCharge.current + (2.0 + skills.fastHands * 0.8));
-      } else if (playerAttackCharge.current > 20) {
-        const charge = playerAttackCharge.current;
-        let damage = (charge / 100) * (20 + skills.sharpEye * 5);
-        
-        if (isWarning) {
-            damage *= 2.5;
-            addNotification("PHẢN ĐÒN HOÀN HẢO! (CRITICAL)", 'success');
-            createSparkles(bossX.current, bossY.current, 60, ['#ffffff', '#fef08a', '#fbbf24']);
-            bossAttackTimer.current = -30;
-        } else {
-            createSparkles(bossX.current, bossY.current, 30, ['#ef4444', '#f87171', '#ffffff']);
-        }
-
-        bossHP.current = Math.max(0, bossHP.current - damage);
-        Graphics.triggerBossHitFlash();
-        playerAttackCharge.current = 0;
-        shakeIntensity.current = 8;
-
-        if (bossHP.current <= 0) {
-          setTimeout(() => {
-            addNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI!", 'success');
-            setIsBossSpawned(false);
-            setGameState(GameState.CAUGHT);
-            isJumping.current = true;
-            jumpProgress.current = 0;
-            hookX.current = bossX.current;
-            hookY.current = bossY.current;
-            if (onBossDefeated) onBossDefeated();
-            if (onSessionReset) onSessionReset();
-            createSparkles(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, ['#fbbf24', '#f59e0b', '#ffffff']);
-          }, 1000);
-        }
       } else {
         playerAttackCharge.current = Math.max(0, playerAttackCharge.current - 1.5);
       }
@@ -1348,11 +1382,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     Graphics.drawPlayerEquipment(
       ctx, gameState, pX, pY, rodEndX, rodEndY, hookX.current, hookY.current, 
       gameState === GameState.CASTING, lineHealth.current,
-      rodBendAmount, currentRod, chargePower.current, currentBait,
+      rodBendAmount, currentRod, chargePower.current, currentTackle,
       frameCount.current, reelRotation.current, location
     );
     ctx.restore();
-  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
+  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentTackle, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
 
   useEffect(() => {
     if (gameState === GameState.BOSS_FIGHT) {

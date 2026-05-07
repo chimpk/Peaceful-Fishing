@@ -1,6 +1,23 @@
-import { Rarity, FishType, GameState, RodType, BaitType, LocationType, TimeOfDay } from './types';
+import { Rarity, FishType, GameState, RodType, BaitType, TackleType, LocationType, TimeOfDay } from './types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT, REEL_BAR_HEIGHT } from './gameData';
 import { drawPlayer } from './character';
+
+// Polyfill for roundRect
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x: number, y: number, w: number, h: number, r: any) {
+    if (w < 2 * r) r = w / 2;
+    if (h < 2 * r) r = h / 2;
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+    return this;
+  };
+}
+
 
 
 // Color Constants for Interpolation
@@ -690,7 +707,7 @@ export const drawPlayerEquipment = (
   rodStress: number = 0,
   currentRod: RodType,
   chargePower: number = 0,
-  currentBait?: BaitType,
+  currentTackle?: TackleType | BaitType,
   frameCount: number = 0,
   reelRotation: number = 0,
   location: LocationType = 'POND'
@@ -916,14 +933,14 @@ export const drawPlayerEquipment = (
     }
 
     // --- BAIT GLOW (Task #13) ---
-    if (currentBait) {
+    if (currentTackle) {
       ctx.save();
       const glowPulse = 0.5 + Math.sin(Date.now() * 0.01) * 0.5;
       let glowColor = 'transparent';
-      if (currentBait.rarityText === 'NÂNG CAO') glowColor = 'rgba(74, 222, 128, 0.4)';
-      if (currentBait.rarityText === 'CHUYÊN NGHIỆP') glowColor = 'rgba(56, 189, 248, 0.5)';
-      if (currentBait.rarityText === 'CAO CẤP') glowColor = 'rgba(168, 85, 247, 0.6)';
-      if (currentBait.rarityText === 'CỰC HẠNG') glowColor = 'rgba(251, 191, 36, 0.7)';
+      if (currentTackle.rarityText === 'NÂNG CAO') glowColor = 'rgba(74, 222, 128, 0.4)';
+      if (currentTackle.rarityText === 'CHUYÊN NGHIỆP') glowColor = 'rgba(56, 189, 248, 0.5)';
+      if (currentTackle.rarityText === 'CAO CẤP') glowColor = 'rgba(168, 85, 247, 0.6)';
+      if (currentTackle.rarityText === 'CỰC HẠNG') glowColor = 'rgba(251, 191, 36, 0.7)';
 
       if (glowColor !== 'transparent') {
         ctx.shadowBlur = 10 + glowPulse * 15;

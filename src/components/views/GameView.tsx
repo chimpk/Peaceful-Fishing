@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import BottomNav from '../ui/BottomNav';
-import { UIView, GameState, FishType, RodType, BaitType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem } from '../../core/types';
+import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem } from '../../core/types';
+import { RODS, TACKLES, BAITS } from '../../core/gameData';
 
 interface GameViewProps {
   gameState: GameState;
@@ -9,8 +10,11 @@ interface GameViewProps {
   inventory: InventoryItem[];
   inventoryCapacity: number;
   currentRod: RodType;
+  currentTackle: TackleType;
   currentBait: BaitType;
   baitCounts: Record<string, number>;
+  ownedRods: string[];
+  ownedTackles: string[];
   location: LocationType;
   timeOfDay: TimeOfDay;
   weather: 'sunny' | 'rainy' | 'stormy';
@@ -25,17 +29,18 @@ interface GameViewProps {
   onStartCompetition: () => void;
   onChangeLocation: (loc: LocationType) => void;
   setActiveView: (view: UIView) => void;
-  setProfileTab: (tab: 'stats' | 'inventory' | 'collection' | 'skills') => void;
+  setProfileTab: (tab: 'stats' | 'skills' | 'collection') => void;
   setShowTutorial: (show: boolean) => void;
   showTutorial: boolean;
   liveBait: FishType | null;
+  onSelect: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
 }
 
 const GameView: React.FC<GameViewProps> = ({ 
-  gameState, gold, inventory, inventoryCapacity, currentRod, currentBait, baitCounts,
+  gameState, gold, inventory, inventoryCapacity, currentRod, currentTackle, currentBait, baitCounts,
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
   notifications, epicCatch, quests, onStart, onStartCompetition, onChangeLocation,
-  setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait
+  setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait, onSelect, ownedRods, ownedTackles
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const currentBaitCount = baitCounts[currentBait.id] || 0;
@@ -50,6 +55,33 @@ const GameView: React.FC<GameViewProps> = ({
     size: 6 + Math.random() * 8,
     rotation: Math.random() * 360,
   }));
+
+  const cycleRod = () => {
+    if (ownedRods.length <= 1) return;
+    const currentIndex = ownedRods.indexOf(currentRod.id);
+    const nextIndex = (currentIndex + 1) % ownedRods.length;
+    const nextRodId = ownedRods[nextIndex];
+    const nextRod = RODS.find(r => r.id === nextRodId);
+    if (nextRod) onSelect(nextRod, 'rod');
+  };
+
+  const cycleTackle = () => {
+    if (ownedTackles.length <= 1) return;
+    const currentIndex = ownedTackles.indexOf(currentTackle.id);
+    const nextIndex = (currentIndex + 1) % ownedTackles.length;
+    const nextTackleId = ownedTackles[nextIndex];
+    const nextTackle = TACKLES.find(t => t.id === nextTackleId);
+    if (nextTackle) onSelect(nextTackle, 'tackle');
+  };
+
+  const cycleBait = () => {
+    const availableBaits = BAITS.filter(b => (baitCounts[b.id] || 0) > 0);
+    if (availableBaits.length <= 1) return;
+    const currentIndex = availableBaits.findIndex(b => b.id === currentBait.id);
+    const nextIndex = (currentIndex + 1) % availableBaits.length;
+    const nextBait = availableBaits[nextIndex];
+    if (nextBait) onSelect(nextBait, 'bait');
+  };
 
   return (
     <div 
@@ -186,21 +218,42 @@ const GameView: React.FC<GameViewProps> = ({
 
           {/* Bottom Status */}
           <div className="absolute bottom-28 left-8 flex flex-col gap-3 pointer-events-auto z-10">
-            <div className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl hover:translate-x-2 transition-all">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 text-lg shadow-inner">🎣</div>
-              <div>
-                <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest opacity-60">CẦN CÂU</div>
+            <div 
+              onClick={cycleRod}
+              className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl hover:translate-x-2 transition-all cursor-pointer group relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-blue-500/5 translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
+              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 text-lg shadow-inner z-10">🎣</div>
+              <div className="z-10">
+                <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest opacity-60">CẦN CÂU (CLICK ĐỔI)</div>
                 <div className="text-sm font-black text-blue-100 truncate max-w-[150px]">{currentRod.name}</div>
               </div>
             </div>
-            <div className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl relative hover:translate-x-2 transition-all">
-              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 text-lg shadow-inner">🪱</div>
-              <div>
-                <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest opacity-60">MỒI CÂU</div>
+            
+            <div 
+              onClick={cycleTackle}
+              className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl hover:translate-x-2 transition-all cursor-pointer group relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-orange-500/5 translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
+              <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-400 text-lg shadow-inner z-10">🔗</div>
+              <div className="z-10">
+                <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest opacity-60">THẺO CÂU (CLICK ĐỔI)</div>
+                <div className="text-sm font-black text-orange-100 truncate max-w-[150px]">{currentTackle.name}</div>
+              </div>
+            </div>
+
+            <div 
+              onClick={cycleBait}
+              className="bg-slate-950/60 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-4 shadow-2xl relative hover:translate-x-2 transition-all cursor-pointer group overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-green-500/5 translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
+              <div className="w-10 h-10 bg-green-500/20 rounded-xl flex items-center justify-center text-green-400 text-lg shadow-inner z-10">🪱</div>
+              <div className="z-10">
+                <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest opacity-60">MỒI CÂU (CLICK ĐỔI)</div>
                 <div className="text-sm font-black text-green-100 truncate max-w-[150px]">{currentBait.name}</div>
               </div>
               <div className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-[10px] font-black px-2 py-1 rounded-full shadow-[0_0_15px_rgba(239,68,68,0.5)] border border-slate-950 animate-in zoom-in duration-300 z-20">
-                x{currentBaitCount}
+                x{baitCounts[currentBait.id] || 0}
               </div>
             </div>
 
@@ -284,7 +337,7 @@ const GameView: React.FC<GameViewProps> = ({
             <div className="relative flex flex-col items-center gap-4" style={{ animation: 'epicCardPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
               <div className="text-xs font-black uppercase tracking-[0.3em] px-5 py-1.5 rounded-full border" style={{ color: glowColor, borderColor: glowColor, background: `${glowColor}22`, boxShadow: `0 0 20px ${glowColor}44` }}>{label}</div>
               <div className={`text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-b ${textGradient} drop-shadow-2xl text-center leading-tight`} style={{ textShadow: `0 0 40px ${glowColor}` }}>{epicCatch.fish.name}</div>
-              <div className="text-base font-black text-yellow-400">+{(epicCatch.isGolden ? epicCatch.fish.value * 2 : epicCatch.fish.value).toLocaleString()} 💰</div>
+              <div className="text-base font-black text-slate-400 uppercase tracking-widest opacity-60 italic">Hãy bán cá để nhận vàng!</div>
             </div>
           </div>
         );

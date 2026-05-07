@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem, NotificationType } from './core/types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './core/gameData';
+import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem, NotificationType } from './core/types';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, RODS, TACKLES, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './core/gameData';
 import GameCanvas from './components/GameCanvas';
 import UIOverlay from './components/UIOverlay';
 import { soundManager } from './core/soundManager';
@@ -26,9 +26,11 @@ const App: React.FC = () => {
     }, 4000);
   }, []);
   const [currentRod, setCurrentRod] = useState<RodType>(RODS[0]);
+  const [currentTackle, setCurrentTackle] = useState<TackleType>(TACKLES[0]);
   const [currentBait, setCurrentBait] = useState<BaitType>(BAITS[0]);
   const [ownedRods, setOwnedRods] = useState<string[]>(['rod_1']);
-  const [baitCounts, setBaitCounts] = useState<Record<string, number>>({ 'bait_1': 1 });
+  const [ownedTackles, setOwnedTackles] = useState<string[]>(['tackle_1']);
+  const [baitCounts, setBaitCounts] = useState<Record<string, number>>({ 'bait_natural_1': 10 });
   const [stats, setStats] = useState<ProfileStats>({
     totalGoldEarned: 0,
     totalFishCaught: 0,
@@ -152,10 +154,15 @@ const App: React.FC = () => {
           const rod = RODS.find(r => r.id === data.currentRodId);
           if (rod) setCurrentRod(rod);
         }
+        if (data.currentTackleId) {
+          const tackle = TACKLES.find(t => t.id === data.currentTackleId);
+          if (tackle) setCurrentTackle(tackle);
+        }
         if (data.currentBaitId) {
           const bait = BAITS.find(b => b.id === data.currentBaitId);
           if (bait) setCurrentBait(bait);
         }
+        if (data.ownedTackles) setOwnedTackles(data.ownedTackles);
       } catch (e) {
         console.error("Lỗi khi tải dữ liệu bản lưu:", e);
       }
@@ -193,12 +200,14 @@ const App: React.FC = () => {
       inventory,
       inventoryCapacity,
       ownedRods,
+      ownedTackles,
       baitCounts,
       stats,
       achievements,
       quests,
       lastQuestReset,
       currentRodId: currentRod.id,
+      currentTackleId: currentTackle.id,
       currentBaitId: currentBait.id,
       unlockedFish,
       skills,
@@ -208,7 +217,7 @@ const App: React.FC = () => {
       leaderboard
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(dataToSave));
-  }, [gold, inventory, inventoryCapacity, ownedRods, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts, currentLocation, sessionFishCount, leaderboard]);
+  }, [gold, inventory, inventoryCapacity, ownedRods, ownedTackles, baitCounts, stats, achievements, quests, lastQuestReset, currentRod, currentTackle, currentBait, isDataLoaded, unlockedFish, skills, dailyMarketBoosts, currentLocation, sessionFishCount, leaderboard]);
 
   const handleBossDefeated = useCallback(() => {
     setGold(g => g + 5000);
@@ -225,9 +234,11 @@ const App: React.FC = () => {
     setInventory([]);
     setInventoryCapacity(20);
     setCurrentRod(RODS[0]);
+    setCurrentTackle(TACKLES[0]);
     setCurrentBait(BAITS[0]);
     setOwnedRods(['rod_1']);
-    setBaitCounts({ 'bait_1': 10 });
+    setOwnedTackles(['tackle_1']);
+    setBaitCounts({ 'bait_natural_1': 10 });
     setStats({
       totalGoldEarned: 500,
       totalFishCaught: 0,
@@ -354,19 +365,50 @@ const App: React.FC = () => {
     }));
   }, [addNotification]);
 
-  const handleLineBroken = useCallback(() => {
-    setBaitCounts(prev => {
-      const currentCount = prev[currentBait.id] || 0;
-      if (currentCount <= 0) return prev; // Guard against negative count
-      
-      const nextCount = currentCount - 1;
-      if (nextCount <= 0) {
-        setCurrentBait(BAITS[0]);
+  const updateEarnGoldQuest = useCallback((amount: number) => {
+    setQuests(prev => prev.map(q => {
+      if (q.type === 'EARN_GOLD' && !q.isCompleted) {
+        const newProgress = q.progress + amount;
+        const completed = newProgress >= q.target;
+        if (completed && !q.isCompleted) {
+          addNotification(`Nhiệm vụ hoàn tất: ${q.title}! Hãy nhận thưởng.`, 'success');
+        }
+        return { ...q, progress: Math.min(q.target, newProgress), isCompleted: completed };
       }
-      return { ...prev, [currentBait.id]: nextCount };
+      return q;
+    }));
+  }, [addNotification]);
+
+  const handleRodBroken = useCallback(() => {
+    setOwnedRods(prev => {
+      const remaining = prev.filter(id => id !== currentRod.id);
+      const nextRodId = remaining[0] || 'rod_1';
+      const nextRod = RODS.find(r => r.id === nextRodId) || RODS[0];
+      setCurrentRod(nextRod);
+      return remaining;
+    });
+    addNotification('Cần câu đã gãy! Hãy mua cần mới.', 'warning');
+  }, [currentRod.id, addNotification]);
+
+  const handleLineBroken = useCallback(() => {
+    // Tackle is removed from owned list when broken
+    setOwnedTackles(prev => {
+      const remaining = prev.filter(id => id !== currentTackle.id);
+      const nextTackleId = remaining[0] || 'tackle_1';
+      const nextTackle = TACKLES.find(t => t.id === nextTackleId) || TACKLES[0];
+      setCurrentTackle(nextTackle);
+      return remaining;
     });
     addNotification('Thẻo bị đứt! Hãy mua thẻo mới.', 'warning');
-  }, [currentBait.id, addNotification]);
+  }, [currentTackle.id, addNotification]);
+
+  const handleCast = useCallback(() => {
+    setBaitCounts(prev => {
+      const currentCount = prev[currentBait.id] || 0;
+      if (currentCount <= 0) return prev;
+      return { ...prev, [currentBait.id]: currentCount - 1 };
+    });
+  }, [currentBait.id]);
 
   const startGame = () => {
     console.log("!!! startGame triggered !!!");
@@ -419,9 +461,7 @@ const App: React.FC = () => {
     let bonusMessage = "";
     setUnlockedFish(prev => {
        if (!prev.includes(fish.name)) {
-          const bonus = fish.value * 5;
-          bonusMessage = `\n(Mới! +${bonus} vàng)`;
-          setGold(g => g + bonus);
+          // Bonus gold removed as requested (only when selling/claiming)
           return [...prev, fish.name];
        }
        return prev;
@@ -472,26 +512,17 @@ const App: React.FC = () => {
   }, [addNotification]);
 
   const sellAllFish = () => {
+    if (inventory.length === 0) return;
     const totalValue = inventory.reduce((sum, item) => {
         let itemValue = item.isGolden ? item.fish.value * 2 : item.fish.value;
         if (dailyMarketBoosts.includes(item.fish.name)) itemValue *= 3;
         return sum + itemValue;
     }, 0);
+    
     if (totalValue > 0) {
       setGold(prev => prev + totalValue);
       setStats(prev => ({ ...prev, totalGoldEarned: prev.totalGoldEarned + totalValue }));
-      
-      setQuests(prev => prev.map(q => {
-        if (q.type === 'EARN_GOLD' && !q.isCompleted) {
-          const newProgress = q.progress + totalValue;
-          const completed = newProgress >= q.target;
-          if (completed && !q.isCompleted) {
-            addNotification(`Nhiệm vụ hoàn tất: ${q.title}! Hãy nhận thưởng.`, 'success');
-          }
-          return { ...q, progress: Math.min(q.target, newProgress), isCompleted: completed };
-        }
-        return q;
-      }));
+      updateEarnGoldQuest(totalValue);
 
       setAchievements(prev => prev.map(ach => {
         if (ach.id === 'ach_3' && !ach.isCompleted) {
@@ -519,15 +550,8 @@ const App: React.FC = () => {
     if (dailyMarketBoosts.includes(item.fish.name)) value *= 3;
     setGold(prev => prev + value);
     setStats(prev => ({ ...prev, totalGoldEarned: prev.totalGoldEarned + value }));
+    updateEarnGoldQuest(value);
     setInventory(prev => prev.filter(i => i.timestamp !== timestamp));
-    setQuests(prev => prev.map(q => {
-      if (q.type === 'EARN_GOLD' && !q.isCompleted) {
-        const newProgress = q.progress + value;
-        const completed = newProgress >= q.target;
-        return { ...q, progress: Math.min(q.target, newProgress), isCompleted: completed };
-      }
-      return q;
-    }));
     addNotification(`Đã bán ${item.fish.name}! +${value} vàng`, 'success');
   };
 
@@ -559,15 +583,18 @@ const App: React.FC = () => {
     }
   };
 
-  const buyItem = (item: RodType | BaitType, type: 'rod' | 'bait') => {
+  const buyItem = (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => {
     if (gold >= item.price) {
       setGold(prev => prev - item.price);
       if (type === 'rod') {
         setOwnedRods(prev => [...prev, item.id]);
         setCurrentRod(item as RodType);
+      } else if (type === 'tackle') {
+        setOwnedTackles(prev => [...prev, item.id]);
+        setCurrentTackle(item as TackleType);
       } else {
         const bait = item as BaitType;
-        const addCount = bait.count || 1;
+        const addCount = bait.count || 10;
         setBaitCounts(prev => ({
           ...prev,
           [bait.id]: (prev[bait.id] || 0) + addCount
@@ -580,10 +607,12 @@ const App: React.FC = () => {
     }
   };
 
-  const selectItem = (item: RodType | BaitType, type: 'rod' | 'bait') => {
+  const handleSelect = (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => {
     soundManager.playClick();
     if (type === 'rod') {
       setCurrentRod(item as RodType);
+    } else if (type === 'tackle') {
+      setCurrentTackle(item as TackleType);
     } else {
       setCurrentBait(item as BaitType);
     }
@@ -625,9 +654,11 @@ const App: React.FC = () => {
             onFishCaught={addFishToInventory}
             onFishLost={onFishLost}
             currentRod={currentRod}
+            currentTackle={currentTackle}
             currentBait={currentBait}
             baitCounts={baitCounts}
             ownedRods={ownedRods}
+            ownedTackles={ownedTackles}
             weather={weather}
             skills={skills}
             location={currentLocation}
@@ -636,6 +667,8 @@ const App: React.FC = () => {
             onBossDefeated={handleBossDefeated}
             onSessionReset={handleSessionReset}
             onLineBroken={handleLineBroken}
+            onRodBroken={handleRodBroken}
+            onCast={handleCast}
             addNotification={addNotification}
             liveBait={liveBait}
             setLiveBait={setLiveBait}
@@ -652,10 +685,12 @@ const App: React.FC = () => {
           inventory={inventory}
           inventoryCapacity={inventoryCapacity}
           notifications={notifications}
-          currentRod={currentRod}
-          currentBait={currentBait}
-          baitCounts={baitCounts}
-          ownedRods={ownedRods}
+           currentRod={currentRod}
+           currentTackle={currentTackle}
+           currentBait={currentBait}
+           baitCounts={baitCounts}
+           ownedRods={ownedRods}
+           ownedTackles={ownedTackles}
           stats={stats}
           achievements={achievements}
           quests={quests}
@@ -663,7 +698,7 @@ const App: React.FC = () => {
           onSellAll={sellAllFish}
           onSellFish={sellFish}
           onBuy={buyItem}
-          onSelect={selectItem}
+          onSelect={handleSelect}
           onUpgradeCapacity={upgradeCapacity}
           onResetData={handleResetData}
           onClaimQuest={claimQuest}

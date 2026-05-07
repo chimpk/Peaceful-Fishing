@@ -56,6 +56,7 @@ export interface FishType {
   behavior?: FishBehavior;
   allowedLocations?: LocationType[];
   allowedTimes?: TimeOfDay[];
+  preferredBaits?: string[];
 }
 
 export interface RodType {
@@ -70,7 +71,7 @@ export interface RodType {
   isLocked?: boolean;
 }
 
-export interface BaitType {
+export interface TackleType {
   id: string;
   name: string;
   description: string;
@@ -80,6 +81,18 @@ export interface BaitType {
   maxValue?: number;
   rarityText: string;
   count?: number;
+}
+
+export interface BaitType {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  attraction: number;
+  rarityBoost: number;
+  rarityText: string;
+  count?: number;
+  category: 'NATURAL' | 'SEA';
 }
 
 export interface FishInstance {

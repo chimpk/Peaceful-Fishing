@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, FishType, RodType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem } from '../core/types';
+import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem } from '../core/types';
 
 // Views
 import GameView from './views/GameView';
@@ -20,16 +20,18 @@ interface UIOverlayProps {
   inventoryCapacity: number;
   notifications: NotificationItem[];
   currentRod: RodType;
+  currentTackle: TackleType;
   currentBait: BaitType;
   baitCounts: Record<string, number>;
   ownedRods: string[];
+  ownedTackles: string[];
   stats: ProfileStats;
   achievements: Achievement[];
   quests: Quest[];
   onStart: () => void;
   onSellAll: () => void;
-  onBuy: (item: RodType | BaitType, type: 'rod' | 'bait') => void;
-  onSelect: (item: RodType | BaitType, type: 'rod' | 'bait') => void;
+  onBuy: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
+  onSelect: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
   onUpgradeCapacity: () => void;
   onResetData: () => void;
   onClaimQuest: (id: string) => void;
@@ -57,7 +59,7 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
   const { activeView, setActiveView, stats, gold, quests } = props;
   
   const [showTutorial, setShowTutorial] = useState(false);
-  const [profileTab, setProfileTab] = useState<'stats' | 'inventory' | 'skills' | 'collection'>('stats');
+  const [profileTab, setProfileTab] = useState<'stats' | 'skills' | 'collection'>('stats');
 
   const levelData = useMemo(() => {
     const level = Math.floor(Math.sqrt(stats.totalFishCaught)) + 1;

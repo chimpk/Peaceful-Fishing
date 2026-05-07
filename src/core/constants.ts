@@ -66,7 +66,8 @@ export const BAITS: BaitType[] = [
     attraction: 180, 
     rarityBoost: 1, 
     rarityText: 'CƠ BẢN', 
-    count: 10 
+    count: 10,
+    category: 'NATURAL'
   },
   { 
     id: 'bait_2', 
@@ -76,7 +77,8 @@ export const BAITS: BaitType[] = [
     attraction: 300, 
     rarityBoost: 2.5, 
     rarityText: 'NÂNG CAO', 
-    count: 10 
+    count: 10,
+    category: 'NATURAL'
   },
   { 
     id: 'bait_3', 
@@ -86,7 +88,8 @@ export const BAITS: BaitType[] = [
     attraction: 500, 
     rarityBoost: 6, 
     rarityText: 'Huyền Thoại', 
-    count: 5 
+    count: 5,
+    category: 'NATURAL'
   },
 ];
 
