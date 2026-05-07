@@ -1,14 +1,15 @@
 
 import { Rarity, FishType, RodType, TackleType, BaitType, Achievement, Quest, FishBehavior } from './types';
 
-export const CANVAS_WIDTH = 800;
-export const CANVAS_HEIGHT = 600;
+export const CANVAS_WIDTH = 1100;
+export const CANVAS_HEIGHT = 650;
 export const REEL_BAR_HEIGHT = 350;
 
 export const WEATHER_BONUSES = {
-  sunny: { attraction: 1.0, rarity: 1.0, speed: 1.0 },
-  rainy: { attraction: 1.3, rarity: 0.8, speed: 1.2 },
-  stormy: { attraction: 0.7, rarity: 2.5, speed: 1.8 }
+  sunny: { attraction: 1.0, rarity: 1.0, speed: 1.0, tension: 1.0, label: 'Trời Đẹp: Chỉ số cơ bản' },
+  rainy: { attraction: 1.4, rarity: 0.8, speed: 1.2, tension: 1.0, label: 'Trời Mưa: +40% Cá cắn câu, +20% Tốc độ cá, -20% Độ hiếm' },
+  stormy: { attraction: 0.7, rarity: 3.5, speed: 2.0, tension: 1.45, label: 'Bão Lớn: x3.5 Độ hiếm, x2.0 Tốc độ cá, +45% Căng dây. CẢNH BÁO: Sét đánh có thể gây mất kiểm soát cần câu!' },
+  foggy: { attraction: 1.6, rarity: 1.5, speed: 0.8, tension: 1.15, label: 'Sương Mù: ++Thu hút cá, +50% Độ hiếm, Cá bơi chậm nhưng khó kéo hơn!' }
 };
 
 export const FISH_TYPES: FishType[] = [
@@ -25,6 +26,8 @@ export const FISH_TYPES: FishType[] = [
   { name: 'Cá Diếc', rarity: Rarity.COMMON, value: 30, tension: 18, color: '#94a3b8', size: 16, weight: 140, allowedLocations: ['POND'], preferredBaits: ['bait_natural_1'] },
   { name: 'Cá Mè', rarity: Rarity.COMMON, value: 40, tension: 22, color: '#cbd5e1', size: 24, weight: 130, allowedLocations: ['POND'], preferredBaits: ['bait_natural_1'] },
   { name: 'Cá Bống', rarity: Rarity.COMMON, value: 20, tension: 12, color: '#78350f', size: 14, weight: 160, allowedLocations: ['POND'], preferredBaits: ['bait_natural_1'] },
+  { name: 'Cá Trôi', rarity: Rarity.COMMON, value: 32, tension: 19, color: '#94a3b8', size: 20, weight: 145, allowedLocations: ['POND'] },
+  { name: 'Cá Đuối Cát', rarity: Rarity.COMMON, value: 45, tension: 25, color: '#d1d5db', size: 28, weight: 120, allowedLocations: ['OCEAN'] },
 
   // --- KHÔNG PHỔ BIẾN (UNCOMMON) ---
   { name: 'Cá Trê', rarity: Rarity.UNCOMMON, value: 60, tension: 30, color: '#4b5563', size: 24, weight: 80, allowedLocations: ['POND', 'CAVE'], allowedTimes: ['SUNSET', 'NIGHT'], preferredBaits: ['bait_natural_1'] },
@@ -32,6 +35,8 @@ export const FISH_TYPES: FishType[] = [
   { name: 'Cá Chim', rarity: Rarity.UNCOMMON, value: 80, tension: 32, color: '#e2e8f0', size: 28, weight: 70, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_1'] },
   { name: 'Cá Rô Phi', rarity: Rarity.UNCOMMON, value: 55, tension: 28, color: '#64748b', size: 22, weight: 85, allowedLocations: ['POND'], preferredBaits: ['bait_natural_1', 'bait_natural_2'] },
   { name: 'Cá Lăng', rarity: Rarity.UNCOMMON, value: 150, tension: 40, color: '#475569', size: 30, weight: 60, allowedLocations: ['POND'], preferredBaits: ['bait_natural_2'] },
+  { name: 'Cá Nóc Hổ', rarity: Rarity.UNCOMMON, value: 180, tension: 42, color: '#fcd34d', size: 20, weight: 55, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE },
+  { name: 'Cá Bay', rarity: Rarity.UNCOMMON, value: 200, tension: 38, color: '#60a5fa', size: 18, weight: 50, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER },
 
   // --- HIẾM (RARE) ---
   { name: 'Cá Thu', rarity: Rarity.RARE, value: 350, tension: 45, color: '#60a5fa', size: 28, weight: 40, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'] },
@@ -39,24 +44,32 @@ export const FISH_TYPES: FishType[] = [
   { name: 'Cá Hồi', rarity: Rarity.RARE, value: 400, tension: 55, color: '#f87171', size: 32, weight: 40, allowedLocations: ['POND', 'OCEAN'], behavior: FishBehavior.LEAPER },
   { name: 'Cá Ngựa', rarity: Rarity.RARE, value: 300, tension: 40, color: '#facc15', size: 18, weight: 30, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_1'] },
   { name: 'Cá Mập Con', rarity: Rarity.RARE, value: 650, tension: 65, color: '#94a3b8', size: 35, weight: 25, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'] },
+  { name: 'Cá Chình Điện', rarity: Rarity.RARE, value: 850, tension: 68, color: '#4338ca', size: 40, weight: 22, allowedLocations: ['CAVE'], behavior: FishBehavior.AGGRESSIVE },
+  { name: 'Cá Mao Tiên', rarity: Rarity.RARE, value: 750, tension: 62, color: '#ef4444', size: 30, weight: 28, allowedLocations: ['OCEAN'] },
 
   // --- SỬ THI (EPIC) ---
-  { name: 'Cá Ngừ Đại Dương', rarity: Rarity.EPIC, value: 1200, tension: 70, color: '#312e81', size: 36, weight: 15, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'] },
-  { name: 'Cá Nhám Búa', rarity: Rarity.EPIC, value: 2500, tension: 80, color: '#1e1b4b', size: 45, weight: 12, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'] },
-  { name: 'Cá Mặt Trăng', rarity: Rarity.EPIC, value: 3500, tension: 60, color: '#cbd5e1', size: 55, weight: 10, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_sea_3'] },
-  { name: 'Cá Heo', rarity: Rarity.EPIC, value: 4500, tension: 65, color: '#38bdf8', size: 40, weight: 8, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'] },
+  { name: 'Cá Ngừ Đại Dương', rarity: Rarity.EPIC, value: 1200, tension: 70, color: '#312e81', size: 36, weight: 15, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'], canBerserk: true },
+  { name: 'Cá Nhám Búa', rarity: Rarity.EPIC, value: 2500, tension: 80, color: '#1e1b4b', size: 45, weight: 12, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  { name: 'Cá Mặt Trăng', rarity: Rarity.EPIC, value: 3500, tension: 60, color: '#cbd5e1', size: 55, weight: 10, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  { name: 'Cá Heo', rarity: Rarity.EPIC, value: 4500, tension: 65, color: '#38bdf8', size: 40, weight: 8, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  { name: 'Cá Rồng Huyết Long', rarity: Rarity.EPIC, value: 6000, tension: 75, color: '#991b1b', size: 45, weight: 6, allowedLocations: ['POND'], allowedTimes: ['SUNSET'], canBerserk: true },
+  { name: 'Cá Buồm (Sailfish)', rarity: Rarity.EPIC, value: 7500, tension: 85, color: '#1e3a8a', size: 55, weight: 5, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, canBerserk: true },
 
   // --- HUYỀN THOẠI (LEGENDARY) ---
-  { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 8000, tension: 90, color: '#e2e8f0', size: 50, weight: 5, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'] },
-  { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 15000, tension: 94, color: '#94a3b8', size: 65, weight: 4, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'] },
-  { name: 'Cá Rồng Vàng', rarity: Rarity.LEGENDARY, value: 20000, tension: 88, color: '#fbbf24', size: 45, weight: 3, allowedLocations: ['POND'] },
-  { name: 'Cá Voi Xanh Con', rarity: Rarity.LEGENDARY, value: 25000, tension: 92, color: '#1d4ed8', size: 70, weight: 2, allowedLocations: ['OCEAN'] },
+  { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 8000, tension: 90, color: '#e2e8f0', size: 50, weight: 5, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'], canBerserk: true },
+  { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 15000, tension: 94, color: '#94a3b8', size: 65, weight: 4, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  { name: 'Cá Rồng Vàng', rarity: Rarity.LEGENDARY, value: 20000, tension: 88, color: '#fbbf24', size: 45, weight: 3, allowedLocations: ['POND'], canBerserk: true },
+  { name: 'Cá Voi Xanh Con', rarity: Rarity.LEGENDARY, value: 25000, tension: 92, color: '#1d4ed8', size: 70, weight: 2, allowedLocations: ['OCEAN'], canBerserk: true },
+  { name: 'Cá Voi Sát Thủ', rarity: Rarity.LEGENDARY, value: 35000, tension: 96, color: '#020617', size: 85, weight: 1.5, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, canBerserk: true },
+  { name: 'Cá Vua (Oarfish)', rarity: Rarity.LEGENDARY, value: 40000, tension: 90, color: '#cbd5e1', size: 120, weight: 1.2, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], canBerserk: true },
 
   // --- THẦN THOẠI (MYTHIC) ---
-  { name: 'Long Ngư Phượng Hoàng', rarity: Rarity.MYTHIC, value: 45000, tension: 97, color: '#ef4444', size: 75, weight: 1, allowedLocations: ['CAVE'] },
-  { name: 'Hải Long Vương', rarity: Rarity.MYTHIC, value: 65000, tension: 99, color: '#3b82f6', size: 90, weight: 0.5, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT', 'SUNSET'], behavior: FishBehavior.AGGRESSIVE },
-  { name: 'Kraken Con', rarity: Rarity.MYTHIC, value: 85000, tension: 98, color: '#7e22ce', size: 100, weight: 0.3, allowedLocations: ['CAVE'] },
-  { name: 'Leviathan Thần Thánh', rarity: Rarity.MYTHIC, value: 120000, tension: 99, color: '#10b981', size: 120, weight: 0.1, allowedLocations: ['CAVE'] },
+  { name: 'Long Ngư Phượng Hoàng', rarity: Rarity.MYTHIC, value: 45000, tension: 97, color: '#ef4444', size: 75, weight: 1, allowedLocations: ['CAVE'], canBerserk: true },
+  { name: 'Hải Long Vương', rarity: Rarity.MYTHIC, value: 65000, tension: 99, color: '#3b82f6', size: 90, weight: 0.5, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT', 'SUNSET'], behavior: FishBehavior.AGGRESSIVE, canBerserk: true },
+  { name: 'Kraken Con', rarity: Rarity.MYTHIC, value: 85000, tension: 98, color: '#7e22ce', size: 100, weight: 0.3, allowedLocations: ['CAVE'], canBerserk: true },
+  { name: 'Leviathan Thần Thánh', rarity: Rarity.MYTHIC, value: 120000, tension: 99, color: '#10b981', size: 120, weight: 0.1, allowedLocations: ['CAVE'], canBerserk: true },
+  { name: 'Cá Rồng Bạch Tạng', rarity: Rarity.MYTHIC, value: 150000, tension: 98, color: '#ffffff', size: 80, weight: 0.05, allowedLocations: ['POND'], allowedTimes: ['NIGHT'], canBerserk: true },
+  { name: 'Hải Tượng Long', rarity: Rarity.MYTHIC, value: 200000, tension: 99, color: '#064e3b', size: 150, weight: 0.02, allowedLocations: ['POND'], behavior: FishBehavior.AGGRESSIVE, canBerserk: true },
 ];
 
 export const RODS: RodType[] = [
@@ -68,7 +81,9 @@ export const RODS: RodType[] = [
     lineStrength: 1, 
     control: 1, 
     maxValue: 300,
-    rarityText: 'PHỔ THÔNG' 
+    rarityText: 'PHỔ THÔNG',
+    durability: 100,
+    maxDurability: 100
   },
   { 
     id: 'rod_2', 
@@ -78,7 +93,9 @@ export const RODS: RodType[] = [
     lineStrength: 1.8, 
     control: 1.3, 
     maxValue: 1000,
-    rarityText: 'HIẾM' 
+    rarityText: 'HIẾM',
+    durability: 150,
+    maxDurability: 150
   },
   { 
     id: 'rod_3', 
@@ -88,7 +105,9 @@ export const RODS: RodType[] = [
     lineStrength: 2.8, 
     control: 1.6, 
     maxValue: 5000,
-    rarityText: 'SỬ THI' 
+    rarityText: 'SỬ THI',
+    durability: 250,
+    maxDurability: 250
   },
   { 
     id: 'rod_4', 
@@ -99,7 +118,9 @@ export const RODS: RodType[] = [
     control: 2.2, 
     maxValue: 1000000,
     rarityText: 'HUYỀN THOẠI', 
-    isLocked: true 
+    isLocked: true,
+    durability: 500,
+    maxDurability: 500
   },
 ];
 
@@ -113,7 +134,9 @@ export const TACKLES: TackleType[] = [
     rarityBoost: 0.8,
     maxValue: 300,
     rarityText: 'CƠ BẢN',
-    count: 1
+    count: 1,
+    durability: 30,
+    maxDurability: 30
   },
   {
     id: 'tackle_2',
@@ -124,7 +147,9 @@ export const TACKLES: TackleType[] = [
     rarityBoost: 1.2,
     maxValue: 1000,
     rarityText: 'NÂNG CAO',
-    count: 0
+    count: 0,
+    durability: 50,
+    maxDurability: 50
   },
   {
     id: 'tackle_3',
@@ -135,7 +160,9 @@ export const TACKLES: TackleType[] = [
     rarityBoost: 1.8,
     maxValue: 5000,
     rarityText: 'CHUYÊN NGHIỆP',
-    count: 0
+    count: 0,
+    durability: 80,
+    maxDurability: 80
   },
   {
     id: 'tackle_4',
@@ -146,7 +173,9 @@ export const TACKLES: TackleType[] = [
     rarityBoost: 2.5,
     maxValue: 10000,
     rarityText: 'CAO CẤP',
-    count: 0
+    count: 0,
+    durability: 120,
+    maxDurability: 120
   },
   {
     id: 'tackle_5',
@@ -157,7 +186,9 @@ export const TACKLES: TackleType[] = [
     rarityBoost: 3.5,
     maxValue: 50000,
     rarityText: 'CỰC HẠNG',
-    count: 0
+    count: 0,
+    durability: 200,
+    maxDurability: 200
   },
 ];
 
@@ -258,7 +289,7 @@ export const generateDailyQuests = (): Quest[] => {
     {
       id: 'q_1',
       title: 'Kẻ Săn Cá Chuyên Cần',
-      description: 'Câu được tổng cộng 15 con cá.',
+    description: 'Câu được tổng cộng 15 con cá.',
       target: 15,
       progress: 0,
       isCompleted: false,
@@ -300,4 +331,10 @@ export const generateDailyQuests = (): Quest[] => {
   });
 
   return quests;
+};
+
+export const LOCATION_DATA = {
+  POND: { currentSpeed: 0, description: 'Ao làng yên bình. Thích hợp cho người mới.' },
+  OCEAN: { currentSpeed: 0.0015, description: 'Biển khơi sóng dữ. Dòng chảy mạnh làm khó thợ câu.' },
+  CAVE: { currentSpeed: 0.0008, description: 'Hang động huyền bí. Dòng chảy ngầm khó đoán.' }
 };

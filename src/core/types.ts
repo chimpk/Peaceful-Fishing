@@ -54,6 +54,7 @@ export interface FishType {
   size: number;
   rarity: Rarity;
   behavior?: FishBehavior;
+  canBerserk?: boolean; // Mới: Cá có thể vào trạng thái hung dữ cuối trận
   allowedLocations?: LocationType[];
   allowedTimes?: TimeOfDay[];
   preferredBaits?: string[];
@@ -69,6 +70,8 @@ export interface RodType {
   maxValue?: number;
   rarityText: string;
   isLocked?: boolean;
+  durability?: number;    // Mới: Độ bền hiện tại
+  maxDurability?: number; // Mới: Độ bền tối đa
 }
 
 export interface TackleType {
@@ -81,6 +84,8 @@ export interface TackleType {
   maxValue?: number;
   rarityText: string;
   count?: number;
+  durability?: number;    // Mới: Độ bền hiện tại
+  maxDurability?: number; // Mới: Độ bền tối đa
 }
 
 export interface BaitType {
@@ -115,6 +120,11 @@ export interface ProfileStats {
   totalFishCaught: number;
   rarestFish: string;
   highestValue: number;
+  level?: number;
+  xp?: number;
+  fishCounts?: Record<string, number>;
+  lastDailyRewardClaimed?: number;
+  dailyStreak?: number;
 }
 
 export interface Achievement {
@@ -146,6 +156,11 @@ export interface PlayerSkills {
   sharpEye: number;
   fastHands: number;
   lucky: number;
+  focus: number;
+  powerReel: number;
+  deepSeaDiver: number;
+  weatherExpert: number;
+  masterAngler: number;
 }
 
 export type NotificationType = 'info' | 'success' | 'warning' | 'achievement' | 'boss';

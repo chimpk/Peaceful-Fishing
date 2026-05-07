@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GameState, FishInstance, FishType, RodType, TackleType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay, NotificationType } from '../core/types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES } from '../core/gameData';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES, LOCATION_DATA } from '../core/gameData';
 import * as Graphics from '../core/graphics';
 import * as BossModels from '../core/fish/BossModels';
 import { soundManager } from '../core/soundManager';
@@ -17,7 +17,7 @@ interface GameCanvasProps {
   baitCounts: Record<string, number>;
   ownedRods: string[];
   ownedTackles: string[];
-  weather: 'sunny' | 'rainy' | 'stormy';
+  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy';
   skills: PlayerSkills;
   location: LocationType;
   timeOfDay: TimeOfDay;
@@ -32,6 +32,7 @@ interface GameCanvasProps {
   setLiveBait: (bait: FishType | null) => void;
   isBossSpawned: boolean;
   setIsBossSpawned: (v: boolean) => void;
+  onDurabilityChange: (type: 'rod' | 'tackle', amount: number) => void;
 }
 
 interface Particle {
@@ -49,7 +50,7 @@ interface Particle {
 
 type FishPersonality = 'curious' | 'shy' | 'brave';
 type FishSwimStyle = 'glider' | 'jerky' | 'charger';
-type FishAIState = 'wandering' | 'interested' | 'inspecting' | 'scared';
+type FishAIState = 'wandering' | 'interested' | 'inspecting' | 'scared' | 'predatory';
 
 interface EnhancedFishInstance extends FishInstance {
   targetY: number;
@@ -65,7 +66,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentTackle, currentBait, baitCounts, ownedRods, ownedTackles, weather, skills, location, timeOfDay, streak, onBossDefeated, onSessionReset, onLineBroken, onRodBroken, onCast, addNotification, liveBait, setLiveBait, isBossSpawned, setIsBossSpawned
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentTackle, currentBait, baitCounts, ownedRods, ownedTackles, weather, skills, location, timeOfDay, streak, onBossDefeated, onSessionReset, onLineBroken, onRodBroken, onCast, addNotification, liveBait, setLiveBait, isBossSpawned, setIsBossSpawned, onDurabilityChange
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -106,9 +107,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // Boss fight refs
   const bossHP = useRef(100);
   const bossMaxHP = useRef(100);
+  const bossAttackTimer = useRef(0);
+  const bossStrikeTimer = useRef(0);
+  const bossStrikeStartX = useRef(0);
+  const bossStrikeStartY = useRef(0);
+  const bossLurkingX = useRef(0);
+  const bossLurkingY = useRef(0);
+  const bossExistTimer = useRef(3600);
+  const bossFailCount = useRef(0);
+  const bossInitialized = useRef(false);
   const playerHP = useRef(100);
   const playerMaxHP = useRef(100);
-  const bossAttackTimer = useRef(0);
   const playerAttackCharge = useRef(0);
   const isBossCharging = useRef(false);
   const bossX = useRef(CANVAS_WIDTH / 2);
@@ -150,6 +159,36 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const prevTimeOfDayRef = useRef<TimeOfDay>(timeOfDay);
   const transitionProgressRef = useRef(1); // 0 to 1
+  
+  // Lightning strike state
+  const lightningStrikeTimer = useRef(0);
+  const lightningStrikeX = useRef(0);
+  const lightningStrikeAlpha = useRef(0);
+  const stunTimer = useRef(0);
+  
+  // Unique Boss Mechanic State
+  const inkAlpha = useRef(0);
+  const torpedoActive = useRef(false);
+  const torpedoX = useRef(0);
+  const torpedoY = useRef(0);
+  const torpedoTargetX = useRef(0);
+  const torpedoTargetY = useRef(0);
+  const torpedoProgress = useRef(0);
+
+  const eventHandledRef = useRef<string | null>(null);
+
+  // --- CINEMATIC CAMERA ---
+  const cameraZoom = useRef(1);          // current zoom (smoothly lerped)
+  const cameraZoomTarget = useRef(1);    // desired zoom
+  const cameraOffsetX = useRef(0);       // current pan-X to keep bobber centred
+  const cameraOffsetY = useRef(0);
+  const cameraOffsetXTarget = useRef(0);
+  const cameraOffsetYTarget = useRef(0);
+  const motionBlurAlpha = useRef(0);     // motion-blur vignette intensity
+
+  useEffect(() => {
+    eventHandledRef.current = null;
+  }, [gameState]);
 
   useEffect(() => {
     if (timeOfDay !== prevTimeOfDayRef.current) {
@@ -164,6 +203,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     let diff = target - current;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
+    // Smoother interpolation for very small differences
+    if (Math.abs(diff) < 0.01) return target;
     return current + diff * speed;
   };
 
@@ -270,7 +311,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const initialFish: EnhancedFishInstance[] = [];
     for (let i = 0; i < 15; i++) {
       const fish = spawnSingleFish();
-      fish.x = Math.random() * CANVAS_WIDTH;
+      // Spread out initial fish across a wider area, including off-screen edges
+      fish.x = (Math.random() - 0.2) * (CANVAS_WIDTH * 1.4);
       initialFish.push(fish);
     }
     fishRef.current = initialFish;
@@ -313,12 +355,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       addNotification('Không có cần câu. Hãy mua lại cần mới.', 'warning');
       return false;
     }
+    if ((currentRod.durability || 0) <= 0) {
+      addNotification('Cần câu đã hỏng. Hãy sửa chữa để tiếp tục!', 'warning');
+      return false;
+    }
+    if ((currentTackle.durability || 0) <= 0) {
+      addNotification('Thẻo câu đã hỏng. Hãy sửa chữa hoặc thay thẻo mới!', 'warning');
+      return false;
+    }
     if (currentBaitCount <= 0) {
       addNotification('Đã hết mồi câu. Vui lòng mua thêm mồi câu.', 'warning');
       return false;
     }
     return true;
-  }, [baitCounts, currentBait.id, currentRod.id, ownedRods, addNotification]);
+  }, [baitCounts, currentBait.id, currentRod, currentTackle, ownedRods, addNotification]);
 
   const handleHookAction = useCallback(() => {
     if (gameState === GameState.NIBBLING && activeFish.current) {
@@ -331,6 +381,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (collidingFish.type.value > lineLimit) {
             onLineBroken();
             onFishLost("Thẻo bị đứt vì cá quá to!");
+            if (collidingFish.id === 'boss_dummy') {
+                bossFailCount.current++;
+                if (bossFailCount.current >= 2) {
+                    setIsBossSpawned(false);
+                    bossFailCount.current = 0;
+                    addNotification("BOSS đã bỏ đi vì bạn quá yếu!", "warning");
+                }
+            }
             setGameState(GameState.IDLE);
             activeFish.current = null;
             return;
@@ -339,6 +397,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (collidingFish.type.value > rodLimit) {
             onRodBroken();
             onFishLost("Cần câu đã gãy vì cá quá nặng!");
+            if (collidingFish.id === 'boss_dummy') {
+                bossFailCount.current++;
+                if (bossFailCount.current >= 2) {
+                    setIsBossSpawned(false);
+                    bossFailCount.current = 0;
+                    addNotification("BOSS đã bỏ đi vì bạn quá yếu!", "warning");
+                }
+            }
             setGameState(GameState.IDLE);
             activeFish.current = null;
             return;
@@ -346,7 +412,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
         if (collidingFish.id === 'boss_dummy') {
             setGameState(GameState.BOSS_FIGHT);
+            bossHP.current = 100;
+            playerHP.current = 100;
+            bossAttackTimer.current = 0;
+            playerAttackCharge.current = 0;
+            inkAlpha.current = 0;
+            torpedoActive.current = false;
             soundManager.playSuccess();
+            shakeIntensity.current = 12; // Intense shake for boss hook
             return;
         }
 
@@ -378,9 +451,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
         soundManager.playSuccess();
+        shakeIntensity.current = 8; // Normal shake for fish hook
       } else {
         // Too early
         createSplash(hookX.current, hookY.current, 1.2);
+        if (activeFish.current?.id === 'boss_dummy') {
+            bossFailCount.current++;
+            if (bossFailCount.current >= 2) {
+                setIsBossSpawned(false);
+                bossFailCount.current = 0;
+                addNotification("BOSS đã bỏ đi vì bạn quá yếu!", "warning");
+            }
+        }
         onFishLost("Giật quá sớm rồi! Cá đã chạy mất.");
         activeFish.current = null;
       }
@@ -390,6 +472,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
       e.preventDefault();
+      if (stunTimer.current > 0) return; // Cannot press Space while stunned
+      
       if (!isSpacePressed.current) {
         isSpacePressed.current = true;
         if (gameState === GameState.IDLE) {
@@ -409,24 +493,32 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
     // Active Skill: F = Focus (slow tension) — only during REELING
     if (e.code === 'KeyF' && gameState === GameState.REELING) {
-      if (focusCooldown.current <= 0 && !focusActive.current) {
-        focusActive.current = true;
-        focusTimer.current = 180; // 3 seconds at 60fps
-        focusCooldown.current = 900; // 15s cooldown
-        addNotification('TẬP TRUNG! Tension chậm lại 3 giây.', 'info');
-      } else if (focusCooldown.current > 0) {
-        addNotification(`Tập Trung đang hồi chiêu (${Math.ceil(focusCooldown.current / 60)}s)`, 'warning');
+      if (skills.focus > 0) {
+        if (focusCooldown.current <= 0 && !focusActive.current) {
+          focusActive.current = true;
+          focusTimer.current = 180; // 3 seconds at 60fps
+          focusCooldown.current = 900; // 15s cooldown
+          addNotification('TẬP TRUNG! Tension chậm lại 3 giây.', 'info');
+        } else if (focusCooldown.current > 0) {
+          addNotification(`Tập Trung đang hồi chiêu (${Math.ceil(focusCooldown.current / 60)}s)`, 'warning');
+        }
+      } else {
+        addNotification('Kỹ năng Tập Trung chưa mở khóa (Cấp 15)', 'warning');
       }
     }
     // Active Skill: G = Power Reel (boost reel speed) — only during REELING
     if (e.code === 'KeyG' && gameState === GameState.REELING) {
-      if (powerReelCooldown.current <= 0 && !powerReelActive.current) {
-        powerReelActive.current = true;
-        powerReelTimer.current = 120; // 2 seconds
-        powerReelCooldown.current = 1200; // 20s cooldown
-        addNotification('KÉO MẠNH! Reeling tăng tốc 2 giây!', 'success');
-      } else if (powerReelCooldown.current > 0) {
-        addNotification(`Kéo Mạnh đang hồi chiêu (${Math.ceil(powerReelCooldown.current / 60)}s)`, 'warning');
+      if (skills.powerReel > 0) {
+        if (powerReelCooldown.current <= 0 && !powerReelActive.current) {
+          powerReelActive.current = true;
+          powerReelTimer.current = 120; // 2 seconds
+          powerReelCooldown.current = 1200; // 20s cooldown
+          addNotification('KÉO MẠNH! Reeling tăng tốc 2 giây!', 'success');
+        } else if (powerReelCooldown.current > 0) {
+          addNotification(`Kéo Mạnh đang hồi chiêu (${Math.ceil(powerReelCooldown.current / 60)}s)`, 'warning');
+        }
+      } else {
+        addNotification('Kỹ năng Kéo Mạnh chưa mở khóa (Cấp 20)', 'warning');
       }
     }
   }, [gameState, canStartFishing, handleHookAction, addNotification, focusActive, focusCooldown, powerReelActive, powerReelCooldown, skills.fastHands]);
@@ -448,6 +540,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
 
   const handlePressStart = useCallback(() => {
+    if (stunTimer.current > 0) return;
+    
     if (!isSpacePressed.current) {
       isSpacePressed.current = true;
       if (gameState === GameState.IDLE) {
@@ -505,8 +599,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
         if (bossHP.current <= 0) {
           setTimeout(() => {
+            if (eventHandledRef.current === 'boss_defeat') return;
+            eventHandledRef.current = 'boss_defeat';
+
             addNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI!", 'success');
             setIsBossSpawned(false);
+            inkAlpha.current = 0;
+            torpedoActive.current = false;
             setGameState(GameState.CAUGHT);
             isJumping.current = true;
             jumpProgress.current = 0;
@@ -547,14 +646,91 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         shakeIntensity.current *= 0.92;
     }
 
+    // --- CINEMATIC CAMERA: compute targets ---
+    const isFishingActive = (gameState === GameState.NIBBLING || gameState === GameState.REELING) && activeFish.current;
+    
+    if (isFishingActive) {
+        // Zoom in slightly for dramatic effect
+        cameraZoomTarget.current = 1.12; 
+        
+        // Target a point between player and hook, but biased toward the hook
+        const playerX = 80;
+        const focusX = playerX * 0.3 + hookX.current * 0.7;
+        const focusY = hookY.current;
+        
+        // Offset so the focus point stays relatively centered but doesn't push player off-screen
+        cameraOffsetXTarget.current = Math.max(-150, Math.min(150, (CANVAS_WIDTH / 2 - focusX) * (cameraZoomTarget.current - 1)));
+        cameraOffsetYTarget.current = (CANVAS_HEIGHT / 2 - focusY) * (cameraZoomTarget.current - 1);
+    } else {
+        cameraZoomTarget.current = 1;
+        cameraOffsetXTarget.current = 0;
+        cameraOffsetYTarget.current = 0;
+        
+        // "Nghỉ" (Resting) vs "Câu" (Fishing) categorization
+        const isRestingState = gameState === GameState.IDLE || gameState === GameState.START || gameState === GameState.GAMEOVER || gameState === GameState.BOSS_FIGHT;
+        
+        if (isRestingState) {
+            // Hard reset immediately for resting states
+            cameraZoom.current = 1;
+            cameraOffsetX.current = 0;
+            cameraOffsetY.current = 0;
+        } else {
+            // Smoothly lerp back to 1.0 for other states (WAITING, CAUGHT, BOSS_FIGHT, etc.)
+            // But add snapping to prevent tiny persistent offsets
+            if (Math.abs(cameraZoom.current - 1) < 0.005) {
+                cameraZoom.current = 1;
+                cameraOffsetX.current = 0;
+                cameraOffsetY.current = 0;
+            }
+        }
+    }
+
+    // --- DYNAMIC CURRENTS (New Difficulty) ---
+    if (gameState === GameState.WAITING || gameState === GameState.NIBBLING || gameState === GameState.REELING) {
+        const locInfo = LOCATION_DATA[location] || { currentSpeed: 0 };
+        // The current pushes the tension zone drift
+        if (locInfo.currentSpeed > 0) {
+            // Drift moves back and forth slowly or consistently
+            const drift = Math.sin(frameCount.current * 0.01) * locInfo.currentSpeed;
+            tensionZone.current += drift;
+        }
+    }
+
+    // Motion-blur vignette: ramp up for large fish (high tension)
+    if (gameState === GameState.REELING) {
+        const fishTension = activeFish.current?.type.tension || 0;
+        const targetBlur = Math.min(0.55, (fishTension / 180) * 0.55);
+        motionBlurAlpha.current += (targetBlur - motionBlurAlpha.current) * 0.04;
+    } else {
+        motionBlurAlpha.current *= 0.88; // fade out
+    }
+    // Smooth-lerp camera values (faster reset when returning to normal)
+    const lerpSpeed = cameraZoomTarget.current === 1 ? 0.12 : 0.06;
+    cameraZoom.current += (cameraZoomTarget.current - cameraZoom.current) * lerpSpeed;
+    cameraOffsetX.current += (cameraOffsetXTarget.current - cameraOffsetX.current) * lerpSpeed;
+    cameraOffsetY.current += (cameraOffsetYTarget.current - cameraOffsetY.current) * lerpSpeed;
+
+    // Apply camera transform (zoom centred on canvas centre)
+    if (Math.abs(cameraZoom.current - 1) > 0.001) {
+        ctx.translate(CANVAS_WIDTH / 2 + cameraOffsetX.current, CANVAS_HEIGHT / 2 + cameraOffsetY.current);
+        ctx.scale(cameraZoom.current, cameraZoom.current);
+        ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
+    }
+
     if (shakeIntensity.current > 0.05) {
         ctx.translate((Math.random() - 0.5) * shakeIntensity.current, (Math.random() - 0.5) * shakeIntensity.current);
     }
 
     // --- SAFETY WATCHDOG ---
-    if (gameState === GameState.REELING && !activeFish.current) {
+    if ((gameState === GameState.REELING || gameState === GameState.NIBBLING) && !activeFish.current) {
         setGameState(GameState.IDLE);
+        // Force camera reset on watchdog trigger
+        cameraZoom.current = 1;
+        cameraOffsetX.current = 0;
+        cameraOffsetY.current = 0;
     }
+
+    const isBossBite = isBossSpawned && gameState === GameState.WAITING && baitSettleTimer.current <= 0;
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -596,7 +772,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const frenzyColor = frenzyTimer.current < 300 ? '#ef4444' : '#f97316';
       ctx.fillStyle = frenzyColor;
       ctx.roundRect(frenzyBarX, 16, frenzyBarW * frenzyRatio, 8, 4); ctx.fill();
-      ctx.fillStyle = 'white'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'white'; ctx.font = 'bold 11px "Be Vietnam Pro"'; ctx.textAlign = 'right';
       ctx.fillText(`🔥 FRENZY ${Math.ceil(frenzyTimer.current / 60)}s`, CANVAS_WIDTH / 2, 13);
     }
 
@@ -613,21 +789,62 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx, 
         frameCount.current, 
         weather, 
-        location, 
+        location,
         timeOfDay, 
-        prevTimeOfDayRef.current, 
+        prevTimeOfDayRef.current,
         transitionProgressRef.current
     );
+    const isRainy = weather === 'rainy' || weather === 'stormy';
+    if (isRainy) {
+        soundManager.startRain();
+    } else {
+        soundManager.stopRain();
+    }
+    Graphics.drawWeatherEffects(ctx, frameCount.current, weather, location);
+
+    // --- LIGHTNING STRIKE SYSTEM ---
+    if (weather === 'stormy' && location !== 'CAVE') {
+        if (lightningStrikeTimer.current > 0) {
+            lightningStrikeTimer.current--;
+            lightningStrikeAlpha.current *= 0.92;
+            if (lightningStrikeAlpha.current > 0.05) {
+                Graphics.drawLightning(ctx, lightningStrikeX.current, lightningStrikeAlpha.current);
+            }
+        } else {
+            // Chance to trigger lightning
+            if (Math.random() < 0.003) {
+                lightningStrikeTimer.current = 60;
+                lightningStrikeX.current = Math.random() * CANVAS_WIDTH;
+                lightningStrikeAlpha.current = 0.8;
+                soundManager.playThunder();
+                
+                // Gameplay impact: if reeling, add a tension spike and stun
+                if (gameState === GameState.REELING) {
+                    tensionVelocity.current += (Math.random() - 0.5) * 0.08;
+                    stunTimer.current = 20 + Math.random() * 30; // 0.3s - 0.5s stun
+                    isSpacePressed.current = false; // Force release
+                    shakeIntensity.current = 20;
+                    addNotification("SÉT ĐÁNH! Mất kiểm soát cần câu!", "warning");
+                }
+            }
+        }
+    }
+
+    if (stunTimer.current > 0) stunTimer.current--;
 
     // --- AMBIENT EFFECTS ---
-    // God Rays: Ocean + Day/Sunset only
+    // God Rays: OCEAN only (as requested, Pond and Cave don't need them)
     if (location === 'OCEAN' && timeOfDay !== 'NIGHT') {
-      Graphics.drawGodRays(ctx, frameCount.current);
+      Graphics.drawGodRays(ctx, frameCount.current, location, timeOfDay);
     }
+
     // Fireflies + Leaf Fall: Pond Night only
     if (location === 'POND' && timeOfDay === 'NIGHT') {
       Graphics.drawAmbientNight(ctx, frameCount.current);
     }
+
+    // --- NEW: COMBO STREAK ---
+    Graphics.drawComboStreak(ctx, streak, frameCount.current);
 
     bubblesRef.current.forEach(b => {
       b.y -= b.speed; if (b.y < 200) b.y = CANVAS_HEIGHT + 20;
@@ -661,6 +878,84 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const canAttractFish = gameState === GameState.WAITING && baitSettleTimer.current <= 0;
     const hookInWater = gameState === GameState.WAITING || gameState === GameState.REELING;
     let highestInterestedRarity: Rarity | null = null;
+
+    // --- BOSS LURKING VISUAL ---
+    if (isBossSpawned) {
+        // Initialize timer if not already done
+        if (!bossInitialized.current) {
+            bossExistTimer.current = 3600; // 1 minute @ 60fps
+            bossInitialized.current = true;
+            bossFailCount.current = 0;
+        }
+
+        // Countdown only if not currently in a fight or reeling/nibbling the boss
+        const isInteractingWithBoss = gameState === GameState.BOSS_FIGHT || activeFish.current?.id === 'boss_dummy';
+        if (!isInteractingWithBoss) {
+            bossExistTimer.current--;
+            if (bossExistTimer.current <= 0) {
+                setIsBossSpawned(false);
+                bossInitialized.current = false;
+                addNotification("CẢNH BÁO: BOSS đã rời khỏi khu vực này!", "info");
+            }
+        }
+        const bTime = frameCount.current * 0.008;
+        
+        // Target lurking position (always calculating)
+        const targetBx = (CANVAS_WIDTH / 2) + Math.cos(bTime) * (CANVAS_WIDTH * 0.4);
+        const targetBy = (CANVAS_HEIGHT / 2) + Math.sin(bTime * 0.7) * (CANVAS_HEIGHT * 0.2) + 120;
+        
+        // Initialize if first time
+        if (bossLurkingX.current === 0) {
+            bossLurkingX.current = targetBx;
+            bossLurkingY.current = targetBy;
+        }
+
+        // Smoothly update lurking position (lerp)
+        // If not striking, follow the oscillation smoothly
+        if (bossStrikeTimer.current <= 0) {
+            bossLurkingX.current += (targetBx - bossLurkingX.current) * 0.05;
+            bossLurkingY.current += (targetBy - bossLurkingY.current) * 0.05;
+        } else {
+            // During strike, move towards the hook
+            const t = 1 - (bossStrikeTimer.current / 50); 
+            const sX = bossStrikeStartX.current;
+            const sY = bossStrikeStartY.current;
+            bossLurkingX.current = sX + (hookX.current - sX) * t;
+            bossLurkingY.current = sY + (hookY.current - sY) * t;
+            bossStrikeTimer.current--;
+        }
+        
+        // Final water surface clamp for the ref values
+        bossLurkingY.current = Math.max(260, bossLurkingY.current);
+
+        // Render silhouette if in appropriate game states
+        const isActuallyActiveInCombat = activeFish.current?.id === 'boss_dummy' || gameState === GameState.BOSS_FIGHT;
+        if (!isActuallyActiveInCombat && gameState !== GameState.REELING && gameState !== GameState.NIBBLING && gameState !== GameState.CAUGHT && gameState !== GameState.START) {
+            ctx.save();
+            const bx = bossLurkingX.current;
+            const by = bossLurkingY.current;
+            
+            ctx.translate(bx, by);
+            // Face movement direction
+            const bDir = Math.sin(bTime) > 0 ? 1 : -1;
+            ctx.scale(bDir * 1.5, 1.5);
+
+            // Apply mouth offset to shadow when near the hook/striking
+            if (bossStrikeTimer.current > 0 || isBossBite) {
+                ctx.translate(-70, 0); 
+            }
+
+            ctx.globalAlpha = 0.25; 
+            ctx.filter = 'brightness(0.2) contrast(1.2) blur(1px)';
+            
+            if (location === 'OCEAN') BossModels.drawAbyssalKraken(ctx, frameCount.current, 100, 100, false);
+            else if (location === 'CAVE') BossModels.drawGhostOctopus(ctx, frameCount.current, 100, 100, false);
+            else BossModels.drawMechaSharkBoss(ctx, frameCount.current, 100, 100, false);
+            ctx.restore();
+        }
+    } else {
+        bossInitialized.current = false;
+    }
 
     fishRef.current.forEach(f => {
       if (activeFish.current?.id === f.id) return; 
@@ -696,7 +991,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120;
           } else {
             // Prevent target angle from snapping/flipping wildly when extremely close to hook
-            if (distSq > 150) {
+            if (distSq > 120) { // Increased distance slightly
                 f.targetAngle = Math.atan2(dy, dx);
             }
             f.targetY = hookY.current; 
@@ -712,17 +1007,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (f.state === 'interested' || f.state === 'scared') { f.state = 'wandering'; f.stateTimer = 0; }
         if (f.stateTimer <= 0) {
           f.state = Math.random() > 0.8 ? 'inspecting' : 'wandering';
-          f.stateTimer = 60 + Math.random() * 180;
+          f.stateTimer = 60 + Math.random() * 200;
           if (f.state === 'wandering') {
-            const wanderDir = f.velocity.x > 0 ? 0 : Math.PI;
-            f.targetAngle = (Math.random() - 0.5) * 0.8 + wanderDir; f.targetY = 250 + Math.random() * 300;
+            // Encourage moving towards edges or empty areas
+            const inCenter = f.x > CANVAS_WIDTH * 0.3 && f.x < CANVAS_WIDTH * 0.7;
+            const rightSideEmpty = fishRef.current.filter(fi => fi.x > CANVAS_WIDTH * 0.7).length < 3;
+            
+            let wanderDir;
+            if (rightSideEmpty && f.x < CANVAS_WIDTH * 0.5) {
+                wanderDir = 0; // Force head right
+            } else if (inCenter && Math.random() > 0.3) {
+                wanderDir = f.x > CANVAS_WIDTH / 2 ? Math.PI : 0; // Away from center
+            } else {
+                wanderDir = f.velocity.x > 0 ? 0 : Math.PI;
+            }
+            
+            f.targetAngle = (Math.random() - 0.5) * 1.0 + wanderDir; 
+            f.targetY = 280 + Math.random() * 280;
           }
         }
       }
       let moveSpeed = f.baseSpeed;
       if (f.state === 'scared') moveSpeed *= 2.8;
-      else if (f.state === 'interested') moveSpeed *= 1.1; // More calm approach
+      else if (f.state === 'interested') moveSpeed *= 1.1; 
       else if (f.state === 'inspecting') moveSpeed *= 0.2;
+      else if (f.state === 'predatory') moveSpeed *= 3.8;
       if (f.swimStyle === 'jerky') { const pulse = Math.sin(frameCount.current * 0.15); moveSpeed *= (pulse > 0 ? 2.0 : 0.1); }
       else if (f.swimStyle === 'charger') { moveSpeed *= 1.6; }
       const dx_hook = hookX.current - f.x;
@@ -733,9 +1042,48 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (f.state === 'interested' && distToHook < 15) {
           moveSpeed *= 0.2; // Slow down significantly
           if (distToHook < 5) moveSpeed = 0; // Stop
+          
+          // Rare fish aura/particles
+          if ([Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity) && frameCount.current % 5 === 0) {
+            const color = f.type.rarity === Rarity.MYTHIC ? '#a855f7' : '#eab308';
+            createSparkles(f.x, f.y, 1, [color, '#ffffff']);
+          }
       }
 
-      f.angle = lerpAngle(f.angle, f.targetAngle, f.state === 'scared' ? 0.25 : (f.state === 'interested' ? 0.03 : 0.06));
+      // --- PREDATORY BEHAVIOR DETECTION ---
+      const isSmallFishActive = activeFish.current && 
+                               activeFish.current.id !== 'boss_dummy' && 
+                               [Rarity.COMMON, Rarity.RARE].includes(activeFish.current.type.rarity);
+      
+      if (isSmallFishActive && (gameState === GameState.NIBBLING || gameState === GameState.REELING)) {
+          const isBigFish = [Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity);
+          if (isBigFish && distToHook < 400 && f.state !== 'predatory') {
+              // 0.2% chance per frame to notice and start hunting
+              if (Math.random() < 0.002) {
+                  f.state = 'predatory';
+                  f.targetAngle = Math.atan2(dy_hook, dx_hook);
+                  addNotification(`CẢNH BÁO: Một con ${f.type.name} đang nhắm vào cá của bạn!`, 'warning');
+              }
+          }
+      }
+
+      if (f.state === 'predatory') {
+          // If the target fish is gone or player is no longer reeling/nibbling, stop hunting
+          if (!isSmallFishActive || (gameState !== GameState.NIBBLING && gameState !== GameState.REELING)) {
+              f.state = 'wandering';
+              f.targetAngle = Math.random() * Math.PI * 2;
+          } else {
+              f.targetAngle = Math.atan2(dy_hook, dx_hook);
+              f.targetY = hookY.current;
+              
+              if (distToHook < 15) {
+                  // The eat event will be handled after the loop to avoid concurrent modification issues
+                  (f as any)._shouldEat = true;
+              }
+          }
+      }
+
+      f.angle = lerpAngle(f.angle, f.targetAngle, f.state === 'scared' ? 0.25 : (f.state === 'interested' ? 0.045 : 0.06));
       const vx = Math.cos(f.angle) * moveSpeed; const vy = Math.sin(f.angle) * moveSpeed;
       f.velocity = { x: vx, y: vy }; f.x += vx; 
       
@@ -747,12 +1095,78 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (f.x < -200) { f.x = CANVAS_WIDTH + 190; f.direction = -1; }
       if (f.y < 220) f.y = 220; if (f.y > CANVAS_HEIGHT) f.y = CANVAS_HEIGHT;
       
+      // --- Fish Trails (Wakes/Bubbles) ---
+      if (moveSpeed > 1.5 || f.state === 'scared' || f.state === 'interested') {
+          if (frameCount.current % (f.state === 'scared' ? 2 : 6) === 0) {
+              vfxParticlesRef.current.push({
+                  x: f.x - Math.cos(f.angle) * (f.type.size * 0.8),
+                  y: f.y - Math.sin(f.angle) * (f.type.size * 0.8),
+                  size: 1 + Math.random() * 2,
+                  speed: 0,
+                  opacity: 0.4,
+                  life: 20 + Math.random() * 10,
+                  color: 'rgba(255,255,255,0.3)',
+                  type: 'circle'
+              });
+          }
+      }
+      
       Graphics.drawFishTexture(ctx, f.type, frameCount.current, false, { x: f.x, y: f.y, angle: f.angle, direction: 1 }, moveSpeed, f.swimStyle, false, f.isGolden);
       
       if (f.state === 'interested' && [Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity)) {
         Graphics.drawAlert(ctx, f.x, f.y, f.type.rarity);
       }
     });
+    
+    // --- HANDLE PREDATORY EAT EVENT ---
+    const predator = fishRef.current.find(f => (f as any)._shouldEat);
+    if (predator) {
+        createSplash(hookX.current, hookY.current, 2.5);
+        soundManager.playSplash();
+        addNotification(`KINH NGẠC! ${predator.type.name} đã nuốt chửng con cá nhỏ!`, 'success');
+        
+        const bigFishInstance = { ...predator };
+        delete (bigFishInstance as any)._shouldEat;
+        bigFishInstance.state = 'interested'; // Change state to something standard
+        
+        activeFish.current = bigFishInstance;
+        
+        // Remove the predator from the world
+        fishRef.current = fishRef.current.filter(fi => fi.id !== predator.id);
+        
+        if (gameState === GameState.NIBBLING) {
+            // Reset nibbling for the new big fish
+            nibbleCount.current = 0;
+            nibbleTimer.current = 40;
+            isBitingHard.current = false;
+            
+            const rarity = bigFishInstance.type.rarity;
+            let minN = 3, maxN = 5;
+            if (rarity === Rarity.LEGENDARY) { minN = 4; maxN = 6; }
+            else if (rarity === Rarity.MYTHIC) { minN = 5; maxN = 8; }
+            targetNibbles.current = Math.floor(Math.random() * (maxN - minN + 1)) + minN;
+            
+            // Adjust approach side
+            nibbleSide.current = bigFishInstance.x < hookX.current ? -1 : 1;
+            bigFishInstance.x = hookX.current + 35 * nibbleSide.current;
+            bigFishInstance.y = hookY.current + 2;
+            lungeProgress.current = 0;
+            lungeDelay.current = 30;
+        } else if (gameState === GameState.REELING) {
+            // Update reeling for the new big fish
+            const lineLimit = currentTackle.maxValue || 300;
+            const sizeMatch = Math.min(1, bigFishInstance.type.value / lineLimit);
+            const mismatchPenalty = 1 - sizeMatch;
+            tensionZoneSize.current = Math.max(0.18, 0.48 - (bigFishInstance.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18 + (currentBait.attraction / 1000));
+            tensionCursor.current = Math.random() > 0.5 ? 0.8 : 0.2;
+            shakeIntensity.current = 15;
+            
+            // Re-sync angle to face rod
+            const dx = 220 - hookX.current; // rodEndX is usually 220
+            const dy = 120 - hookY.current; // rodEndY is usually 120
+            bigFishInstance.angle = Math.atan2(dy, dx);
+        }
+    }
 
     if (highestInterestedRarity && hookInWater) { Graphics.drawRareDetectionFlash(ctx, highestInterestedRarity); }
     if (gameState === GameState.IDLE) { hookX.current = rodEndX; hookY.current = rodEndY; }
@@ -789,6 +1203,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (castProgress.current >= 1) {
         hookX.current = targetHookX.current; hookY.current = targetHookY.current;
         createSplash(hookX.current, hookY.current, perfectCastBonus.current ? 2.0 : 1.2);
+        if (perfectCastBonus.current) shakeIntensity.current = 5; // Subtle shake for perfect landing
         setGameState(GameState.WAITING);
         // Settle timer: Perfect Cast = faster (2-3s), Normal = 4-8s, Frenzy = 1.5-3s
         const baseSettle = frenzyActive.current
@@ -798,7 +1213,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             : 240 + Math.random() * 240; // Normal: 4–8s
         baitSettleTimer.current = baseSettle;
         baitSettleTotal.current = baseSettle;
-        if (perfectCastBonus.current) {
+        if (perfectCastBonus.current && eventHandledRef.current !== 'perfect_cast') {
+          eventHandledRef.current = 'perfect_cast';
           addNotification('QUĂNG HOÀN HẢO! +20% Attraction', 'success');
         }
       }
@@ -840,7 +1256,22 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.beginPath(); ctx.roundRect(bx, by, Math.max(2, fillW), barH, 3); ctx.fill();
       }
 
-      const isBossBite = isBossSpawned && baitSettleTimer.current <= 0;
+      if (isBossBite && bossStrikeTimer.current === 0 && !activeFish.current) {
+          // Check if we already finished the strike
+          const dx = bossLurkingX.current - hookX.current;
+          const dy = bossLurkingY.current - hookY.current;
+          const distToHook = Math.sqrt(dx*dx + dy*dy);
+          
+          if (distToHook > 120) { // Increased distance to prevent snapping
+              // Initiate Strike
+              bossStrikeTimer.current = 50; // Slightly faster (0.8s)
+              bossStrikeStartX.current = bossLurkingX.current;
+              bossStrikeStartY.current = bossLurkingY.current;
+              soundManager.playBossWarning();
+              addNotification("CẢNH BÁO: BOSS ĐANG LAO TỚI MỒI!", "warning");
+              return;
+          }
+      }
 
       const collidingFish = isBossBite ? {
           id: 'boss_dummy',
@@ -852,9 +1283,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
               size: 100,
               speed: 5.0,
               description: 'Boss huyền thoại',
-              color: '#ef4444',
+              color: location === 'OCEAN' ? '#4c1d95' : (location === 'CAVE' ? '#e0f2fe' : '#475569'),
               tension: 90,
-              spriteInfo: { color: '#ef4444', shape: 'shark' }
+              spriteInfo: { 
+                color: location === 'OCEAN' ? '#4c1d95' : (location === 'CAVE' ? '#e0f2fe' : '#475569'), 
+                shape: location === 'OCEAN' ? 'kraken' : (location === 'CAVE' ? 'kraken' : 'shark') 
+              }
           },
           x: hookX.current,
           y: hookY.current,
@@ -922,6 +1356,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             
             biteWindowTimer.current--;
             if (biteWindowTimer.current <= 0) {
+                if (eventHandledRef.current === 'fish_lost_window') return;
+                eventHandledRef.current = 'fish_lost_window';
+
                 createSplash(hookX.current, hookY.current, 1.0);
                 onFishLost("Hụt rồi! Cá đã sổng mất.");
                 activeFish.current = null;
@@ -1024,8 +1461,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       const lineLimit = currentTackle.maxValue || 300;
-      const sizeMatch = Math.min(1, activeFish.current.type.value / lineLimit);
-      const mismatchPenalty = 1 - sizeMatch;
+      const fishValue = activeFish.current.type.value;
+      const sizeMatch = Math.min(1, lineLimit / fishValue); 
+      const mismatchPenalty = Math.max(0, (fishValue - lineLimit) / lineLimit);
       const dx = rodEndX - hookX.current; const dy = rodEndY - hookY.current;
       const distToRod = Math.sqrt(dx*dx + dy*dy);
       if (distToRod > 15) {
@@ -1068,6 +1506,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
+      // --- 1. BERSERK MODE (Final Struggle) ---
+      const isBerserk = activeFish.current.type.canBerserk && reelingProgress.current > 80;
+      if (isBerserk) {
+          finalGravity *= 1.45; // Pulls harder
+          shakeIntensity.current = Math.max(shakeIntensity.current, 10);
+          // Visual feedback for Berserk
+          if (frameCount.current % 15 < 7) {
+              vfxParticlesRef.current.push({
+                  x: hookX.current + (Math.random()-0.5)*40, y: hookY.current + (Math.random()-0.5)*40,
+                  size: 3, speed: 0.5, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+                  life: 20, opacity: 1, color: '#ef4444', type: 'circle'
+              });
+          }
+      }
+
       // --- ACTIVE SKILL TIMERS & EFFECTS ---
       if (focusActive.current) {
         focusTimer.current--;
@@ -1090,8 +1543,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       // PowerReel: boosted lift
       const powerReelLift = powerReelActive.current ? 1.8 : 1;
 
+      const weatherTension = WEATHER_BONUSES[weather].tension || 1.0;
       if (isSpacePressed.current) tensionVelocity.current -= finalLift * powerReelLift;
-      else tensionVelocity.current += finalGravity * focusMultiplier;
+      else tensionVelocity.current += finalGravity * focusMultiplier * weatherTension;
       tensionVelocity.current *= 0.95;
       tensionCursor.current += tensionVelocity.current;
       tensionCursor.current = Math.max(0, Math.min(1, tensionCursor.current));
@@ -1118,6 +1572,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (frameCount.current % 60 < 5) jitter *= 8; // Extreme jitter
       }
 
+      // Berserk boost to zone movement
+      if (isBerserk) {
+          zoneSpeed *= 1.8;
+          wobble *= 1.6;
+          jitter *= 2;
+      }
+
       tensionZone.current += Math.sin(frameCount.current * zoneSpeed) * wobble + jitter;
       const hz = tensionZoneSize.current / 2; tensionZone.current = Math.max(hz, Math.min(1 - hz, tensionZone.current));
       const isInZone = Math.abs(tensionCursor.current - tensionZone.current) < hz;
@@ -1129,8 +1590,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         lineHealth.current = Math.min(100, lineHealth.current + 0.5 * progressFactor); // faster recovery
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
-        // Reduced damage: 0.15 base (was 0.35) so bar stays green longer for casual play
-        let damage = (0.15 + (ft / 600) + mismatchPenalty * 0.15) / currentRod.lineStrength; 
+        // Damage capped to ensure "Miracle Catch" is possible with high skill
+        let baseDamage = (0.12 + (ft / 650) + Math.min(0.5, mismatchPenalty * 0.1));
+        let damage = baseDamage / currentRod.lineStrength; 
+
+        // Miracle Save Mechanic: 2% base + skill bonus chance to ignore most damage when low HP
+        const miracleChance = 0.02 + (skills.lucky * 0.03);
+        if (lineHealth.current < 15 && Math.random() < miracleChance) {
+            damage *= 0.1; // Hold on by a thread!
+            if (frameCount.current % 120 === 0) addNotification("DÂY SẮP ĐỨT... NHƯNG BẠN VẪN ĐANG GIỮ ĐƯỢC!", "warning");
+        }
         
         // Behavior penalties
         if (isBehaviorActive.current) {
@@ -1142,6 +1611,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
 
         lineHealth.current -= damage;
+        
+        // --- DURABILITY CONSUMPTION (Under Strain) ---
+        if (frameCount.current % 30 === 0) {
+            onDurabilityChange('rod', 0.1);
+            onDurabilityChange('tackle', 0.2);
+        }
+
         if (frameCount.current % 5 === 0) {
             vfxParticlesRef.current.push({
                 x: (rodEndX + hookX.current)/2, y: (rodEndY + hookY.current)/2, 
@@ -1154,6 +1630,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (reelingProgress.current >= 100) { 
         setGameState(GameState.CAUGHT); isJumping.current = true; jumpProgress.current = 0; 
         createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']);
+        
+        // Final durability hit when catching
+        onDurabilityChange('rod', 0.5);
+        onDurabilityChange('tackle', 1.0);
       }      
       if (lineHealth.current <= 0) {
         const lineLimit = currentTackle.maxValue || 300;
@@ -1172,10 +1652,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
         if (activeFish.current?.type.value > lineLimit) {
           onLineBroken(); 
-          onFishLost("Thẻo bị đứt vì cá quá to!");
         } else if (activeFish.current?.type.value > rodLimit) {
           onRodBroken();
-          onFishLost("Cần câu đã gãy vì cá quá nặng!");
         } else {
           onFishLost("Cá đã sổng mất rồi!");
         }
@@ -1191,7 +1669,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       // Behavior Indicators on UI
       if (isBehaviorActive.current) {
         ctx.save();
-        ctx.font = 'bold 16px Arial';
+        ctx.font = 'bold 16px "Be Vietnam Pro"';
         ctx.textAlign = 'center';
         ctx.shadowBlur = 10;
         ctx.shadowColor = 'black';
@@ -1202,43 +1680,54 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       // --- Active Skill HUD (bottom right corner) ---
-      const skillHudX = CANVAS_WIDTH - 180;
-      const skillHudY = CANVAS_HEIGHT - 110;
-      ctx.save();
-      // Focus skill (F)
-      const focusReady = focusCooldown.current <= 0 && !focusActive.current;
-      ctx.globalAlpha = focusActive.current ? 1 : (focusReady ? 0.9 : 0.45);
-      ctx.fillStyle = focusActive.current ? '#60a5fa' : (focusReady ? '#1e40af' : '#334155');
-      ctx.roundRect(skillHudX, skillHudY, 76, 40, 8); ctx.fill();
-      ctx.fillStyle = 'white'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('[F] TẬP TRUNG', skillHudX + 38, skillHudY + 13);
-      if (focusActive.current) {
-        ctx.fillStyle = '#bfdbfe';
-        ctx.fillText(`${Math.ceil(focusTimer.current / 60)}s`, skillHudX + 38, skillHudY + 30);
-      } else if (!focusReady) {
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`${Math.ceil(focusCooldown.current / 60)}s CD`, skillHudX + 38, skillHudY + 30);
-      } else {
-        ctx.fillStyle = '#93c5fd'; ctx.fillText('SẶN SÀNG', skillHudX + 38, skillHudY + 30);
+      const hasFocus = skills.focus > 0;
+      const hasPowerReel = skills.powerReel > 0;
+
+      if (hasFocus || hasPowerReel) {
+        const skillHudX = CANVAS_WIDTH - 180;
+        const skillHudY = CANVAS_HEIGHT - 110;
+        ctx.save();
+        
+        // Focus skill (F)
+        if (hasFocus) {
+          const focusReady = focusCooldown.current <= 0 && !focusActive.current;
+          ctx.globalAlpha = focusActive.current ? 1 : (focusReady ? 0.9 : 0.45);
+          ctx.fillStyle = focusActive.current ? '#60a5fa' : (focusReady ? '#1e40af' : '#334155');
+          ctx.roundRect(skillHudX, skillHudY, 76, 40, 8); ctx.fill();
+          ctx.fillStyle = 'white'; ctx.font = 'bold 10px "Be Vietnam Pro"'; ctx.textAlign = 'center';
+          ctx.fillText('[F] TẬP TRUNG', skillHudX + 38, skillHudY + 13);
+          if (focusActive.current) {
+            ctx.fillStyle = '#bfdbfe';
+            ctx.fillText(`${Math.ceil(focusTimer.current / 60)}s`, skillHudX + 38, skillHudY + 30);
+          } else if (!focusReady) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`${Math.ceil(focusCooldown.current / 60)}s CD`, skillHudX + 38, skillHudY + 30);
+          } else {
+            ctx.fillStyle = '#93c5fd'; ctx.fillText('SẴN SÀNG', skillHudX + 38, skillHudY + 30);
+          }
+        }
+        
+        // PowerReel skill (G)
+        if (hasPowerReel) {
+          const prReady = powerReelCooldown.current <= 0 && !powerReelActive.current;
+          ctx.globalAlpha = powerReelActive.current ? 1 : (prReady ? 0.9 : 0.45);
+          ctx.fillStyle = powerReelActive.current ? '#fb923c' : (prReady ? '#9a3412' : '#334155');
+          ctx.roundRect(skillHudX + 84, skillHudY, 76, 40, 8); ctx.fill();
+          ctx.fillStyle = 'white'; ctx.font = 'bold 10px "Be Vietnam Pro"'; ctx.textAlign = 'center';
+          ctx.fillText('[G] KÉO MẠNH', skillHudX + 122, skillHudY + 13);
+          if (powerReelActive.current) {
+            ctx.fillStyle = '#fed7aa';
+            ctx.fillText(`${Math.ceil(powerReelTimer.current / 60)}s`, skillHudX + 122, skillHudY + 30);
+          } else if (!prReady) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`${Math.ceil(powerReelCooldown.current / 60)}s CD`, skillHudX + 122, skillHudY + 30);
+          } else {
+            ctx.fillStyle = '#fdba74'; ctx.fillText('SẴN SÀNG', skillHudX + 122, skillHudY + 30);
+          }
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
       }
-      // PowerReel skill (G)
-      const prReady = powerReelCooldown.current <= 0 && !powerReelActive.current;
-      ctx.globalAlpha = powerReelActive.current ? 1 : (prReady ? 0.9 : 0.45);
-      ctx.fillStyle = powerReelActive.current ? '#fb923c' : (prReady ? '#9a3412' : '#334155');
-      ctx.roundRect(skillHudX + 84, skillHudY, 76, 40, 8); ctx.fill();
-      ctx.fillStyle = 'white'; ctx.textAlign = 'center';
-      ctx.fillText('[G] KÉO MẠNH', skillHudX + 122, skillHudY + 13);
-      if (powerReelActive.current) {
-        ctx.fillStyle = '#fed7aa';
-        ctx.fillText(`${Math.ceil(powerReelTimer.current / 60)}s`, skillHudX + 122, skillHudY + 30);
-      } else if (!prReady) {
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(`${Math.ceil(powerReelCooldown.current / 60)}s CD`, skillHudX + 122, skillHudY + 30);
-      } else {
-        ctx.fillStyle = '#fdba74'; ctx.fillText('SẴN SÀNG', skillHudX + 122, skillHudY + 30);
-      }
-      ctx.globalAlpha = 1;
-      ctx.restore();
     }
 
     if (gameState === GameState.CAUGHT && activeFish.current) {
@@ -1310,9 +1799,34 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             size: 150, speed: 0, opacity: 0.4, life: 15, color: '#ff0000', type: 'ripple'
         });
         
+        // --- BOSS UNIQUE ABILITIES TRIGGER ---
+        if (location === 'OCEAN' && hpRatio < 0.6) {
+            // Kraken Ink Cloud (Blindness)
+            inkAlpha.current = Math.min(0.85, inkAlpha.current + 0.005);
+        } else if (location === 'POND' && isEnraged && !torpedoActive.current && Math.random() < 0.015) {
+            // Mecha Shark Torpedo (Projectiles)
+            torpedoActive.current = true;
+            torpedoProgress.current = 0;
+            torpedoX.current = bossX.current;
+            torpedoY.current = bossY.current;
+            torpedoTargetX.current = 40 + Math.random() * 200; 
+            torpedoTargetY.current = CANVAS_HEIGHT - 70;
+            addNotification("CẢNH BÁO: TÊN LỬA ĐANG LAO TỚI!", "warning");
+        } else if (location === 'CAVE' && isEnraged && frameCount.current % 200 === 0) {
+            // Ghost Octopus Spectral Pulse (Stamina Drain if charging)
+            addNotification("CẢNH BÁO: XUNG ĐIỆN TÂM LINH!", "boss");
+            createSparkles(bossX.current, bossY.current, 50, ['#00f2ff', '#e0f2fe', '#ffffff']);
+            if (isBossCharging.current) {
+                playerHP.current = Math.max(0, playerHP.current - 15);
+                shakeIntensity.current = 15;
+            }
+        }
+
         if (playerHP.current <= 0) {
             setGameState(GameState.GAMEOVER);
             setIsBossSpawned(false);
+            inkAlpha.current = 0;
+            torpedoActive.current = false;
             addNotification("BẠN ĐÃ THẤT BẠI trước BOSS...", 'warning');
         }
       }
@@ -1335,6 +1849,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       if (location === 'OCEAN') {
         BossModels.drawAbyssalKraken(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning);
+      } else if (location === 'CAVE') {
+        // Ghost Octopus Camouflage: more transparent based on HP
+        const hpMod = hpRatio < 0.4 ? 0.2 : (hpRatio < 0.7 ? 0.4 : 1.0);
+        ctx.globalAlpha *= hpMod;
+        BossModels.drawGhostOctopus(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning);
       } else {
         BossModels.drawMechaSharkBoss(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning);
       }
@@ -1348,11 +1867,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       
       // Boss Title
       ctx.fillStyle = isWarning ? '#ef4444' : 'white';
-      ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
-      const bossTitle = location === 'OCEAN' ? 'KRAKEN VỰC THẲM' : 'CÁ MẬP CƠ KHÍ';
+      ctx.font = 'bold 14px "Be Vietnam Pro"'; ctx.textAlign = 'center';
+      const bossTitle = location === 'OCEAN' ? 'KRAKEN VỰC THẲM' : (location === 'CAVE' ? 'BẠCH TUỘC MA' : 'CÁ MẬP CƠ KHÍ');
       ctx.fillText(`${bossTitle} (HP: ${Math.ceil(bossHP.current)}%)`, CANVAS_WIDTH/2, 30);
       if (isWarning) {
-          ctx.font = 'bold 10px Arial';
+          ctx.font = 'bold 10px "Be Vietnam Pro"';
           ctx.fillText('!!! CẢNH BÁO: BOSS SẮP TẤN CÔNG !!!', CANVAS_WIDTH/2, 65);
       }
 
@@ -1362,7 +1881,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.roundRect(40, CANVAS_HEIGHT - 70, 220, 15, 8); ctx.fill();
       ctx.fillStyle = playerHP.current < 30 ? '#ef4444' : '#22c55e';
       ctx.roundRect(40, CANVAS_HEIGHT - 70, (playerHP.current / playerMaxHP.current) * 220, 15, 8); ctx.fill();
-      ctx.fillStyle = 'white'; ctx.font = 'bold 11px Arial'; ctx.textAlign = 'left';
+      ctx.fillStyle = 'white'; ctx.font = 'bold 11px "Be Vietnam Pro"'; ctx.textAlign = 'left';
       ctx.fillText(`SỨC BỀN NGƯỜI CHƠI: ${Math.ceil(playerHP.current)}%`, 45, CANVAS_HEIGHT - 75);
 
       // Charge Bar
@@ -1373,6 +1892,57 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.roundRect(CANVAS_WIDTH - 260, CANVAS_HEIGHT - 70, (playerAttackCharge.current / 100) * 220, 15, 8); ctx.fill();
       ctx.fillStyle = 'white'; ctx.textAlign = 'right';
       ctx.fillText('VẬN LỰC (GIỮ SPACE - THẢ ĐỂ ĐÁNH)', CANVAS_WIDTH - 45, CANVAS_HEIGHT - 75);
+
+      // --- RENDER BOSS PROJECTILES ---
+      if (torpedoActive.current) {
+          torpedoProgress.current += 0.015;
+          const tx = torpedoX.current + (torpedoTargetX.current - torpedoX.current) * torpedoProgress.current;
+          const ty = torpedoY.current + (torpedoTargetY.current - torpedoY.current) * torpedoProgress.current;
+          
+          // Draw Torpedo
+          ctx.save();
+          ctx.translate(tx, ty);
+          ctx.rotate(Math.atan2(torpedoTargetY.current - torpedoY.current, torpedoTargetX.current - torpedoX.current));
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath(); ctx.roundRect(-15, -5, 30, 10, 5); ctx.fill();
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath(); ctx.arc(-15, 0, 8 + Math.random() * 8, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+
+          if (torpedoProgress.current >= 1) {
+              torpedoActive.current = false;
+              // If player is charging, they get hit! (Dodge by not charging)
+              if (isBossCharging.current) {
+                  playerHP.current = Math.max(0, playerHP.current - 25);
+                  shakeIntensity.current = 25;
+                  addNotification("HỨNG TRỌN TÊN LỬA! Thả Space để né đòn!", "warning");
+              } else {
+                  addNotification("NÉ ĐÒN THÀNH CÔNG!", "success");
+                  createSparkles(tx, ty, 30, ['#ffffff', '#fbbf24']);
+              }
+          }
+      }
+    }
+
+    // --- RENDER INK OVERLAY ---
+    if (inkAlpha.current > 0) {
+        ctx.save();
+        const inkGrad = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 600);
+        inkGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        inkGrad.addColorStop(1, `rgba(0, 0, 0, ${inkAlpha.current})`);
+        ctx.fillStyle = inkGrad;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Random ink splotches
+        ctx.fillStyle = `rgba(0, 0, 0, ${inkAlpha.current * 0.8})`;
+        for(let i=0; i<5; i++) {
+            const sx = (Math.sin(i * 10 + frameCount.current * 0.01) * 400) + CANVAS_WIDTH/2;
+            const sy = (Math.cos(i * 20 + frameCount.current * 0.01) * 200) + CANVAS_HEIGHT/2;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 100 * inkAlpha.current, 60 * inkAlpha.current, i, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
     }
 
     const rodStress = activeFish.current ? activeFish.current.type.value / Math.max(1, currentRod.maxValue ?? 300) : 0;
@@ -1385,6 +1955,42 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       rodBendAmount, currentRod, chargePower.current, currentTackle,
       frameCount.current, reelRotation.current, location
     );
+    // --- VIGNETTE ---
+    ctx.save();
+    const vignette = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 200, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 600);
+    const vignetteOpacity = location === 'CAVE' ? 0.7 : (timeOfDay === 'NIGHT' ? 0.5 : 0.2);
+    vignette.addColorStop(0, 'transparent');
+    vignette.addColorStop(1, `rgba(0, 0, 0, ${vignetteOpacity})`);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.restore();
+
+    // --- CINEMATIC MOTION-BLUR VIGNETTE (big fish reeling) ---
+    if (motionBlurAlpha.current > 0.01) {
+        ctx.save();
+        // Pulsing chromatic-stress ring – outer edge goes red/white
+        const pulse = 0.5 + 0.5 * Math.sin(frameCount.current * 0.18);
+        const mbGrad = ctx.createRadialGradient(
+            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.22,
+            CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.78
+        );
+        mbGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        mbGrad.addColorStop(0.6, `rgba(80,0,0,${motionBlurAlpha.current * 0.35})`);
+        mbGrad.addColorStop(1, `rgba(200,30,30,${motionBlurAlpha.current * (0.55 + pulse * 0.15)})`);
+        ctx.fillStyle = mbGrad;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        // Horizontal speed-lines on the very edge for "blur" illusion
+        ctx.globalAlpha = motionBlurAlpha.current * 0.12 * pulse;
+        ctx.fillStyle = 'white';
+        for (let i = 0; i < 6; i++) {
+            const lineY = (i / 6) * CANVAS_HEIGHT + (frameCount.current * 1.5 * (i % 2 === 0 ? 1 : -1)) % CANVAS_HEIGHT;
+            ctx.fillRect(0, lineY, 30, 2);
+            ctx.fillRect(CANVAS_WIDTH - 30, lineY, 30, 2);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
     ctx.restore();
   }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentTackle, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
 
@@ -1414,8 +2020,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ref={canvasRef}
       width={CANVAS_WIDTH}
       height={CANVAS_HEIGHT}
-      className="block cursor-crosshair shadow-inner shadow-black/50"
-      style={{ pointerEvents: gameState === GameState.START ? 'none' : 'auto' }}
+      className={`block cursor-crosshair shadow-inner shadow-black/50 w-full h-full object-contain ${
+        gameState === GameState.START ? 'pointer-events-none' : 'pointer-events-auto'
+      }`}
       onTouchStart={(e) => { if (gameState !== GameState.START) { e.preventDefault(); handlePressStart(); } }}
       onTouchEnd={(e) => { if (gameState !== GameState.START) { e.preventDefault(); handlePressEnd(); } }}
       onMouseDown={() => { if (gameState !== GameState.START) handlePressStart(); }}

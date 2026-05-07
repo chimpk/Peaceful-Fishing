@@ -57,7 +57,7 @@ const lerpColor = (c1: string, c2: string, f: number) => {
 export const drawWaterAndSky = (
   ctx: CanvasRenderingContext2D, 
   frame: number, 
-  weather: 'sunny' | 'rainy' | 'stormy' = 'sunny', 
+  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' = 'sunny', 
   location: LocationType = 'POND', 
   timeOfDay: TimeOfDay = 'DAY',
   prevTimeOfDay: TimeOfDay = 'DAY',
@@ -69,6 +69,7 @@ export const drawWaterAndSky = (
     if (t === 'SUNSET') return SKY_COLORS.SUNSET;
     if (weather === 'sunny') return SKY_COLORS.DAY_SUNNY;
     if (weather === 'rainy') return SKY_COLORS.DAY_RAINY;
+    if (weather === 'foggy') return ['#94a3b8', '#cbd5e1'];
     return SKY_COLORS.DAY_STORMY;
   };
 
@@ -96,8 +97,11 @@ export const drawWaterAndSky = (
     // Soft hills
     drawHills(ctx, frame, transition, timeOfDay, prevTimeOfDay);
   } else if (location === 'OCEAN') {
-    // Clouds only
+    // Clouds & Birds
     drawClouds(ctx, frame, transition, timeOfDay, prevTimeOfDay);
+    if (weather === 'sunny') {
+        drawBirds(ctx, frame);
+    }
   } else if (location === 'CAVE') {
     // Cave formations
     drawCaveFormations(ctx, frame, transition);
@@ -126,7 +130,7 @@ export const drawWaterAndSky = (
   waterGrad.addColorStop(0.5, lerpColor(waterPrev[1], waterCurr[1], transition));
   waterGrad.addColorStop(1, lerpColor(waterPrev[2], waterCurr[2], transition));
   ctx.fillStyle = waterGrad;
-  ctx.fillRect(0, 200, CANVAS_WIDTH, 400);
+  ctx.fillRect(0, 200, CANVAS_WIDTH, CANVAS_HEIGHT - 200);
 
   // --- Underwater Details (Task: Background underwater) ---
   ctx.save();
@@ -210,14 +214,134 @@ export const drawWaterAndSky = (
   }
   ctx.restore();
 
-  // Storm Lightning
-  if (weather === 'stormy' && Math.random() > 0.99 && location !== 'CAVE') {
+  // --- NEW: Cinematic Vignette ---
+  drawVignette(ctx);
+};
+
+const drawVignette = (ctx: CanvasRenderingContext2D) => {
     ctx.save();
-    ctx.fillStyle = 'white';
-    ctx.globalAlpha = 0.8;
+    const grad = ctx.createRadialGradient(
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.3,
+        CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.8
+    );
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.restore();
+};
+
+const rainPool: { x: number; y: number; speed: number; len: number }[] = [];
+
+export const drawWeatherEffects = (ctx: CanvasRenderingContext2D, frame: number, weather: 'sunny' | 'rainy' | 'stormy' | 'foggy', location: LocationType) => {
+  if (weather === 'sunny' || location === 'CAVE') return;
+
+  if (weather === 'foggy') {
+      ctx.save();
+      // Base fog tint
+      ctx.fillStyle = 'rgba(200, 210, 230, 0.2)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      
+      // Moving fog banks
+      for (let i = 0; i < 5; i++) {
+          const shiftX = (frame * (0.6 + i * 0.2)) % CANVAS_WIDTH;
+          const shiftY = Math.sin(frame * 0.005 + i) * 20;
+          
+          const fogGrad = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
+          fogGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+          fogGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
+          fogGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          
+          ctx.fillStyle = fogGrad;
+          ctx.save();
+          ctx.translate(shiftX - CANVAS_WIDTH, 50 + i * 120 + shiftY);
+          ctx.fillRect(0, 0, CANVAS_WIDTH * 2, 200);
+          ctx.restore();
+      }
+      
+      // Near fog particles (mist)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      for (let i = 0; i < 15; i++) {
+          const mx = (Math.sin(i * 123) * 1000 + frame * 0.4) % CANVAS_WIDTH;
+          const my = (Math.cos(i * 321) * 1000 + frame * 0.15) % CANVAS_HEIGHT;
+          ctx.beginPath();
+          ctx.arc(Math.abs(mx), Math.abs(my), 60 + Math.sin(frame * 0.01 + i) * 30, 0, Math.PI * 2);
+          ctx.fill();
+      }
+      ctx.restore();
+      return;
   }
+
+  if (rainPool.length === 0) {
+    for (let i = 0; i < 120; i++) {
+      rainPool.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT,
+        speed: 15 + Math.random() * 10,
+        len: 12 + Math.random() * 10
+      });
+    }
+  }
+
+  const isStorm = weather === 'stormy';
+  const intensity = isStorm ? 1.8 : 1;
+  const count = isStorm ? 120 : 60;
+
+  ctx.save();
+  ctx.strokeStyle = isStorm ? 'rgba(200, 210, 230, 0.4)' : 'rgba(180, 190, 210, 0.3)';
+  ctx.lineWidth = isStorm ? 1.5 : 1;
+  
+  for (let i = 0; i < count; i++) {
+    const r = rainPool[i];
+    r.y += r.speed * intensity;
+    r.x += (isStorm ? 4 : 2); // Wind effect
+    
+    if (r.y > CANVAS_HEIGHT) {
+      r.y = -20;
+      r.x = Math.random() * CANVAS_WIDTH;
+    }
+    if (r.x > CANVAS_WIDTH) r.x = 0;
+
+    ctx.beginPath();
+    ctx.moveTo(r.x, r.y);
+    ctx.lineTo(r.x + (isStorm ? 4 : 2), r.y + r.len);
+    ctx.stroke();
+
+    // Occasional splash on water surface (y=200)
+    if (Math.random() > 0.98) {
+        ctx.beginPath();
+        ctx.ellipse(r.x, 200 + Math.random() * 10, 4, 1.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+  }
+
+  // --- Rain Vignette/Blur ---
+  const grad = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 200, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 600);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, isStorm ? 'rgba(15, 23, 42, 0.4)' : 'rgba(30, 41, 59, 0.2)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  ctx.restore();
+};
+
+export const drawLightning = (ctx: CanvasRenderingContext2D, x: number, alpha: number) => {
+    ctx.save();
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Draw jagged line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    let curX = x;
+    for (let i = 1; i <= 8; i++) {
+        curX += (Math.random() - 0.5) * 80;
+        ctx.lineTo(curX, i * 40);
+    }
+    ctx.stroke();
+    ctx.restore();
 };
 
 
@@ -357,34 +481,261 @@ const drawUnderwaterPond = (ctx: CanvasRenderingContext2D, frame: number, transi
     ctx.bezierCurveTo(x, 230, x + Math.sin(frame*0.01+i)*20, 240, x + Math.sin(frame*0.01+i)*10, 280);
     ctx.stroke();
   }
+
+  // --- NEW: Floating Underwater Leaves (Pond Day/Sunset) ---
+  if (time !== 'NIGHT') {
+    ctx.save();
+    ctx.globalAlpha = 0.4 * transition;
+    for (let i = 0; i < 8; i++) {
+      const lx = (i * 183 + frame * 0.4) % CANVAS_WIDTH;
+      const ly = 220 + (i * 47 + frame * 0.2) % 350;
+      const lrot = frame * 0.01 + i;
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(lrot);
+      ctx.fillStyle = time === 'DAY' ? '#166534' : '#713f12';
+      ctx.beginPath(); ctx.ellipse(0, 0, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
 };
+
+const bubblePool: { x: number; y: number; speed: number; size: number; sway: number }[] = [];
 
 const drawUnderwaterOcean = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
   // Distant sea trenches (gradients)
   const trenchGrad = ctx.createLinearGradient(0, 400, 0, CANVAS_HEIGHT);
   trenchGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  trenchGrad.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+  trenchGrad.addColorStop(1, 'rgba(0, 0, 0, 0.4)');
   ctx.fillStyle = trenchGrad;
   ctx.fillRect(0, 400, CANVAS_WIDTH, 200);
 
-  // Sharp Caustics
+  // --- 1. Dynamic Seaweed (Near & Far Layers) ---
+  const drawSeaweedLayer = (count: number, hRange: number, color: string, speed: number, alpha: number) => {
+    ctx.save();
+    ctx.globalAlpha = alpha * transition;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < count; i++) {
+        const x = (i * (CANVAS_WIDTH / count) + Math.sin(i * 1.5) * 50);
+        const h = hRange + Math.sin(i * 2 + frame * 0.02) * (hRange * 0.3);
+        const sway = Math.sin(frame * 0.01 * speed + i) * 25;
+        ctx.beginPath();
+        ctx.moveTo(x, CANVAS_HEIGHT);
+        ctx.quadraticCurveTo(x + sway, CANVAS_HEIGHT - h/2, x + sway * 0.5, CANVAS_HEIGHT - h);
+        ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  drawSeaweedLayer(8, 40, '#134e4a', 0.8, 0.4); // Far
+  drawSeaweedLayer(12, 60, '#0f766e', 1.2, 0.6); // Middle
+  drawSeaweedLayer(6, 80, '#14b8a6', 1.5, 0.3); // Near (brighter but sparse)
+
+  // --- 2. God Rays (Cinematic) ---
   if (time !== 'NIGHT') {
     ctx.save();
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.globalAlpha = 0.2 * (time === 'DAY' ? 1 : 0.5);
+    ctx.globalCompositeOperation = 'lighter';
+    const rayAlpha = (time === 'DAY' ? 0.18 : 0.1) * transition;
+    
     for (let i = 0; i < 8; i++) {
-      const x = (i * 120 + frame * 0.6) % (CANVAS_WIDTH + 200) - 100;
-      const w = 30 + Math.sin(frame * 0.02 + i) * 15;
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      const x = (i * 180 + frame * 0.25) % (CANVAS_WIDTH + 400) - 200;
+      const w = 40 + Math.sin(frame * 0.008 + i) * 20;
+      const angle = 120 + Math.sin(frame * 0.004 + i) * 40;
+      
+      const beamGrad = ctx.createLinearGradient(x, 200, x + angle * 0.5, CANVAS_HEIGHT);
+      beamGrad.addColorStop(0, `rgba(255, 255, 255, ${rayAlpha})`);
+      beamGrad.addColorStop(0.4, `rgba(220, 245, 255, ${rayAlpha * 0.6})`);
+      beamGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
+      ctx.fillStyle = beamGrad;
       ctx.beginPath();
       ctx.moveTo(x, 200);
       ctx.lineTo(x + w, 200);
-      ctx.lineTo(x + w + 120, CANVAS_HEIGHT);
-      ctx.lineTo(x + 120, CANVAS_HEIGHT);
+      ctx.lineTo(x + w + angle, CANVAS_HEIGHT);
+      ctx.lineTo(x + angle, CANVAS_HEIGHT);
       ctx.fill();
     }
     ctx.restore();
   }
+
+  // --- 3. Ambient Bubbles ---
+  if (bubblePool.length === 0) {
+    for (let i = 0; i < 25; i++) {
+        bubblePool.push({
+            x: Math.random() * CANVAS_WIDTH,
+            y: 200 + Math.random() * 400,
+            speed: 0.5 + Math.random() * 1.5,
+            size: 1 + Math.random() * 3,
+            sway: Math.random() * Math.PI * 2
+        });
+    }
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.4 * transition;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  bubblePool.forEach((b, i) => {
+    b.y -= b.speed;
+    b.x += Math.sin(frame * 0.02 + b.sway) * 0.5;
+    if (b.y < 200) {
+        b.y = CANVAS_HEIGHT + 10;
+        b.x = Math.random() * CANVAS_WIDTH;
+    }
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+    ctx.fill();
+    // Tiny highlight on bubble
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(b.x - b.size * 0.3, b.y - b.size * 0.3, b.size * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  });
+  ctx.restore();
+
+  // Draw Rocks & Pebbles
+  drawRocks(ctx, frame, transition);
+
+  // Draw Corals
+  drawCorals(ctx, frame, transition);
+
+  // Draw Crabs on the floor
+  drawCrabs(ctx, frame);
+};
+
+const drawRocks = (ctx: CanvasRenderingContext2D, frame: number, transition: number) => {
+    ctx.save();
+    ctx.globalAlpha = 0.9 * transition;
+    
+    // Scattered pebbles
+    ctx.fillStyle = '#475569';
+    for (let i = 0; i < 15; i++) {
+        const px = (i * 97) % CANVAS_WIDTH;
+        const py = CANVAS_HEIGHT - 3 - (i % 4);
+        ctx.beginPath();
+        ctx.ellipse(px, py, 2 + (i % 3), 1 + (i % 2), 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Larger Rocks
+    for (let i = 0; i < 3; i++) {
+        const rx = (i * 350 + 200) % CANVAS_WIDTH;
+        const ry = CANVAS_HEIGHT;
+        const w = 40 + (i % 2) * 20;
+        const h = 15 + (i % 3) * 10;
+        
+        const rockGrad = ctx.createLinearGradient(rx, ry - h, rx, ry);
+        rockGrad.addColorStop(0, '#64748b');
+        rockGrad.addColorStop(1, '#1e293b');
+        
+        ctx.fillStyle = rockGrad;
+        ctx.beginPath();
+        ctx.moveTo(rx - w/2, ry);
+        ctx.quadraticCurveTo(rx - w/4, ry - h, rx, ry - h);
+        ctx.quadraticCurveTo(rx + w/4, ry - h, rx + w/2, ry);
+        ctx.fill();
+        
+        // Highlights
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+    ctx.restore();
+};
+
+const drawCorals = (ctx: CanvasRenderingContext2D, frame: number, transition: number) => {
+    ctx.save();
+    ctx.globalAlpha = 0.8 * transition;
+    
+    for (let i = 0; i < 5; i++) {
+        const x = (i * 180 + 100) % CANVAS_WIDTH;
+        const y = CANVAS_HEIGHT - 5;
+        const sway = Math.sin(frame * 0.01 + i) * 5;
+        const color = i % 2 === 0 ? '#f43f5e' : '#ec4899'; // Pink/Rose
+        
+        ctx.fillStyle = color;
+        // Simple Branching Coral
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + sway, y - 20, x + sway * 1.5, y - 35);
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = color;
+        ctx.stroke();
+        
+        // Branches
+        ctx.beginPath();
+        ctx.moveTo(x + sway * 0.5, y - 15);
+        ctx.quadraticCurveTo(x + sway - 15, y - 25, x + sway - 20, y - 30);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(x + sway * 0.8, y - 25);
+        ctx.quadraticCurveTo(x + sway + 15, y - 35, x + sway + 20, y - 40);
+        ctx.stroke();
+    }
+    ctx.restore();
+};
+
+const drawBirds = (ctx: CanvasRenderingContext2D, frame: number) => {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    
+    for (let i = 0; i < 3; i++) {
+        const speed = 0.5 + i * 0.2;
+        const x = ((i * 400 + frame * speed) % (CANVAS_WIDTH + 200)) - 100;
+        const y = 50 + Math.sin(frame * 0.02 + i) * 30;
+        const wingSpan = 15;
+        const flap = Math.sin(frame * 0.1 + i) * 10;
+        
+        ctx.beginPath();
+        ctx.moveTo(x - wingSpan, y + flap);
+        ctx.quadraticCurveTo(x, y - 5, x + wingSpan, y + flap);
+        ctx.stroke();
+    }
+    ctx.restore();
+};
+
+const drawCrabs = (ctx: CanvasRenderingContext2D, frame: number) => {
+    ctx.save();
+    for (let i = 0; i < 2; i++) {
+        const x = ((i * 600 + frame * 0.4) % (CANVAS_WIDTH + 200)) - 100;
+        const y = CANVAS_HEIGHT - 15;
+        const size = 10;
+        
+        // Body
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.ellipse(x, y, size, size * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eyes
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(x - 4, y - 6, 2, 0, Math.PI * 2);
+        ctx.arc(x + 4, y - 6, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Legs (moving)
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        const legSway = Math.sin(frame * 0.2 + i) * 5;
+        for (let j = 0; j < 3; j++) {
+            ctx.beginPath();
+            ctx.moveTo(x - 8, y + (j * 4) - 4);
+            ctx.lineTo(x - 14 + legSway, y + (j * 4) - 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x + 8, y + (j * 4) - 4);
+            ctx.lineTo(x + 14 - legSway, y + (j * 4) - 2);
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
 };
 
 const drawUnderwaterCave = (ctx: CanvasRenderingContext2D, frame: number, transition: number) => {
@@ -408,7 +759,7 @@ const drawUnderwaterCave = (ctx: CanvasRenderingContext2D, frame: number, transi
     const hue = 220 + Math.sin(i * 2) * 50;
     
     ctx.save();
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 25; // Increased glow
     ctx.shadowColor = `hsla(${hue}, 90%, 60%, 0.8)`;
     ctx.fillStyle = `hsla(${hue}, 90%, 70%, 1)`;
     ctx.beginPath();
@@ -418,6 +769,14 @@ const drawUnderwaterCave = (ctx: CanvasRenderingContext2D, frame: number, transi
     ctx.lineTo(x - size, y);
     ctx.closePath();
     ctx.fill();
+    
+    // Ambient crystal "embers" (floating up from crystals)
+    if (frame % 30 === 0) {
+        ctx.fillStyle = `hsla(${hue}, 90%, 80%, 0.6)`;
+        ctx.beginPath();
+        ctx.arc(x + (Math.random()-0.5)*20, y - Math.random()*40, 1.5, 0, Math.PI*2);
+        ctx.fill();
+    }
     ctx.restore();
   }
 };
@@ -427,14 +786,29 @@ const drawUnderwaterParticles = (ctx: CanvasRenderingContext2D, frame: number, l
   ctx.globalAlpha = 0.3;
   ctx.fillStyle = 'white';
   
-  const count = location === 'OCEAN' ? 40 : 20;
+  const count = location === 'OCEAN' ? 50 : (location === 'CAVE' ? 60 : 20);
   for (let i = 0; i < count; i++) {
     const x = (Math.sin(i * 123) * 1000 + frame * 0.2) % CANVAS_WIDTH;
-    const y = 200 + (Math.cos(i * 321) * 1000 + frame * 0.1) % 400;
+    let y = (Math.cos(i * 321) * 1000 + frame * (location === 'OCEAN' ? 0.3 : 0.1)) % 400;
+    y = 200 + Math.abs(y);
+    
     const size = 1 + Math.sin(frame * 0.02 + i) * 0.5;
     
+    if (location === 'CAVE') {
+        ctx.fillStyle = `hsla(${200 + Math.sin(i) * 60}, 80%, 70%, 0.4)`;
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = ctx.fillStyle;
+    } else if (location === 'OCEAN') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; // Marine Snow
+        ctx.shadowBlur = 2;
+        ctx.shadowColor = 'white';
+    } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.shadowBlur = 0;
+    }
+
     ctx.beginPath();
-    ctx.arc(Math.abs(x), Math.abs(y), size, 0, Math.PI * 2);
+    ctx.arc(Math.abs(x), y, size, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -564,7 +938,7 @@ export const drawBehaviorIcon = (ctx: CanvasRenderingContext2D, x: number, y: nu
   ctx.restore();
 };
 
-import { drawFishByModel } from './fish';
+import { drawFishByModel } from './fish/index';
 
 export const drawFishTexture = (
   ctx: CanvasRenderingContext2D, 
@@ -649,16 +1023,32 @@ export const drawRodTexture = (
     ctx.shadowBlur = 15; ctx.shadowColor = '#fbbf24';
   }
 
-  // Tension heat effect
-  if (bendAmount > 0.4) {
-      ctx.shadowBlur = 10 * bendAmount;
-      ctx.shadowColor = 'rgba(239, 68, 68, 0.8)';
-  }
-
   ctx.beginPath();
   ctx.moveTo(0, 0);
   const cpX = length * 0.5;
   const cpY = -bendAmount * length * 0.6;
+
+  // Tension heat effect
+  if (bendAmount > 0.8) {
+      const heatFactor = Math.min(1, (bendAmount - 0.8) / 1.5);
+      ctx.shadowBlur = 15 * heatFactor;
+      ctx.shadowColor = `rgba(239, 68, 68, ${0.4 + heatFactor * 0.6})`;
+      
+      // Path for red outline when extreme
+      if (heatFactor > 0.4) {
+          ctx.save();
+          ctx.globalAlpha = (heatFactor - 0.4) * 2;
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 6;
+          // Re-stroke the quadratic path
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(cpX, cpY, length, 0);
+          ctx.stroke();
+          ctx.restore();
+      }
+  }
+
   ctx.quadraticCurveTo(cpX, cpY, length, 0);
   
   ctx.strokeStyle = rodColor;
@@ -868,7 +1258,7 @@ export const drawPlayerEquipment = (
   }
 
 
-  // Line
+  // --- LINE DRAWING (3.0 Natural Physics) ---
   const visibleStates = [GameState.CHARGING, GameState.CASTING, GameState.WAITING, GameState.NIBBLING, GameState.REELING, GameState.CAUGHT];
   if (visibleStates.includes(gameState)) {
     const isLowHealth = lineHealth < 30 && gameState === GameState.REELING;
@@ -891,23 +1281,34 @@ export const drawPlayerEquipment = (
     }
 
     ctx.save();
-    if (isHighTension) {
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 12; ctx.shadowColor = 'red';
-    } else {
-        ctx.strokeStyle = isLowHealth ? `rgba(239, 68, 68, 0.9)` : 'rgba(255, 255, 255, 0.6)';
-        ctx.lineWidth = 1;
-    }
-    
     ctx.beginPath();
     ctx.moveTo(actualRodEndX, actualRodEndY);
-    let cpX = (actualRodEndX + hookX) / 2 + shakeX;
-    let cpY = Math.min(actualRodEndY, hookY) - (isCasting ? 180 : 30) + shakeY; 
-    if (gameState === GameState.REELING) cpY += 80 + rodBend * 30;
     
-    ctx.quadraticCurveTo(cpX, cpY, hookX + shakeX, hookY + shakeY);
+    // Add natural sag if not under high tension
+    if (gameState === GameState.WAITING || gameState === GameState.NIBBLING) {
+        const midX = (actualRodEndX + hookX) / 2;
+        const midY = (actualRodEndY + hookY) / 2 + 18; // Increased sag for realism
+        ctx.quadraticCurveTo(midX, midY, hookX + shakeX, hookY + shakeY);
+    } else {
+        // More curved line during casting and reeling
+        let cpX = (actualRodEndX + hookX) / 2 + shakeX;
+        let cpY = Math.min(actualRodEndY, hookY) - (gameState === GameState.CASTING ? 180 : 30) + shakeY; 
+        if (gameState === GameState.REELING) cpY += 80;
+        ctx.quadraticCurveTo(cpX, cpY, hookX + shakeX, hookY + shakeY);
+    }
+    
+    ctx.strokeStyle = isLowHealth ? '#ef4444' : (isHighTension ? '#fef08a' : 'rgba(255, 255, 255, 0.4)');
+    ctx.lineWidth = isHighTension ? 1.8 : 0.8;
+    if (isHighTension) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = isLowHealth ? '#ef4444' : 'white';
+        // Add vibration to line path if high tension
+        if (gameState === GameState.REELING) {
+            ctx.setLineDash([10, 2]); // Dotted look when stressed
+        }
+    }
     ctx.stroke();
+    ctx.setLineDash([]); // Reset dash
     ctx.restore();
 
     // Bobber Particles and ripples
@@ -947,16 +1348,16 @@ export const drawPlayerEquipment = (
         ctx.shadowColor = glowColor;
         ctx.fillStyle = glowColor;
         ctx.beginPath();
-        ctx.arc(hookX + shakeX, hookY + shakeY, 8 + glowPulse * 4, 0, Math.PI * 2);
+        ctx.arc(hookX + (typeof shakeX !== 'undefined' ? shakeX : 0), hookY + (typeof shakeY !== 'undefined' ? shakeY : 0), 8 + glowPulse * 4, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
     }
 
     ctx.fillStyle = '#ef4444';
-    ctx.beginPath(); ctx.arc(hookX + shakeX, hookY + shakeY, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hookX + (typeof shakeX !== 'undefined' ? shakeX : 0), hookY + (typeof shakeY !== 'undefined' ? shakeY : 0), 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'white';
-    ctx.beginPath(); ctx.arc(hookX + shakeX, hookY + shakeY - 2, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hookX + (typeof shakeX !== 'undefined' ? shakeX : 0), hookY + (typeof shakeY !== 'undefined' ? shakeY : 0) - 2, 3, 0, Math.PI * 2); ctx.fill();
   }
 };
 
@@ -973,7 +1374,7 @@ export const drawReelingInterface = (
   const panelW = 340;
   const panelH = 120;
   const px = (CANVAS_WIDTH - panelW) / 2;
-  const py = 145; // below header UI
+  const py = CANVAS_HEIGHT < 500 ? 110 : 145; // Adapt to height
 
   
   const barW = 280;
@@ -1037,6 +1438,7 @@ export const drawReelingInterface = (
 
 
   // 4. Main Horizontal Tension Bar
+  ctx.save();
   // Background (Danger)
   const dangerGrad = ctx.createLinearGradient(bx, 0, bx + barW, 0);
   dangerGrad.addColorStop(0, '#7f1d1d');
@@ -1044,6 +1446,9 @@ export const drawReelingInterface = (
   dangerGrad.addColorStop(1, '#7f1d1d');
   ctx.fillStyle = dangerGrad;
   ctx.beginPath(); ctx.roundRect(bx, by, barW, barH, 8); ctx.fill();
+
+  // --- NEW: Clip to Tension Bar area ---
+  ctx.beginPath(); ctx.roundRect(bx, by, barW, barH, 8); ctx.clip();
 
   // Safe Zone
   const hz = zoneSize / 2;
@@ -1055,17 +1460,19 @@ export const drawReelingInterface = (
   zoneGrad.addColorStop(0.5, '#4ade80');
   zoneGrad.addColorStop(1, '#166534');
   
-  ctx.save();
   if (isInZone) {
+    ctx.save();
     ctx.shadowBlur = 15;
     ctx.shadowColor = '#4ade80';
     const pulse = Math.sin(Date.now() * 0.01) * 3;
     ctx.fillStyle = 'rgba(74, 222, 128, 0.1)';
     ctx.beginPath(); ctx.roundRect(safeX - 3 - pulse, by - 3 - pulse, safeW + 6 + pulse*2, barH + 6 + pulse*2, 10); ctx.fill();
+    ctx.restore();
   }
   ctx.fillStyle = zoneGrad;
   ctx.beginPath(); ctx.roundRect(safeX, by, safeW, barH, 6); ctx.fill();
-  ctx.restore();
+
+  ctx.restore(); // End Clipping Tension Bar
 
   // Bar Border
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
@@ -1073,7 +1480,8 @@ export const drawReelingInterface = (
   ctx.strokeRect(bx, by, barW, barH);
 
   // 5. Tension Cursor (Arrow Indicator)
-  const cx = bx + tensionCursor * barW;
+  const clampedTension = Math.max(0, Math.min(1, tensionCursor));
+  const cx = bx + clampedTension * barW;
   ctx.save();
   ctx.shadowBlur = 5;
   ctx.shadowColor = 'black';
@@ -1106,17 +1514,26 @@ export const drawReelingInterface = (
   ctx.fillStyle = '#334155';
   ctx.beginPath(); ctx.roundRect(healX, healY, miniBarW, miniBarH, 5); ctx.fill();
 
-  // Colored fill
-  let hColor = '#22c55e';
-  if (health < 30) hColor = '#ef4444';
-  else if (health < 60) hColor = '#eab308';
+  // Fill logic with clipping to prevent overshoot
+  const clampedHealth = Math.min(100, Math.max(0, health));
+  let hColor = '#3b82f6'; // Default blue
+  if (clampedHealth < 30) {
+      hColor = Math.sin(Date.now() * 0.025) < 0 ? '#ef4444' : '#7f1d1d'; // Red flash
+  } else if (clampedHealth < 60) {
+      hColor = '#eab308'; // Yellow
+  }
 
-  // Flash animation only at critical
-  if (health < 30 && Math.sin(Date.now() * 0.025) < 0) hColor = '#7f1d1d';
-
-  const fillW = Math.max(0, (health / 100) * miniBarW);
-  ctx.fillStyle = hColor;
-  ctx.beginPath(); ctx.roundRect(healX, healY, fillW, miniBarH, 5); ctx.fill();
+  if (clampedHealth > 0) {
+    ctx.save();
+    // Clip to the bar's rounded area
+    ctx.beginPath();
+    ctx.roundRect(healX, healY, miniBarW, miniBarH, 5);
+    ctx.clip();
+    
+    ctx.fillStyle = hColor;
+    ctx.fillRect(healX, healY, (clampedHealth / 100) * miniBarW, miniBarH);
+    ctx.restore();
+  }
 
   // Border
   ctx.strokeStyle = 'rgba(255,255,255,0.15)';
@@ -1156,15 +1573,23 @@ export const drawPowerBar = (
   ctx.fill();
   
   ctx.fillStyle = '#020617';
-  ctx.fillRect(x, y, pbW, pbH);
+  ctx.beginPath(); ctx.roundRect(x, y, pbW, pbH, 4); ctx.fill();
   
+  const clampedPower = Math.min(100, Math.max(0, power));
   const gradient = ctx.createLinearGradient(x, 0, x + pbW, 0);
   gradient.addColorStop(0, '#22c55e');
   gradient.addColorStop(0.5, '#eab308');
   gradient.addColorStop(1, '#ef4444');
   
+  ctx.save();
+  // Clip to container
+  ctx.beginPath();
+  ctx.roundRect(x, y, pbW, pbH, 4);
+  ctx.clip();
+  
   ctx.fillStyle = gradient;
-  ctx.fillRect(x, y, (power/100) * pbW, pbH);
+  ctx.fillRect(x, y, (clampedPower/100) * pbW, pbH);
+  ctx.restore();
 
   // Perfect Cast indicator: glow when >= 95%
   if (power >= 95) {
@@ -1191,16 +1616,22 @@ export const drawPowerBar = (
   ctx.restore();
 };
 
-// --- God Rays (Ocean only) ---
-export const drawGodRays = (ctx: CanvasRenderingContext2D, frame: number) => {
+// --- God Rays (Context Aware) ---
+export const drawGodRays = (ctx: CanvasRenderingContext2D, frame: number, location: LocationType = 'OCEAN', time: TimeOfDay = 'DAY') => {
   ctx.save();
-  const cx = CANVAS_WIDTH * 0.4;
-  const numRays = 8;
+  const cx = CANVAS_WIDTH * 0.45;
+  const numRays = location === 'CAVE' ? 6 : 8;
+  
+  let rayColor = '150, 230, 255'; // Ocean Day
+  if (location === 'POND') rayColor = '200, 255, 150'; // Greenish for pond
+  if (location === 'CAVE') rayColor = '200, 150, 255'; // Violet for crystals
+  if (time === 'SUNSET') rayColor = '255, 200, 100'; // Golden
+  
   for (let i = 0; i < numRays; i++) {
-    const angle = (i / numRays) * Math.PI + (frame * 0.0008);
-    const opacity = 0.025 + Math.sin(frame * 0.015 + i * 1.3) * 0.015;
-    const spread = 0.06 + Math.sin(frame * 0.01 + i) * 0.02;
-    const length = 380 + Math.sin(frame * 0.02 + i) * 60;
+    const angle = (i / numRays) * Math.PI + (frame * 0.0006);
+    const opacity = (location === 'CAVE' ? 0.04 : 0.02) + Math.sin(frame * 0.012 + i * 1.5) * 0.015;
+    const spread = 0.07 + Math.sin(frame * 0.008 + i) * 0.02;
+    const length = 450 + Math.sin(frame * 0.015 + i) * 80;
 
     const x1 = cx + Math.cos(angle - spread) * 5;
     const y1 = 200;
@@ -1212,20 +1643,53 @@ export const drawGodRays = (ctx: CanvasRenderingContext2D, frame: number) => {
     const y4 = 200 + Math.sin(angle - spread) * length;
 
     const grad = ctx.createLinearGradient(cx, 200, cx + Math.cos(angle) * length, 200 + Math.sin(angle) * length);
-    grad.addColorStop(0, `rgba(150, 230, 255, ${opacity * 2})`);
-    grad.addColorStop(1, `rgba(100, 200, 255, 0)`);
+    grad.addColorStop(0, `rgba(${rayColor}, ${opacity * 2.5})`);
+    grad.addColorStop(0.5, `rgba(${rayColor}, ${opacity})`);
+    grad.addColorStop(1, `rgba(${rayColor}, 0)`);
 
+    ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.lineTo(x3, y3);
-    ctx.lineTo(x4, y4);
-    ctx.closePath();
-    ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4); ctx.closePath(); ctx.fill();
   }
   ctx.restore();
 };
+
+// --- Combo Streak UI ---
+export const drawComboStreak = (ctx: CanvasRenderingContext2D, combo: number, frame: number) => {
+  if (combo < 2) return;
+  
+  ctx.save();
+  const tx = CANVAS_WIDTH / 2;
+  const ty = 120;
+  const pulse = Math.sin(frame * 0.15);
+  const scale = 1 + Math.abs(pulse) * 0.1;
+  
+  ctx.translate(tx, ty);
+  ctx.scale(scale, scale);
+  
+  // Background Glow
+  const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, 50);
+  grad.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(0, 0, 50, 0, Math.PI * 2); ctx.fill();
+  
+  // Text
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = '#fbbf24';
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 18px "Arial"';
+  ctx.textAlign = 'center';
+  ctx.fillText(`COMBO x${combo}`, 0, 0);
+  
+  ctx.font = 'bold 10px "Arial"';
+  ctx.fillStyle = '#fde047';
+  ctx.fillText('STREAK ACTIVE', 0, 15);
+  
+  ctx.restore();
+};
+
+
 
 // --- Fireflies & Leaf Fall (Pond Night) ---
 const fireflyPool: { x: number; y: number; phase: number; speed: number; size: number }[] = [];
@@ -1326,29 +1790,34 @@ export const drawBossHealthBarFlash = (
   ctx.fillStyle = '#450a0a';
   ctx.roundRect(barX, barY, barW, barH, 6); ctx.fill();
 
-  // Health fill
-  const hpRatio = bossHp / bossMaxHp;
+  // Health fill with clipping
+  const hpRatio = Math.min(1, Math.max(0, bossHp / bossMaxHp));
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(barX, barY, barW, barH, 6);
+  ctx.clip();
+
   if (isFlashing) {
     // Flash white
     ctx.save();
     ctx.shadowBlur = 30;
     ctx.shadowColor = 'white';
     ctx.fillStyle = 'white';
-    ctx.roundRect(barX, barY, hpRatio * barW, barH, 6); ctx.fill();
+    ctx.fillRect(barX, barY, hpRatio * barW, barH);
     ctx.restore();
   } else {
     const hpColor = isEnraged ? '#ef4444' : '#991b1b';
     ctx.fillStyle = hpColor;
-    // Subtle pulse when enraged
     if (isEnraged) {
       ctx.save();
       ctx.shadowBlur = 8 + Math.sin(frame * 0.15) * 6;
       ctx.shadowColor = '#ef4444';
-      ctx.roundRect(barX, barY, hpRatio * barW, barH, 6); ctx.fill();
+      ctx.fillRect(barX, barY, hpRatio * barW, barH);
       ctx.restore();
     } else {
-      ctx.roundRect(barX, barY, hpRatio * barW, barH, 6); ctx.fill();
+      ctx.fillRect(barX, barY, hpRatio * barW, barH);
     }
   }
+  ctx.restore();
 };
 

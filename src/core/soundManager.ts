@@ -146,6 +146,75 @@ class SoundManager {
     } catch (e) { }
   }
 
+  private rainSource: AudioBufferSourceNode | null = null;
+  private rainGain: GainNode | null = null;
+
+  playThunder() {
+    try {
+      const ctx = this.getCtx();
+      if (!ctx || !this.masterGain) return;
+      const bufferSize = ctx.sampleRate * 3;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(150, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 2.5);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.0);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.masterGain);
+      noise.start();
+    } catch (e) { }
+  }
+
+  startRain() {
+    try {
+      const ctx = this.getCtx();
+      if (!ctx || !this.masterGain || this.rainSource) return;
+      
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      
+      this.rainSource = ctx.createBufferSource();
+      this.rainSource.buffer = buffer;
+      this.rainSource.loop = true;
+      
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 800;
+      
+      this.rainGain = ctx.createGain();
+      this.rainGain.gain.setValueAtTime(0, ctx.currentTime);
+      this.rainGain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 1.0);
+      
+      this.rainSource.connect(filter);
+      filter.connect(this.rainGain);
+      this.rainGain.connect(this.masterGain);
+      this.rainSource.start();
+    } catch (e) { }
+  }
+
+  stopRain() {
+    if (this.rainGain && this.ctx) {
+      this.rainGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.0);
+      setTimeout(() => {
+        if (this.rainSource) {
+          try { this.rainSource.stop(); } catch(e) {}
+          this.rainSource = null;
+        }
+        this.rainGain = null;
+      }, 1100);
+    }
+  }
+
   playClick() {
     try {
       const ctx = this.getCtx();

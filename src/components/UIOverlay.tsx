@@ -53,6 +53,8 @@ interface UIOverlayProps {
   onStartCompetition: () => void;
   liveBait: FishType | null;
   onUseAsBait: (timestamp: number) => void;
+  onClaimDailyReward: () => void;
+  onRepair: (type: 'rod' | 'tackle') => void;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = (props) => {
@@ -60,14 +62,18 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
   
   const [showTutorial, setShowTutorial] = useState(false);
   const [profileTab, setProfileTab] = useState<'stats' | 'skills' | 'collection'>('stats');
+  const [shopTab, setShopTab] = useState<'rod' | 'tackle' | 'bait'>('rod');
+
+  const handleOpenShop = (tab: 'rod' | 'tackle' | 'bait') => {
+    setShopTab(tab);
+    setActiveView(UIView.SHOP);
+  };
 
   const levelData = useMemo(() => {
-    const level = Math.floor(Math.sqrt(stats.totalFishCaught)) + 1;
-    const currentLevelExp = Math.pow(level - 1, 2);
-    const nextLevelExp = Math.pow(level, 2);
-    const totalForNext = nextLevelExp - currentLevelExp;
-    const currentInLevel = stats.totalFishCaught - currentLevelExp;
-    const progress = totalForNext > 0 ? (currentInLevel / totalForNext) * 100 : 100;
+    const level = stats.level || 1;
+    const xp = stats.xp || 0;
+    const xpToLevel = level * 800;
+    const progress = (xp / xpToLevel) * 100;
     
     let title = "Tân Thủ";
     if (level > 5) title = "Cần Thủ Tập Sự";
@@ -75,8 +81,8 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
     if (level > 20) title = "Bậc Thầy Đại Dương";
     if (level > 50) title = "Huyền Thoại Câu Cá";
 
-    return { level, progress, title, nextCap: Math.max(0, nextLevelExp - stats.totalFishCaught) };
-  }, [stats.totalFishCaught]);
+    return { level, progress, title, xp, xpToLevel, nextCap: Math.max(0, xpToLevel - xp) };
+  }, [stats.level, stats.xp]);
 
   const renderView = () => {
     switch (activeView) {
@@ -87,10 +93,12 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
             showTutorial={showTutorial} 
             setShowTutorial={setShowTutorial}
             setProfileTab={setProfileTab}
+            onOpenShop={handleOpenShop}
+            levelData={levelData}
           />
         );
       case UIView.SHOP:
-        return <ShopView {...props} />;
+        return <ShopView {...props} initialTab={shopTab} />;
       case UIView.QUESTS:
         return <QuestsView {...props} />;
       case UIView.PROFILE:

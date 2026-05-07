@@ -8,6 +8,28 @@ import { soundManager } from './core/soundManager';
 
 const SAVE_KEY = 'fishing_frenzy_save_v1';
 
+const BubblesBackground: React.FC = () => {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-40">
+      {[...Array(20)].map((_, i) => (
+        <div 
+          key={i}
+          className="absolute rounded-full bg-white/10 blur-[1px] animate-float"
+          style={{
+            left: `${Math.random() * 100}%`,
+            bottom: `-20px`,
+            width: `${Math.random() * 15 + 5}px`,
+            height: `${Math.random() * 15 + 5}px`,
+            animationDuration: `${Math.random() * 10 + 10}s`,
+            animationDelay: `${Math.random() * 10}s`,
+            opacity: Math.random() * 0.5 + 0.1
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.START);
   const [activeView, setActiveView] = useState<UIView>(UIView.GAME);
@@ -35,16 +57,23 @@ const App: React.FC = () => {
     totalGoldEarned: 0,
     totalFishCaught: 0,
     rarestFish: 'Chưa có',
-    highestValue: 0
+    highestValue: 0,
+    level: 1,
+    xp: 0,
+    fishCounts: {}
   });
   const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [lastQuestReset, setLastQuestReset] = useState<number>(0);
-  const [weather, setWeather] = useState<'sunny' | 'rainy' | 'stormy'>('sunny');
+  const [weather, setWeather] = useState<'sunny' | 'rainy' | 'stormy' | 'foggy'>('sunny');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [epicCatch, setEpicCatch] = useState<{ fish: FishType; isGolden: boolean } | null>(null);
   const [unlockedFish, setUnlockedFish] = useState<string[]>([]);
-  const [skills, setSkills] = useState<PlayerSkills>({ sharpEye: 0, fastHands: 0, lucky: 0 });
+  const [skills, setSkills] = useState<PlayerSkills>({ 
+    sharpEye: 0, fastHands: 0, lucky: 0, 
+    focus: 0, powerReel: 0,
+    deepSeaDiver: 0, weatherExpert: 0, masterAngler: 0 
+  });
   const [dailyMarketBoosts, setDailyMarketBoosts] = useState<string[]>([]);
   
   const [currentLocation, setCurrentLocation] = useState<LocationType>('POND');
@@ -70,22 +99,27 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const [weatherVersion, setWeatherVersion] = useState(0);
+
   // --- DYNAMIC WEATHER CYCLE ---
   useEffect(() => {
     if (!isDataLoaded) return;
-    const weatherOptions: ('sunny' | 'rainy' | 'stormy')[] = ['sunny', 'sunny', 'sunny', 'rainy', 'stormy'];
-    const weatherNames = { sunny: '☀️ Trời Nắng', rainy: '🌧️ Trời Mưa', stormy: '⛈️ Bão Lớn' };
+    const weatherOptions: ('sunny' | 'rainy' | 'stormy' | 'foggy')[] = ['sunny', 'sunny', 'sunny', 'rainy', 'stormy', 'foggy'];
+    const weatherNames = { sunny: '☀️ Trời Nắng', rainy: '🌧️ Trời Mưa', stormy: '⛈️ Bão Lớn', foggy: '🌫️ Sương Mù' };
     // Random interval: 3-5 minutes
     const nextInterval = 180000 + Math.random() * 120000;
     const timer = setTimeout(() => {
       const next = weatherOptions[Math.floor(Math.random() * weatherOptions.length)];
-      setWeather(next);
-      addNotification(`Thời tiết thay đổi: ${weatherNames[next]}`, 'info');
+      if (next !== weather) {
+        setWeather(next);
+        addNotification(`Thời tiết thay đổi: ${weatherNames[next]}`, 'info');
+      }
+      setWeatherVersion(v => v + 1);
     }, nextInterval);
     return () => clearTimeout(timer);
   // Re-trigger every time weather changes to schedule the NEXT change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weather, isDataLoaded]);
+  }, [weatherVersion, isDataLoaded]);
 
   // --- HANDLE TAB SWITCHING DURING GAMEPLAY ---
   useEffect(() => {
@@ -112,6 +146,36 @@ const App: React.FC = () => {
     }
   }, [currentLocation, activeView]);
 
+  // --- SYNC LEVEL-BASED SKILLS ---
+  useEffect(() => {
+    if (!isDataLoaded) return;
+    setSkills(s => {
+      let changed = false;
+      const newSkills = { ...s };
+      if (stats.level! >= 15 && s.focus === 0) {
+        newSkills.focus = 1;
+        changed = true;
+      }
+      if (stats.level! >= 20 && s.powerReel === 0) {
+        newSkills.powerReel = 1;
+        changed = true;
+      }
+      if (stats.level! >= 25 && s.deepSeaDiver === 0) {
+        newSkills.deepSeaDiver = 1;
+        changed = true;
+      }
+      if (stats.level! >= 30 && s.weatherExpert === 0) {
+        newSkills.weatherExpert = 1;
+        changed = true;
+      }
+      if (stats.level! >= 40 && s.masterAngler === 0) {
+        newSkills.masterAngler = 1;
+        changed = true;
+      }
+      return changed ? newSkills : s;
+    });
+  }, [isDataLoaded, stats.level]);
+
   // --- PERSISTENCE LOGIC ---
   
   useEffect(() => {
@@ -124,10 +188,22 @@ const App: React.FC = () => {
         if (data.inventoryCapacity) setInventoryCapacity(data.inventoryCapacity);
         if (data.ownedRods) setOwnedRods(data.ownedRods);
         if (data.baitCounts) setBaitCounts(data.baitCounts);
-        if (data.stats) setStats(data.stats);
+        if (data.stats) setStats({
+          ...data.stats,
+          level: data.stats.level || 1,
+          xp: data.stats.xp || 0,
+          fishCounts: data.stats.fishCounts || {},
+          lastDailyRewardClaimed: data.stats.lastDailyRewardClaimed || 0,
+          dailyStreak: data.stats.dailyStreak || 0
+        });
         if (data.achievements) setAchievements(data.achievements);
         if (data.unlockedFish) setUnlockedFish(data.unlockedFish);
-        if (data.skills) setSkills(data.skills);
+        if (data.skills) setSkills({
+          sharpEye: 0, fastHands: 0, lucky: 0,
+          focus: 0, powerReel: 0,
+          deepSeaDiver: 0, weatherExpert: 0, masterAngler: 0,
+          ...data.skills
+        });
         if (data.currentLocation) setCurrentLocation(data.currentLocation);
         if (data.sessionFishCount !== undefined) setSessionFishCount(data.sessionFishCount);
         if (data.leaderboard) setLeaderboard(data.leaderboard);
@@ -179,17 +255,7 @@ const App: React.FC = () => {
       setDailyMarketBoosts(boosts);
     }
     
-    // Random weather on load and then every 3 minutes
-    const weathers: ('sunny' | 'rainy' | 'stormy')[] = ['sunny', 'sunny', 'sunny', 'rainy', 'stormy'];
-    setWeather(weathers[Math.floor(Math.random() * weathers.length)]);
-    
-    const weatherInterval = setInterval(() => {
-      setWeather(weathers[Math.floor(Math.random() * weathers.length)]);
-    }, 180000);
-    
     setIsDataLoaded(true);
-    
-    return () => clearInterval(weatherInterval);
   }, []);
 
   useEffect(() => {
@@ -228,6 +294,36 @@ const App: React.FC = () => {
     setSessionFishCount(0);
   }, []);
 
+  const claimDailyReward = useCallback(() => {
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    
+    if (stats.lastDailyRewardClaimed && now - stats.lastDailyRewardClaimed < oneDay) {
+        addNotification("Bạn đã nhận quà hôm nay rồi! Hãy quay lại vào ngày mai.", "warning");
+        return;
+    }
+
+    const currentStreak = (stats.dailyStreak || 0) + 1;
+    const rewardGold = 1000 + (currentStreak * 500);
+    const rewardBait = BAITS[Math.floor(Math.random() * BAITS.length)];
+
+    setGold(g => g + rewardGold);
+    setBaitCounts(prev => ({
+        ...prev,
+        [rewardBait.id]: (prev[rewardBait.id] || 0) + 5
+    }));
+
+    setStats(prev => ({
+        ...prev,
+        lastDailyRewardClaimed: now,
+        dailyStreak: currentStreak,
+        totalGoldEarned: prev.totalGoldEarned + rewardGold
+    }));
+
+    addNotification(`NHẬN QUÀ HÀNG NGÀY: +${rewardGold} Vàng & 5x ${rewardBait.name}! (Chuỗi: ${currentStreak} ngày)`, "success");
+    soundManager.playTrophyCatch();
+  }, [stats.lastDailyRewardClaimed, stats.dailyStreak, addNotification]);
+
   const handleResetData = useCallback(() => {
     localStorage.removeItem(SAVE_KEY);
     setGold(500);
@@ -243,13 +339,16 @@ const App: React.FC = () => {
       totalGoldEarned: 500,
       totalFishCaught: 0,
       rarestFish: 'Chưa có',
-      highestValue: 0
+      highestValue: 0,
+      level: 1,
+      xp: 0,
+      fishCounts: {}
     });
     setAchievements(INITIAL_ACHIEVEMENTS);
     setQuests(generateDailyQuests());
     setLastQuestReset(Date.now());
     setUnlockedFish([]);
-    setSkills({ sharpEye: 0, fastHands: 0, lucky: 0 });
+    setSkills({ sharpEye: 0, fastHands: 0, lucky: 0, focus: 0, powerReel: 0 });
     setDailyMarketBoosts([]);
     setCurrentLocation('POND');
     setSessionFishCount(0);
@@ -328,11 +427,52 @@ const App: React.FC = () => {
         return fishIndex > currentRarestIndex;
       };
 
+      const xpGains: Record<string, number> = {
+        [Rarity.JUNK]: 5,
+        [Rarity.COMMON]: 15,
+        [Rarity.UNCOMMON]: 35,
+        [Rarity.RARE]: 120,
+        [Rarity.EPIC]: 350,
+        [Rarity.LEGENDARY]: 1500,
+        [Rarity.MYTHIC]: 6000
+      };
+      
+      const xpGain = xpGains[newFish.rarity] || 10;
+      let nextXp = (prev.xp || 0) + xpGain;
+      let nextLevel = prev.level || 1;
+      const xpToLevel = nextLevel * 800; // Faster leveling early
+      
+      if (nextXp >= xpToLevel) {
+        nextXp -= xpToLevel;
+        nextLevel++;
+        setTimeout(() => {
+          addNotification(`LEVEL UP! Cấp độ mới: ${nextLevel}! +5000 vàng`, 'achievement');
+          setGold(g => g + 5000);
+          soundManager.playTrophyCatch();
+          
+          // Auto-unlock active skills
+          if (nextLevel === 15) {
+            setSkills(s => ({ ...s, focus: 1 }));
+            addNotification("KỸ NĂNG MỚI: TẬP TRUNG (Phím F) đã mở khóa!", "achievement");
+          }
+          if (nextLevel === 20) {
+            setSkills(s => ({ ...s, powerReel: 1 }));
+            addNotification("KỸ NĂNG MỚI: KÉO MẠNH (Phím G) đã mở khóa!", "achievement");
+          }
+        }, 800);
+      }
+
       return {
         ...prev,
         totalFishCaught: prev.totalFishCaught + 1,
         highestValue: Math.max(prev.highestValue, finalValue),
-        rarestFish: isRarer(newFish, prev.rarestFish) ? newFish.name : prev.rarestFish
+        rarestFish: isRarer(newFish, prev.rarestFish) ? newFish.name : prev.rarestFish,
+        level: nextLevel,
+        xp: nextXp,
+        fishCounts: {
+          ...prev.fishCounts,
+          [newFish.name]: (prev.fishCounts?.[newFish.name] || 0) + 1
+        }
       };
     });
 
@@ -380,27 +520,14 @@ const App: React.FC = () => {
   }, [addNotification]);
 
   const handleRodBroken = useCallback(() => {
-    setOwnedRods(prev => {
-      const remaining = prev.filter(id => id !== currentRod.id);
-      const nextRodId = remaining[0] || 'rod_1';
-      const nextRod = RODS.find(r => r.id === nextRodId) || RODS[0];
-      setCurrentRod(nextRod);
-      return remaining;
-    });
-    addNotification('Cần câu đã gãy! Hãy mua cần mới.', 'warning');
-  }, [currentRod.id, addNotification]);
+    setCurrentRod(prev => ({ ...prev, durability: 0 }));
+    addNotification('Cần câu đã gãy! Hãy đi sửa chữa để tiếp tục sử dụng.', 'warning');
+  }, [addNotification]);
 
   const handleLineBroken = useCallback(() => {
-    // Tackle is removed from owned list when broken
-    setOwnedTackles(prev => {
-      const remaining = prev.filter(id => id !== currentTackle.id);
-      const nextTackleId = remaining[0] || 'tackle_1';
-      const nextTackle = TACKLES.find(t => t.id === nextTackleId) || TACKLES[0];
-      setCurrentTackle(nextTackle);
-      return remaining;
-    });
-    addNotification('Thẻo bị đứt! Hãy mua thẻo mới.', 'warning');
-  }, [currentTackle.id, addNotification]);
+    setCurrentTackle(prev => ({ ...prev, durability: 0 }));
+    addNotification('Thẻo đã đứt! Hãy đi sửa chữa hoặc thay thẻo mới.', 'warning');
+  }, [addNotification]);
 
   const handleCast = useCallback(() => {
     setBaitCounts(prev => {
@@ -471,45 +598,86 @@ const App: React.FC = () => {
     setGameState(GameState.CAUGHT);
     updateStatsAndQuests(fish, isGolden);
 
-    // Rod breaking logic
+    // Rod breaking logic (now just depletes durability)
     const currentRodMax = currentRod.maxValue ?? Infinity;
-    if (finalValue > currentRodMax && ownedRods.includes(currentRod.id)) {
-      setOwnedRods(prev => {
-        const remaining = prev.filter(id => id !== currentRod.id);
-        const nextRodId = remaining[0] || 'rod_1';
-        const nextRod = RODS.find(r => r.id === nextRodId) || RODS[0];
-        setCurrentRod(nextRod);
-        return remaining;
-      });
-      addNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy mua lại cần mới.", "warning");
+    if (finalValue > currentRodMax && (currentRod.durability || 0) > 0) {
+      setCurrentRod(prev => ({ ...prev, durability: 0 }));
+      addNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy đi sửa chữa.", "warning");
     }
     
     // Check for boss after catching fish
     setSessionFishCount(prev => {
       const newCount = prev + 1;
       if (newCount >= 20) {
-        setTimeout(() => {
-          soundManager.playBossWarning();
-          addNotification("BOSS xuất hiện! Chuẩn bị chiến đấu!", "boss");
-          setTimeout(() => {
-            setIsBossSpawned(true);
-          }, 1200);
-        }, 2500);
         return 0; // Reset session fish count when boss appears
       } else {
-        setTimeout(() => {
-          setGameState(GameState.IDLE);
-        }, 1200);
         return newCount;
       }
     });
-  }, [updateStatsAndQuests, inventory.length, inventoryCapacity, currentRod, ownedRods, addNotification]);
+
+    const isBossDue = sessionFishCount + 1 >= 20;
+    if (isBossDue) {
+      setTimeout(() => {
+        soundManager.playBossWarning();
+        addNotification("BOSS xuất hiện! Chuẩn bị chiến đấu!", "boss");
+        setTimeout(() => {
+          setIsBossSpawned(true);
+        }, 1200);
+      }, 2500);
+    } 
+    
+    setTimeout(() => {
+      setGameState(GameState.IDLE);
+    }, 1200);
+  }, [updateStatsAndQuests, inventory.length, inventoryCapacity, currentRod, ownedRods, addNotification, sessionFishCount]);
 
   const onFishLost = useCallback((reason: string = "Cá đã thoát rồi...") => {
     addNotification(reason, 'info');
     setGameState(GameState.IDLE);
     setStreak(0);
   }, [addNotification]);
+
+  const handleDurabilityChange = useCallback((type: 'rod' | 'tackle', amount: number) => {
+    if (type === 'rod') {
+        setCurrentRod(prev => {
+            const nextDur = Math.max(0, (prev.durability || 100) - amount);
+            if (nextDur <= 0 && prev.durability! > 0) {
+                addNotification(`Cần câu ${prev.name} đã hỏng! Hãy đi sửa chữa.`, 'warning');
+            }
+            return { ...prev, durability: nextDur };
+        });
+    } else {
+        setCurrentTackle(prev => {
+            const nextDur = Math.max(0, (prev.durability || 30) - amount);
+            if (nextDur <= 0 && prev.durability! > 0) {
+                addNotification(`Thẻo ${prev.name} đã hỏng! Hãy đi sửa chữa.`, 'warning');
+            }
+            return { ...prev, durability: nextDur };
+        });
+    }
+  }, [addNotification]);
+
+  const handleRepair = useCallback((type: 'rod' | 'tackle') => {
+    if (type === 'rod') {
+        const cost = Math.floor((currentRod.maxDurability! - currentRod.durability!) * 5);
+        if (gold >= cost) {
+            setGold(g => g - cost);
+            setCurrentRod(prev => ({ ...prev, durability: prev.maxDurability }));
+            addNotification(`Đã sửa cần câu hết ${cost} vàng.`, 'success');
+        } else {
+            addNotification(`Không đủ vàng để sửa chữa (Cần ${cost} vàng).`, 'warning');
+        }
+    } else {
+        const cost = Math.floor((currentTackle.maxDurability! - currentTackle.durability!) * 10);
+        if (gold >= cost) {
+            setGold(g => g - cost);
+            setCurrentTackle(prev => ({ ...prev, durability: prev.maxDurability }));
+            addNotification(`Đã sửa thẻo hết ${cost} vàng.`, 'success');
+        } else {
+            addNotification(`Không đủ vàng để sửa chữa (Cần ${cost} vàng).`, 'warning');
+        }
+    }
+  }, [gold, currentRod, currentTackle, addNotification]);
 
   const sellAllFish = () => {
     if (inventory.length === 0) return;
@@ -587,11 +755,13 @@ const App: React.FC = () => {
     if (gold >= item.price) {
       setGold(prev => prev - item.price);
       if (type === 'rod') {
+        const rod = { ...(item as RodType), durability: (item as RodType).maxDurability || 100 };
         setOwnedRods(prev => [...prev, item.id]);
-        setCurrentRod(item as RodType);
+        setCurrentRod(rod);
       } else if (type === 'tackle') {
+        const tackle = { ...(item as TackleType), durability: (item as TackleType).maxDurability || 30 };
         setOwnedTackles(prev => [...prev, item.id]);
-        setCurrentTackle(item as TackleType);
+        setCurrentTackle(tackle);
       } else {
         const bait = item as BaitType;
         const addCount = bait.count || 10;
@@ -642,11 +812,13 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-screen flex items-center justify-center overflow-hidden bg-[#0a0f1d]">
-      <div 
-        className="relative bg-[#0f172a] rounded-3xl shadow-2xl border-4 border-[#1e293b] overflow-hidden"
-        style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
-      >
+    <div className="relative w-screen h-screen flex items-center justify-center overflow-hidden bg-[#030712]">
+      <BubblesBackground />
+      
+      {/* Premium CRT/Scanline Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-[100] opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]"></div>
+
+      <div className="relative bg-[#0f172a] md:rounded-[3rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] border-[6px] border-[#1e293b] overflow-hidden transition-all duration-700 w-[min(1100px,100vw)] h-[min(650px,100vh)] aspect-auto md:aspect-[1100/650] flex flex-col">
         {activeView === UIView.GAME && (
           <GameCanvas 
             gameState={gameState} 
@@ -674,6 +846,7 @@ const App: React.FC = () => {
             setLiveBait={setLiveBait}
             isBossSpawned={isBossSpawned}
             setIsBossSpawned={setIsBossSpawned}
+            onDurabilityChange={handleDurabilityChange}
           />
         )}
         
@@ -702,6 +875,7 @@ const App: React.FC = () => {
           onUpgradeCapacity={upgradeCapacity}
           onResetData={handleResetData}
           onClaimQuest={claimQuest}
+          onRepair={handleRepair}
           weather={weather}
           epicCatch={epicCatch}
           unlockedFish={unlockedFish}
@@ -719,6 +893,7 @@ const App: React.FC = () => {
           onStartCompetition={startCompetition}
           liveBait={liveBait}
           onUseAsBait={useFishAsBait}
+          onClaimDailyReward={claimDailyReward}
         />
       </div>
     </div>

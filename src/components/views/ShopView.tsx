@@ -20,13 +20,14 @@ interface ShopViewProps {
   inventory?: InventoryItem[];
   onUseAsBait?: (timestamp: number) => void;
   liveBait?: FishType | null;
+  initialTab?: 'rod' | 'tackle' | 'bait';
 }
 
 const ShopView: React.FC<ShopViewProps> = ({ 
   gold, ownedRods, ownedTackles, currentRod, currentTackle, baitCounts, quests,
-  setActiveView, onBuy, onSelect, setProfileTab, inventory = [], onUseAsBait, liveBait
+  setActiveView, onBuy, onSelect, setProfileTab, inventory = [], onUseAsBait, liveBait, initialTab = 'rod'
 }) => {
-  const [shopTab, setShopTab] = useState<'rod' | 'tackle' | 'bait'>('rod');
+  const [shopTab, setShopTab] = useState<'rod' | 'tackle' | 'bait'>(initialTab);
 
   return (
     <div className="absolute inset-0 bg-slate-950 flex flex-col pointer-events-auto text-white overflow-hidden pb-24 animate-in fade-in duration-500">
