@@ -443,12 +443,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             activeFish.current.isGolden = true;
         }
 
-        const baseEscapeChance = 0.25;
-        const actualEscapeChance = Math.max(0.04, baseEscapeChance - (currentRod.control - 1) * 0.15);
-        willAutoEscape.current = Math.random() < actualEscapeChance;
-        if (willAutoEscape.current) {
-            autoEscapeTime.current = frameCount.current + 120 + Math.random() * 120;
-        }
+        willAutoEscape.current = false;
 
         soundManager.playSuccess();
         shakeIntensity.current = 8; // Normal shake for fish hook
@@ -647,41 +642,47 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     // --- CINEMATIC CAMERA: compute targets ---
-    const isFishingActive = (gameState === GameState.NIBBLING || gameState === GameState.REELING) && activeFish.current;
+    const isCinematicActive = (gameState === GameState.NIBBLING || gameState === GameState.REELING) && activeFish.current;
     
-    if (isFishingActive) {
-        // Zoom in slightly for dramatic effect
+    if (isCinematicActive) {
         cameraZoomTarget.current = 1.12; 
-        
-        // Target a point between player and hook, but biased toward the hook
         const playerX = 80;
         const focusX = playerX * 0.3 + hookX.current * 0.7;
         const focusY = hookY.current;
-        
-        // Offset so the focus point stays relatively centered but doesn't push player off-screen
         cameraOffsetXTarget.current = Math.max(-150, Math.min(150, (CANVAS_WIDTH / 2 - focusX) * (cameraZoomTarget.current - 1)));
         cameraOffsetYTarget.current = (CANVAS_HEIGHT / 2 - focusY) * (cameraZoomTarget.current - 1);
     } else {
         cameraZoomTarget.current = 1;
         cameraOffsetXTarget.current = 0;
         cameraOffsetYTarget.current = 0;
+    }
+
+    // Determine if we should force a hard reset (no animation)
+    const isHardResetState = [
+        GameState.IDLE, GameState.START, GameState.GAMEOVER, 
+        GameState.BOSS_FIGHT, GameState.WAITING, GameState.CHARGING, GameState.CASTING,
+        GameState.CAUGHT
+    ].includes(gameState);
+
+    if (isHardResetState) {
+        // Force sync current values to targets immediately
+        cameraZoom.current = 1;
+        cameraOffsetX.current = 0;
+        cameraOffsetY.current = 0;
+        motionBlurAlpha.current = 0;
+        shakeIntensity.current = 0;
+    } else {
+        // Smoothly lerp for other states
+        const lerpSpeed = cameraZoomTarget.current === 1 ? 0.35 : 0.06;
+        cameraZoom.current += (cameraZoomTarget.current - cameraZoom.current) * lerpSpeed;
+        cameraOffsetX.current += (cameraOffsetXTarget.current - cameraOffsetX.current) * lerpSpeed;
+        cameraOffsetY.current += (cameraOffsetYTarget.current - cameraOffsetY.current) * lerpSpeed;
         
-        // "Nghỉ" (Resting) vs "Câu" (Fishing) categorization
-        const isRestingState = gameState === GameState.IDLE || gameState === GameState.START || gameState === GameState.GAMEOVER || gameState === GameState.BOSS_FIGHT;
-        
-        if (isRestingState) {
-            // Hard reset immediately for resting states
+        // Final snapping
+        if (cameraZoomTarget.current === 1 && Math.abs(cameraZoom.current - 1) < 0.015) {
             cameraZoom.current = 1;
             cameraOffsetX.current = 0;
             cameraOffsetY.current = 0;
-        } else {
-            // Smoothly lerp back to 1.0 for other states (WAITING, CAUGHT, BOSS_FIGHT, etc.)
-            // But add snapping to prevent tiny persistent offsets
-            if (Math.abs(cameraZoom.current - 1) < 0.005) {
-                cameraZoom.current = 1;
-                cameraOffsetX.current = 0;
-                cameraOffsetY.current = 0;
-            }
         }
     }
 
@@ -704,14 +705,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     } else {
         motionBlurAlpha.current *= 0.88; // fade out
     }
-    // Smooth-lerp camera values (faster reset when returning to normal)
-    const lerpSpeed = cameraZoomTarget.current === 1 ? 0.12 : 0.06;
-    cameraZoom.current += (cameraZoomTarget.current - cameraZoom.current) * lerpSpeed;
-    cameraOffsetX.current += (cameraOffsetXTarget.current - cameraOffsetX.current) * lerpSpeed;
-    cameraOffsetY.current += (cameraOffsetYTarget.current - cameraOffsetY.current) * lerpSpeed;
+    // --- CAMERA TRANSFORM APPLICATION ---
+    const hasActiveCamera = Math.abs(cameraZoom.current - 1) > 0.0005 || 
+                            Math.abs(cameraOffsetX.current) > 0.05 || 
+                            Math.abs(cameraOffsetY.current) > 0.05;
 
-    // Apply camera transform (zoom centred on canvas centre)
-    if (Math.abs(cameraZoom.current - 1) > 0.001) {
+    if (hasActiveCamera) {
         ctx.translate(CANVAS_WIDTH / 2 + cameraOffsetX.current, CANVAS_HEIGHT / 2 + cameraOffsetY.current);
         ctx.scale(cameraZoom.current, cameraZoom.current);
         ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
@@ -1237,23 +1236,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         hookY.current += Math.sin(frameCount.current * 0.1) * 0.3;
       }
 
-      // --- BAIT SETTLE VISUAL BAR (no text, bar only) ---
+      // --- BAIT SETTLE LOGIC (Visual bar removed as requested) ---
       if (baitSettleTimer.current > 0) {
         baitSettleTimer.current--;
-        const settleRatio = baitSettleTimer.current / Math.max(1, baitSettleTotal.current);
-        const bx = hookX.current - 35;
-        const by = hookY.current - 30;
-        const barW = 70;
-        const barH = 7;
-
-        // Track background
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.beginPath(); ctx.roundRect(bx - 2, by - 2, barW + 4, barH + 4, 5); ctx.fill();
-
-        // Progress fill — yellow → green when ready
-        const fillW = barW * (1 - settleRatio);
-        ctx.fillStyle = settleRatio > 0 ? '#facc15' : '#22c55e';
-        ctx.beginPath(); ctx.roundRect(bx, by, Math.max(2, fillW), barH, 3); ctx.fill();
       }
 
       if (isBossBite && bossStrikeTimer.current === 0 && !activeFish.current) {
@@ -1485,13 +1470,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       const ft = activeFish.current.type.tension;
 
-      if (willAutoEscape.current && frameCount.current >= autoEscapeTime.current) {
-          createSplash(hookX.current, hookY.current, 1.5);
-          onFishLost("Cá đã sổng mất rồi!");
-          activeFish.current = null;
-          willAutoEscape.current = false;
-          return;
-      }
 
       const gravity = (0.00045 + (ft / 160000)) / currentRod.control; 
       const lift = 0.00135 * currentRod.control; 
@@ -1587,11 +1565,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       const powerReelBoost = powerReelActive.current ? 2.0 : 1;
       if (isInZone) {
         reelingProgress.current += Math.max(0.12, 0.35 - (ft / 450)) * (1 + skills.fastHands * 0.25) * progressFactor * powerReelBoost;
-        lineHealth.current = Math.min(100, lineHealth.current + 0.5 * progressFactor); // faster recovery
+        lineHealth.current = Math.min(100, lineHealth.current + 0.22 * progressFactor); // Reduced recovery speed (was 0.5)
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
-        // Damage capped to ensure "Miracle Catch" is possible with high skill
-        let baseDamage = (0.12 + (ft / 650) + Math.min(0.5, mismatchPenalty * 0.1));
+        // Damage increased for more challenge
+        let baseDamage = (0.28 + (ft / 350) + Math.min(1.0, mismatchPenalty * 0.25));
         let damage = baseDamage / currentRod.lineStrength; 
 
         // Miracle Save Mechanic: 2% base + skill bonus chance to ignore most damage when low HP
@@ -2014,6 +1992,28 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     const render = () => { update(ctx); animId = window.requestAnimationFrame(render); };
     render(); return () => window.cancelAnimationFrame(animId);
   }, [update]);
+
+  // --- NEW: FORCE RESET ON STATE CHANGE ---
+  // This ensures the camera is reset the instant the state changes, even before the next frame
+  useEffect(() => {
+    const isResting = [
+        GameState.IDLE, GameState.START, GameState.GAMEOVER, 
+        GameState.BOSS_FIGHT, GameState.WAITING, GameState.CHARGING, GameState.CASTING,
+        GameState.CAUGHT
+    ].includes(gameState);
+
+    if (isResting) {
+        cameraZoom.current = 1;
+        cameraZoomTarget.current = 1;
+        cameraOffsetX.current = 0;
+        cameraOffsetXTarget.current = 0;
+        cameraOffsetY.current = 0;
+        cameraOffsetYTarget.current = 0;
+        motionBlurAlpha.current = 0;
+        shakeIntensity.current = 0;
+        activeFish.current = null; // CRITICAL: Clear fish reference when not in combat
+    }
+  }, [gameState]);
 
   return (
     <canvas
