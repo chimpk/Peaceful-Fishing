@@ -8,7 +8,7 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
   [![Vite](https://img.shields.io/badge/Vite-6.2.0-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 
-  [**Play Now**](https://ai.studio/apps/drive/1eopbscSDhx4a5NWmLHROS6ct0vgRyR_7) • [**Report Bug**](https://github.com/chimpk/fish/issues) • [**Request Feature**](https://github.com/chimpk/fish/issues)
+  [**Play Now**](https://chimpk.github.io/Fishing-Frenzy/) • [**Report Bug**](https://github.com/chimpk/Fishing-Frenzy/issues) • [**Request Feature**](https://github.com/chimpk/Fishing-Frenzy/issues)
 </div>
 
 <hr />
