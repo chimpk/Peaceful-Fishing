@@ -4,7 +4,7 @@
   # 🎣 Fishing Frenzy Lite
   ### *The Ultimate Cinematic Fishing Experience*
 
-  [![GitHub release](https://img.shields.io/github/v/release/chimpk/fish?style=for-the-badge&color=blue)](https://github.com/chimpk/fish/releases)
+  [![GitHub release](https://img.shields.io/github/v/release/chimpk/Fishing-Frenzy?style=for-the-badge&color=blue)](https://github.com/chimpk/Fishing-Frenzy/releases)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
   [![Vite](https://img.shields.io/badge/Vite-6.2.0-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 
@@ -54,8 +54,8 @@
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/chimpk/fish.git
-   cd fish
+   git clone https://github.com/chimpk/Fishing-Frenzy.git
+   cd Fishing-Frenzy
    ```
 
 2. **Install dependencies:**
