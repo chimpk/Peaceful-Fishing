@@ -1,9 +1,10 @@
 
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GameState, FishInstance, FishType, RodType, TackleType, BaitType, Rarity, PlayerSkills, LocationType, TimeOfDay, NotificationType } from '../core/types';
-import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES, LOCATION_DATA } from '../core/gameData';
+import { CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES, LOCATION_DATA, CHEST_TYPES } from '../core/gameData';
 import * as Graphics from '../core/graphics';
 import * as BossModels from '../core/fish/BossModels';
+import { ChestModels } from '../core/fish/ChestModels';
 import { soundManager } from '../core/soundManager';
 
 interface GameCanvasProps {
@@ -177,14 +178,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const eventHandledRef = useRef<string | null>(null);
 
-  // --- CINEMATIC CAMERA ---
-  const cameraZoom = useRef(1);          // current zoom (smoothly lerped)
-  const cameraZoomTarget = useRef(1);    // desired zoom
-  const cameraOffsetX = useRef(0);       // current pan-X to keep bobber centred
-  const cameraOffsetY = useRef(0);
-  const cameraOffsetXTarget = useRef(0);
-  const cameraOffsetYTarget = useRef(0);
-  const motionBlurAlpha = useRef(0);     // motion-blur vignette intensity
+  // --- VISUAL EFFECTS ---
+  const motionBlurAlpha = useRef(0);     
+
+  // --- CINEMATIC CAMERA (Improved) ---
+  const cameraZoom = useRef(1);          
+  const cameraZoomTarget = useRef(1);    
+  const cameraFocusX = useRef(CANVAS_WIDTH / 2);      
+  const cameraFocusY = useRef(CANVAS_HEIGHT / 2);
+  const cameraFocusXTarget = useRef(CANVAS_WIDTH / 2);
+  const cameraFocusYTarget = useRef(CANVAS_HEIGHT / 2);
 
   useEffect(() => {
     eventHandledRef.current = null;
@@ -285,6 +288,24 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [weather, location, timeOfDay, liveBait]);
 
   const spawnSingleFish = useCallback(() => {
+    // 5% chance to spawn a chest
+    if (Math.random() < 0.05) {
+        const type = CHEST_TYPES[Math.floor(Math.random() * CHEST_TYPES.length)];
+        const y = 300 + Math.random() * 250;
+        const initialDir = Math.random() > 0.5 ? 1 : -1;
+        const baseSpeed = 0.3 + Math.random() * 0.4;
+        return {
+          id: Math.random().toString(36).substr(2, 9),
+          x: initialDir === 1 ? -150 : CANVAS_WIDTH + 150,
+          y: y, targetY: y, speed: baseSpeed, baseSpeed: baseSpeed, direction: initialDir, type,
+          angle: initialDir === 1 ? 0 : Math.PI, targetAngle: initialDir === 1 ? 0 : Math.PI,
+          personality: 'shy' as FishPersonality,
+          swimStyle: 'glider' as FishSwimStyle,
+          state: 'wandering' as FishAIState, stateTimer: 100,
+          velocity: { x: initialDir * baseSpeed, y: 0 },
+          isGolden: false
+        };
+    }
     const type = getRandomFishType(currentTackle.rarityBoost + currentBait.rarityBoost + skills.lucky * 1.5);
     const y = 300 + Math.random() * 250;
     const initialDir = Math.random() > 0.5 ? 1 : -1;
@@ -629,6 +650,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const update = useCallback((ctx: CanvasRenderingContext2D) => {
     frameCount.current++;
+    
+    // 1. Clear screen in IDENTITY space
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
     ctx.save();
 
     if (gameState === GameState.REELING) {
@@ -641,60 +667,74 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         shakeIntensity.current *= 0.92;
     }
 
-    // --- CINEMATIC CAMERA: compute targets ---
-    const isCinematicActive = (gameState === GameState.NIBBLING || gameState === GameState.REELING) && activeFish.current;
+    // --- CINEMATIC CAMERA: Compute Targets ---
+    const isCombat = gameState === GameState.NIBBLING || gameState === GameState.REELING || gameState === GameState.BOSS_FIGHT;
+    const isCinematicActive = (isCombat || gameState === GameState.CAUGHT);
     
     if (isCinematicActive) {
-        cameraZoomTarget.current = 1.12; 
-        const playerX = 80;
-        const focusX = playerX * 0.3 + hookX.current * 0.7;
-        const focusY = hookY.current;
-        cameraOffsetXTarget.current = Math.max(-150, Math.min(150, (CANVAS_WIDTH / 2 - focusX) * (cameraZoomTarget.current - 1)));
-        cameraOffsetYTarget.current = (CANVAS_HEIGHT / 2 - focusY) * (cameraZoomTarget.current - 1);
+        cameraZoomTarget.current = (gameState === GameState.BOSS_FIGHT) ? 1.08 : 1.25; 
+
+        // 1. Calculate ideal focus (where the action is)
+        let fX = CANVAS_WIDTH / 2;
+        let fY = CANVAS_HEIGHT / 2;
+        
+        if (gameState === GameState.BOSS_FIGHT) {
+            fX = bossX.current;
+            fY = bossY.current;
+        } else if (activeFish.current) {
+            fX = hookX.current;
+            fY = hookY.current;
+            // Lean towards center (75% action, 25% center)
+            fX = fX * 0.75 + (CANVAS_WIDTH / 2) * 0.25; 
+            fY = fY * 0.75 + (CANVAS_HEIGHT / 2) * 0.25;
+        } else {
+            fX = hookX.current;
+            fY = hookY.current;
+        }
+        
+        // 2. Clamp target to prevent showing the edge of the world
+        // Formula: minFocus = (screen/2) / zoom, maxFocus = totalSize - (screen/2) / zoom
+        const halfVisibleW = (CANVAS_WIDTH / 2) / cameraZoomTarget.current;
+        const halfVisibleH = (CANVAS_HEIGHT / 2) / cameraZoomTarget.current;
+        
+        cameraFocusXTarget.current = Math.max(halfVisibleW, Math.min(CANVAS_WIDTH - halfVisibleW, fX));
+        cameraFocusYTarget.current = Math.max(halfVisibleH, Math.min(CANVAS_HEIGHT - halfVisibleH, fY));
     } else {
         cameraZoomTarget.current = 1;
-        cameraOffsetXTarget.current = 0;
-        cameraOffsetYTarget.current = 0;
+        cameraFocusXTarget.current = CANVAS_WIDTH / 2;
+        cameraFocusYTarget.current = CANVAS_HEIGHT / 2;
     }
 
-    // Determine if we should force a hard reset (no animation)
+    // Smoothly lerp towards targets for ALL states
+    const zoomLerp = cameraZoomTarget.current === 1 ? 0.05 : 0.04;
+    const focusLerp = cameraZoomTarget.current === 1 ? 0.07 : 0.05;
+    
+    cameraZoom.current += (cameraZoomTarget.current - cameraZoom.current) * zoomLerp;
+    cameraFocusX.current += (cameraFocusXTarget.current - cameraFocusX.current) * focusLerp;
+    cameraFocusY.current += (cameraFocusYTarget.current - cameraFocusY.current) * focusLerp;
+    
+    // Snap to identity ONLY when extremely close to prevent micro-jitter
+    if (cameraZoomTarget.current === 1 && Math.abs(cameraZoom.current - 1) < 0.002) {
+        cameraZoom.current = 1;
+        cameraFocusX.current = CANVAS_WIDTH / 2;
+        cameraFocusY.current = CANVAS_HEIGHT / 2;
+    }
+
     const isHardResetState = [
-        GameState.IDLE, GameState.START, GameState.GAMEOVER, 
-        GameState.BOSS_FIGHT, GameState.WAITING, GameState.CHARGING, GameState.CASTING,
-        GameState.CAUGHT
+        GameState.IDLE, GameState.START, GameState.GAMEOVER, GameState.WAITING, GameState.CHARGING, GameState.CASTING
     ].includes(gameState);
 
+    // Still clear these immediately for responsiveness
     if (isHardResetState) {
-        // Force sync current values to targets immediately
-        cameraZoom.current = 1;
-        cameraOffsetX.current = 0;
-        cameraOffsetY.current = 0;
         motionBlurAlpha.current = 0;
         shakeIntensity.current = 0;
-    } else {
-        // Smoothly lerp for other states
-        const lerpSpeed = cameraZoomTarget.current === 1 ? 0.35 : 0.06;
-        cameraZoom.current += (cameraZoomTarget.current - cameraZoom.current) * lerpSpeed;
-        cameraOffsetX.current += (cameraOffsetXTarget.current - cameraOffsetX.current) * lerpSpeed;
-        cameraOffsetY.current += (cameraOffsetYTarget.current - cameraOffsetY.current) * lerpSpeed;
-        
-        // Final snapping
-        if (cameraZoomTarget.current === 1 && Math.abs(cameraZoom.current - 1) < 0.015) {
-            cameraZoom.current = 1;
-            cameraOffsetX.current = 0;
-            cameraOffsetY.current = 0;
-        }
     }
 
-    // --- DYNAMIC CURRENTS (New Difficulty) ---
-    if (gameState === GameState.WAITING || gameState === GameState.NIBBLING || gameState === GameState.REELING) {
-        const locInfo = LOCATION_DATA[location] || { currentSpeed: 0 };
-        // The current pushes the tension zone drift
-        if (locInfo.currentSpeed > 0) {
-            // Drift moves back and forth slowly or consistently
-            const drift = Math.sin(frameCount.current * 0.01) * locInfo.currentSpeed;
-            tensionZone.current += drift;
-        }
+    // --- DYNAMIC CURRENTS ---
+    const locInfo = LOCATION_DATA[location] || { currentSpeed: 0 };
+    if (locInfo.currentSpeed > 0 && (gameState === GameState.WAITING || gameState === GameState.NIBBLING || gameState === GameState.REELING)) {
+        const drift = Math.sin(frameCount.current * 0.01) * locInfo.currentSpeed;
+        tensionZone.current += drift;
     }
 
     // Motion-blur vignette: ramp up for large fish (high tension)
@@ -705,15 +745,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     } else {
         motionBlurAlpha.current *= 0.88; // fade out
     }
+
     // --- CAMERA TRANSFORM APPLICATION ---
     const hasActiveCamera = Math.abs(cameraZoom.current - 1) > 0.0005 || 
-                            Math.abs(cameraOffsetX.current) > 0.05 || 
-                            Math.abs(cameraOffsetY.current) > 0.05;
+                            Math.abs(cameraFocusX.current - CANVAS_WIDTH / 2) > 0.5 || 
+                            Math.abs(cameraFocusY.current - CANVAS_HEIGHT / 2) > 0.5;
 
     if (hasActiveCamera) {
-        ctx.translate(CANVAS_WIDTH / 2 + cameraOffsetX.current, CANVAS_HEIGHT / 2 + cameraOffsetY.current);
+        ctx.translate(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
         ctx.scale(cameraZoom.current, cameraZoom.current);
-        ctx.translate(-CANVAS_WIDTH / 2, -CANVAS_HEIGHT / 2);
+        ctx.translate(-cameraFocusX.current, -cameraFocusY.current);
     }
 
     if (shakeIntensity.current > 0.05) {
@@ -723,15 +764,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     // --- SAFETY WATCHDOG ---
     if ((gameState === GameState.REELING || gameState === GameState.NIBBLING) && !activeFish.current) {
         setGameState(GameState.IDLE);
-        // Force camera reset on watchdog trigger
-        cameraZoom.current = 1;
-        cameraOffsetX.current = 0;
-        cameraOffsetY.current = 0;
     }
 
     const isBossBite = isBossSpawned && gameState === GameState.WAITING && baitSettleTimer.current <= 0;
 
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // --- WORLD DRAWING STARTS ---
 
     // --- FRENZY MODE COUNTDOWN ---
     if (frenzyActive.current) {
@@ -1642,70 +1679,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         soundManager.playReel(Math.abs(tensionCursor.current - tensionZone.current) * 2);
       }
 
-      Graphics.drawReelingInterface(ctx, reelingProgress.current, lineHealth.current, tensionCursor.current, tensionZone.current, tensionZoneSize.current, isInZone, activeFish.current?.type);
-      
-      // Behavior Indicators on UI
-      if (isBehaviorActive.current) {
-        ctx.save();
-        ctx.font = 'bold 16px "Be Vietnam Pro"';
-        ctx.textAlign = 'center';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = 'black';
-        ctx.fillStyle = behaviorType.current === 'jump' ? '#ef4444' : '#fbbf24';
-        const label = behaviorType.current === 'jump' ? '⚠️ CÁ NHẢY - THẢ SPACE!' : (behaviorType.current === 'dive' ? '⬇️ CÁ ĐANG LẶN!' : '💢 CÁ VÙNG VẪY!');
-        ctx.fillText(label, CANVAS_WIDTH / 2, 170);
-        ctx.restore();
+      if (frameCount.current % 8 === 0) {
+        soundManager.playReel(Math.abs(tensionCursor.current - tensionZone.current) * 2);
       }
 
-      // --- Active Skill HUD (bottom right corner) ---
-      const hasFocus = skills.focus > 0;
-      const hasPowerReel = skills.powerReel > 0;
-
-      if (hasFocus || hasPowerReel) {
-        const skillHudX = CANVAS_WIDTH - 180;
-        const skillHudY = CANVAS_HEIGHT - 110;
-        ctx.save();
-        
-        // Focus skill (F)
-        if (hasFocus) {
-          const focusReady = focusCooldown.current <= 0 && !focusActive.current;
-          ctx.globalAlpha = focusActive.current ? 1 : (focusReady ? 0.9 : 0.45);
-          ctx.fillStyle = focusActive.current ? '#60a5fa' : (focusReady ? '#1e40af' : '#334155');
-          ctx.roundRect(skillHudX, skillHudY, 76, 40, 8); ctx.fill();
-          ctx.fillStyle = 'white'; ctx.font = 'bold 10px "Be Vietnam Pro"'; ctx.textAlign = 'center';
-          ctx.fillText('[F] TẬP TRUNG', skillHudX + 38, skillHudY + 13);
-          if (focusActive.current) {
-            ctx.fillStyle = '#bfdbfe';
-            ctx.fillText(`${Math.ceil(focusTimer.current / 60)}s`, skillHudX + 38, skillHudY + 30);
-          } else if (!focusReady) {
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText(`${Math.ceil(focusCooldown.current / 60)}s CD`, skillHudX + 38, skillHudY + 30);
-          } else {
-            ctx.fillStyle = '#93c5fd'; ctx.fillText('SẴN SÀNG', skillHudX + 38, skillHudY + 30);
-          }
-        }
-        
-        // PowerReel skill (G)
-        if (hasPowerReel) {
-          const prReady = powerReelCooldown.current <= 0 && !powerReelActive.current;
-          ctx.globalAlpha = powerReelActive.current ? 1 : (prReady ? 0.9 : 0.45);
-          ctx.fillStyle = powerReelActive.current ? '#fb923c' : (prReady ? '#9a3412' : '#334155');
-          ctx.roundRect(skillHudX + 84, skillHudY, 76, 40, 8); ctx.fill();
-          ctx.fillStyle = 'white'; ctx.font = 'bold 10px "Be Vietnam Pro"'; ctx.textAlign = 'center';
-          ctx.fillText('[G] KÉO MẠNH', skillHudX + 122, skillHudY + 13);
-          if (powerReelActive.current) {
-            ctx.fillStyle = '#fed7aa';
-            ctx.fillText(`${Math.ceil(powerReelTimer.current / 60)}s`, skillHudX + 122, skillHudY + 30);
-          } else if (!prReady) {
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText(`${Math.ceil(powerReelCooldown.current / 60)}s CD`, skillHudX + 122, skillHudY + 30);
-          } else {
-            ctx.fillStyle = '#fdba74'; ctx.fillText('SẴN SÀNG', skillHudX + 122, skillHudY + 30);
-          }
-        }
-        ctx.globalAlpha = 1;
-        ctx.restore();
-      }
+      // Reeling UI moved to Identity space at the bottom of update loop
     }
 
     if (gameState === GameState.CAUGHT && activeFish.current) {
@@ -1732,11 +1710,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             });
         }
 
-        Graphics.drawFishTexture(
-            ctx, activeFish.current.type, frameCount.current, true, 
-            { x: jX, y: jY, angle: activeFish.current.angle, direction: 1 }, 
-            2.2, activeFish.current.swimStyle, true, activeFish.current.isGolden
-        );
+        if (activeFish.current.type.isChest) {
+            ChestModels.drawChest(ctx, activeFish.current.type.rarity, frameCount.current, jX, jY);
+        } else {
+            Graphics.drawFishTexture(
+                ctx, activeFish.current.type, frameCount.current, true, 
+                { x: jX, y: jY, angle: activeFish.current.angle, direction: 1 }, 
+                2.2, activeFish.current.swimStyle, true, activeFish.current.isGolden
+            );
+        }
 
         if (jumpProgress.current >= 1 || (Math.abs(80 - hookX.current) < 10)) { 
           const caughtType = activeFish.current.type; const caughtId = activeFish.current.id;
@@ -1969,9 +1951,77 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
     }
 
+    // --- WORLD DRAWING ENDS ---
     ctx.restore();
-  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentTackle, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
 
+    // --- UI & OVERLAYS (Identity space) ---
+    
+    if (gameState === GameState.REELING && activeFish.current) {
+        // Tension Bar - Now fixed at screen center (relative to UI)
+        Graphics.drawReelingInterface(
+            ctx, reelingProgress.current, lineHealth.current, 
+            tensionCursor.current, tensionZone.current, tensionZoneSize.current, 
+            Math.abs(tensionCursor.current - tensionZone.current) < (tensionZoneSize.current / 2), 
+            activeFish.current?.type
+        );
+
+        // Behavior Indicators
+        if (isBehaviorActive.current) {
+            ctx.save();
+            ctx.font = 'bold 18px "Be Vietnam Pro"';
+            ctx.textAlign = 'center';
+            ctx.shadowBlur = 12; ctx.shadowColor = 'black';
+            ctx.fillStyle = behaviorType.current === 'jump' ? '#ef4444' : '#fbbf24';
+            const label = behaviorType.current === 'jump' ? '⚠️ CÁ NHẢY - THẢ SPACE!' : (behaviorType.current === 'dive' ? '⬇️ CÁ ĐANG LẶN!' : '💢 CÁ VÙNG VẪY!');
+            ctx.fillText(label, CANVAS_WIDTH / 2, 175);
+            ctx.restore();
+        }
+
+        // Skill HUD
+        const hasFocus = skills.focus > 0;
+        const hasPowerReel = skills.powerReel > 0;
+        if (hasFocus || hasPowerReel) {
+            const skillHudX = CANVAS_WIDTH - 180;
+            const skillHudY = CANVAS_HEIGHT - 110;
+            ctx.save();
+            if (hasFocus) {
+                const focusReady = focusCooldown.current <= 0 && !focusActive.current;
+                ctx.globalAlpha = focusActive.current ? 1 : (focusReady ? 0.9 : 0.45);
+                ctx.fillStyle = focusActive.current ? '#60a5fa' : (focusReady ? '#1e40af' : '#334155');
+                ctx.roundRect(skillHudX, skillHudY, 76, 40, 8); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.font = 'bold 10px "Be Vietnam Pro"'; ctx.textAlign = 'center';
+                ctx.fillText('[F] TẬP TRUNG', skillHudX + 38, skillHudY + 13);
+                if (focusActive.current) {
+                    ctx.fillStyle = '#bfdbfe';
+                    ctx.fillText(`${Math.ceil(focusTimer.current / 60)}s`, skillHudX + 38, skillHudY + 30);
+                } else if (!focusReady) {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillText(`${Math.ceil(focusCooldown.current / 60)}s CD`, skillHudX + 38, skillHudY + 30);
+                } else {
+                    ctx.fillStyle = '#93c5fd'; ctx.fillText('SẴN SÀNG', skillHudX + 38, skillHudY + 30);
+                }
+            }
+            if (hasPowerReel) {
+                const prReady = powerReelCooldown.current <= 0 && !powerReelActive.current;
+                ctx.globalAlpha = powerReelActive.current ? 1 : (prReady ? 0.9 : 0.45);
+                ctx.fillStyle = powerReelActive.current ? '#fb923c' : (prReady ? '#9a3412' : '#334155');
+                ctx.roundRect(skillHudX + 84, skillHudY, 76, 40, 8); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.font = 'bold 10px "Be Vietnam Pro"'; ctx.textAlign = 'center';
+                ctx.fillText('[G] KÉO MẠNH', skillHudX + 122, skillHudY + 13);
+                if (powerReelActive.current) {
+                    ctx.fillStyle = '#fed7aa';
+                    ctx.fillText(`${Math.ceil(powerReelTimer.current / 60)}s`, skillHudX + 122, skillHudY + 30);
+                } else if (!prReady) {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillText(`${Math.ceil(powerReelCooldown.current / 60)}s CD`, skillHudX + 122, skillHudY + 30);
+                } else {
+                    ctx.fillStyle = '#fdba74'; ctx.fillText('SẴN SÀNG', skillHudX + 122, skillHudY + 30);
+                }
+            }
+            ctx.restore();
+        }
+    }
+  }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentTackle, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
   useEffect(() => {
     if (gameState === GameState.BOSS_FIGHT) {
       bossHP.current = 100;
@@ -2002,15 +2052,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ].includes(gameState);
 
     if (isResting) {
-        cameraZoom.current = 1;
-        cameraZoomTarget.current = 1;
-        cameraOffsetX.current = 0;
-        cameraOffsetXTarget.current = 0;
-        cameraOffsetY.current = 0;
-        cameraOffsetYTarget.current = 0;
+        // We no longer snap camera values here to allow for smooth animation in the update loop.
+        // We only clear immediate effects and the active fish.
         motionBlurAlpha.current = 0;
         shakeIntensity.current = 0;
-        activeFish.current = null; // CRITICAL: Clear fish reference when not in combat
+        activeFish.current = null; 
     }
   }, [gameState]);
 

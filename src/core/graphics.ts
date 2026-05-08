@@ -40,18 +40,46 @@ const WATER_COLORS = {
   CAVE: ['#1e1b4b', '#1e1b4b', '#020617']
 };
 
-// Helper to lerp colors
+// Color Cache to avoid repetitive parsing
+const hexToRgbCache: Record<string, {r: number, g: number, b: number}> = {};
+
+const parseHex = (hex: string) => {
+  if (hexToRgbCache[hex]) return hexToRgbCache[hex];
+  // Support #RRGGBB
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const result = { r, g, b };
+  hexToRgbCache[hex] = result;
+  return result;
+};
+
+const lerpCache: Record<string, string> = {};
+
 const lerpColor = (c1: string, c2: string, f: number) => {
-  const r1 = parseInt(c1.slice(1, 3), 16);
-  const g1 = parseInt(c1.slice(3, 5), 16);
-  const b1 = parseInt(c1.slice(5, 7), 16);
-  const r2 = parseInt(c2.slice(1, 3), 16);
-  const g2 = parseInt(c2.slice(3, 5), 16);
-  const b2 = parseInt(c2.slice(5, 7), 16);
-  const r = Math.round(r1 + (r2 - r1) * f);
-  const g = Math.round(g1 + (g2 - g1) * f);
-  const b = Math.round(b1 + (b2 - b1) * f);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  if (f <= 0) return c1;
+  if (f >= 1) return c2;
+  
+  // Cache key with 2-decimal precision for transition smoothness
+  const cacheKey = `${c1}${c2}${f.toFixed(2)}`;
+  if (lerpCache[cacheKey]) return lerpCache[cacheKey];
+
+  const rgb1 = parseHex(c1);
+  const rgb2 = parseHex(c2);
+  
+  const r = (rgb1.r + (rgb2.r - rgb1.r) * f) | 0;
+  const g = (rgb1.g + (rgb2.g - rgb1.g) * f) | 0;
+  const b = (rgb1.b + (rgb2.b - rgb1.b) * f) | 0;
+  
+  const result = `rgb(${r},${g},${b})`;
+  lerpCache[cacheKey] = result;
+  
+  // Simple cache management
+  if (Object.keys(lerpCache).length > 2000) {
+      delete lerpCache[Object.keys(lerpCache)[0]];
+  }
+  
+  return result;
 };
 
 export const drawWaterAndSky = (
@@ -132,8 +160,7 @@ export const drawWaterAndSky = (
   ctx.fillStyle = waterGrad;
   ctx.fillRect(0, 200, CANVAS_WIDTH, CANVAS_HEIGHT - 200);
 
-  // --- Underwater Details (Task: Background underwater) ---
-  ctx.save();
+  // --- Underwater Details ---
   if (location === 'POND') {
     drawUnderwaterPond(ctx, frame, transition, timeOfDay, prevTimeOfDay);
   } else if (location === 'OCEAN') {
@@ -141,7 +168,6 @@ export const drawWaterAndSky = (
   } else if (location === 'CAVE') {
     drawUnderwaterCave(ctx, frame, transition);
   }
-  ctx.restore();
 
   // Draw shared underwater particles (plankton/sediment)
   drawUnderwaterParticles(ctx, frame, location);
@@ -233,8 +259,69 @@ const drawVignette = (ctx: CanvasRenderingContext2D) => {
 
 const rainPool: { x: number; y: number; speed: number; len: number }[] = [];
 
-export const drawWeatherEffects = (ctx: CanvasRenderingContext2D, frame: number, weather: 'sunny' | 'rainy' | 'stormy' | 'foggy', location: LocationType) => {
+export const drawWeatherEffects = (ctx: CanvasRenderingContext2D, frame: number, weather: string, location: LocationType) => {
   if (weather === 'sunny' || location === 'CAVE') return;
+
+  if (weather === 'meteor_shower') {
+      ctx.save();
+      for (let i = 0; i < 12; i++) {
+          const t = (frame * 0.02 + i * 0.3) % 1;
+          const x = (i * 150 + t * 800) % (CANVAS_WIDTH + 200) - 100;
+          const y = t * 400 - 50;
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 2;
+          ctx.globalAlpha = (1 - t) * 0.6;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x - 40, y - 20);
+          ctx.stroke();
+          // Head glow
+          ctx.fillStyle = 'white';
+          ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+      return;
+  }
+
+  if (weather === 'rainbow') {
+      ctx.save();
+      ctx.globalAlpha = 0.25;
+      ctx.lineWidth = 10;
+      const colors = ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#8b00ff'];
+      const centerX = CANVAS_WIDTH * 0.7;
+      const centerY = 350;
+      const baseRadius = 250;
+      colors.forEach((c, i) => {
+          ctx.strokeStyle = c;
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, baseRadius + i * 10, Math.PI, Math.PI * 2);
+          ctx.stroke();
+      });
+      ctx.restore();
+      return;
+  }
+
+  if (weather === 'aurora') {
+      ctx.save();
+      for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, 50 + i * 40);
+          for (let x = 0; x <= CANVAS_WIDTH; x += 100) {
+              const y = 50 + i * 40 + Math.sin(x * 0.003 + frame * 0.015 + i) * 50;
+              ctx.lineTo(x, y);
+          }
+          const grad = ctx.createLinearGradient(0, 0, 0, 200);
+          const alpha = 0.15 + Math.sin(frame * 0.01 + i) * 0.05;
+          grad.addColorStop(0, `rgba(0, 255, 180, ${alpha})`);
+          grad.addColorStop(1, 'rgba(0, 100, 255, 0)');
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 80;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.stroke();
+      }
+      ctx.restore();
+      return;
+  }
 
   if (weather === 'foggy') {
       ctx.save();
@@ -781,35 +868,35 @@ const drawUnderwaterCave = (ctx: CanvasRenderingContext2D, frame: number, transi
   }
 };
 
-const drawUnderwaterParticles = (ctx: CanvasRenderingContext2D, frame: number, location: LocationType) => {
+export const drawUnderwaterParticles = (ctx: CanvasRenderingContext2D, frame: number, location: LocationType) => {
+  const count = location === 'OCEAN' ? 50 : (location === 'CAVE' ? 60 : 20);
   ctx.save();
   ctx.globalAlpha = 0.3;
-  ctx.fillStyle = 'white';
   
-  const count = location === 'OCEAN' ? 50 : (location === 'CAVE' ? 60 : 20);
-  for (let i = 0; i < count; i++) {
-    const x = (Math.sin(i * 123) * 1000 + frame * 0.2) % CANVAS_WIDTH;
-    let y = (Math.cos(i * 321) * 1000 + frame * (location === 'OCEAN' ? 0.3 : 0.1)) % 400;
-    y = 200 + Math.abs(y);
-    
-    const size = 1 + Math.sin(frame * 0.02 + i) * 0.5;
-    
-    if (location === 'CAVE') {
+  if (location !== 'CAVE') {
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      for (let i = 0; i < count; i++) {
+        const x = (Math.sin(i * 123) * 1000 + frame * 0.2) % CANVAS_WIDTH;
+        let y = (Math.cos(i * 321) * 1000 + frame * (location === 'OCEAN' ? 0.3 : 0.1)) % 400;
+        y = 200 + Math.abs(y);
+        const size = 1 + Math.sin(frame * 0.02 + i) * 0.5;
+        ctx.moveTo(Math.abs(x) + size, Math.abs(y));
+        ctx.arc(Math.abs(x), Math.abs(y), size, 0, Math.PI * 2);
+      }
+      ctx.fill();
+  } else {
+      // In Cave, they have different colors
+      for (let i = 0; i < count; i++) {
+        const x = (Math.sin(i * 123) * 1000 + frame * 0.2) % CANVAS_WIDTH;
+        let y = (Math.cos(i * 321) * 1000 + frame * 0.1) % 400;
+        y = 200 + Math.abs(y);
+        const size = 1 + Math.sin(frame * 0.02 + i) * 0.5;
         ctx.fillStyle = `hsla(${200 + Math.sin(i) * 60}, 80%, 70%, 0.4)`;
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = ctx.fillStyle;
-    } else if (location === 'OCEAN') {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; // Marine Snow
-        ctx.shadowBlur = 2;
-        ctx.shadowColor = 'white';
-    } else {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.shadowBlur = 0;
-    }
-
-    ctx.beginPath();
-    ctx.arc(Math.abs(x), y, size, 0, Math.PI * 2);
-    ctx.fill();
+        ctx.beginPath();
+        ctx.arc(Math.abs(x), Math.abs(y), size, 0, Math.PI * 2);
+        ctx.fill();
+      }
   }
   ctx.restore();
 };
@@ -1374,7 +1461,7 @@ export const drawReelingInterface = (
   const panelW = 340;
   const panelH = 120;
   const px = (CANVAS_WIDTH - panelW) / 2;
-  const py = CANVAS_HEIGHT < 500 ? 110 : 145; // Adapt to height
+  const py = 180; // Fixed centered position for better visibility with zoom
 
   
   const barW = 280;

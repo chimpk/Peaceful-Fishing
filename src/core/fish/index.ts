@@ -4,6 +4,7 @@ import * as Classic from './ClassicModels';
 import * as Sharks from './SharkModels';
 import * as Unique from './UniqueModels';
 import * as Junk from './JunkModels';
+import { ChestModels } from './ChestModels';
 
 export const drawFishByModel = (
   ctx: CanvasRenderingContext2D,
@@ -31,6 +32,16 @@ export const drawFishByModel = (
 
   // DISPATCHER
   const n = name.toLowerCase();
+
+  // 0. CHESTS (Mystery Treasure)
+  if (fish.isChest) {
+    if (!isCaught) {
+      // Look like a fish shadow while in water
+      return Classic.drawClassicFish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+    }
+    // Reveal as a chest when caught
+    return ChestModels.drawChest(ctx, rarity, frameCount, 0, 0);
+  }
 
   // 1. JUNK (Mystery Catch)
   if (rarity === Rarity.JUNK) {

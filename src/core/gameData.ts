@@ -9,8 +9,17 @@ export const WEATHER_BONUSES = {
   sunny: { attraction: 1.0, rarity: 1.0, speed: 1.0, tension: 1.0, label: 'Trời Đẹp: Chỉ số cơ bản' },
   rainy: { attraction: 1.4, rarity: 0.8, speed: 1.2, tension: 1.0, label: 'Trời Mưa: +40% Cá cắn câu, +20% Tốc độ cá, -20% Độ hiếm' },
   stormy: { attraction: 0.7, rarity: 3.5, speed: 2.0, tension: 1.45, label: 'Bão Lớn: x3.5 Độ hiếm, x2.0 Tốc độ cá, +45% Căng dây. CẢNH BÁO: Sét đánh có thể gây mất kiểm soát cần câu!' },
-  foggy: { attraction: 1.6, rarity: 1.5, speed: 0.8, tension: 1.15, label: 'Sương Mù: ++Thu hút cá, +50% Độ hiếm, Cá bơi chậm nhưng khó kéo hơn!' }
+  foggy: { attraction: 1.6, rarity: 1.5, speed: 0.8, tension: 1.15, label: 'Sương Mù: ++Thu hút cá, +50% Độ hiếm, Cá bơi chậm nhưng khó kéo hơn!' },
+  meteor_shower: { attraction: 1.2, rarity: 2.0, speed: 1.0, tension: 1.0, label: 'Mưa Sao Băng: x2 Độ hiếm, x2 Vàng nhận được. Điều ước sắp thành hiện thực!' },
+  rainbow: { attraction: 2.0, rarity: 2.5, speed: 0.9, tension: 0.8, label: 'Cầu Vồng: ++Cá cắn câu, ++Độ hiếm, Giảm căng dây. May mắn ngập tràn!' },
+  aurora: { attraction: 1.5, rarity: 4.0, speed: 1.1, tension: 1.2, label: 'Cực Quang: x4 Độ hiếm. Vẻ đẹp huyền bí của đại dương!' }
 };
+
+export const CHEST_TYPES: FishType[] = [
+  { name: 'Rương Gỗ Cổ', rarity: Rarity.COMMON, value: 150, tension: 45, color: '#78350f', size: 30, weight: 10, isChest: true },
+  { name: 'Rương Bạc Nạm Ngọc', rarity: Rarity.RARE, value: 500, tension: 70, color: '#94a3b8', size: 35, weight: 5, isChest: true },
+  { name: 'Rương Vàng Hoàng Gia', rarity: Rarity.LEGENDARY, value: 2000, tension: 110, color: '#fbbf24', size: 40, weight: 2, isChest: true }
+];
 
 export const FISH_TYPES: FishType[] = [
   // --- RÁC (JUNK) ---
