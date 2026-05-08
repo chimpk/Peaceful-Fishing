@@ -167,13 +167,17 @@
             100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
         }
         
-        /* Orientation Overlay */
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        /* Mobile Orientation Overlay */
         #orientation-overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: var(--bg-deep);
-            z-index: 10000;
+            background: #020617;
+            z-index: 100000;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -181,59 +185,46 @@
             padding: 2rem;
         }
 
-        @media (orientation: portrait) and (max-width: 1024px) {
+        @media screen and (orientation: portrait) and (max-width: 1024px) {
             #orientation-overlay {
                 display: flex;
+            }
+            #root {
+                display: none;
             }
         }
 
         .phone-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
+            width: 80px;
+            height: 140px;
+            border: 4px solid #3b82f6;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            position: relative;
             animation: rotatePhone 2s ease-in-out infinite;
         }
 
         @keyframes rotatePhone {
             0% { transform: rotate(0deg); }
-            50% { transform: rotate(90deg); }
-            100% { transform: rotate(0deg); }
+            50%, 100% { transform: rotate(90deg); }
+        }
+
+        /* Performance Optimizations */
+        canvas {
+            image-rendering: optimizeSpeed;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
         }
     </style>
-  <script type="module" crossorigin src="/Fishing-Frenzy/assets/index-CPMPf5xp.js"></script>
+  <script type="module" crossorigin src="/Fishing-Frenzy/assets/index-DgPTNxkJ.js"></script>
 </head>
 <body>
     <div id="orientation-overlay">
-        <div class="phone-icon">📱</div>
+        <div class="phone-icon"></div>
         <h2 class="text-2xl font-bold mb-2">Vui lòng xoay ngang màn hình</h2>
-        <p class="text-slate-400">Fishing Frenzy trải nghiệm tốt nhất ở chế độ nằm ngang.</p>
+        <p class="text-slate-400">Fishing Frenzy Lite trải nghiệm tốt nhất ở chế độ nằm ngang.</p>
     </div>
-    <div id="root"></div>
-    <script>
-        window.requestMobileOptimizations = async () => {
-            const root = document.documentElement;
-            
-            // Try to go fullscreen
-            try {
-                if (root.requestFullscreen) {
-                    await root.requestFullscreen();
-                } else if (root.webkitRequestFullscreen) {
-                    await root.webkitRequestFullscreen();
-                } else if (root.msRequestFullscreen) {
-                    await root.msRequestFullscreen();
-                }
-            } catch (e) {
-                console.warn("Fullscreen request failed:", e);
-            }
-
-            // Try to lock orientation
-            try {
-                if (screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape').catch(e => console.warn("Orientation lock failed:", e));
-                }
-            } catch (e) {
-                console.warn("Orientation lock API error:", e);
-            }
-        };
-    </script>
+    <div id="root"></div>
 </body>
 </html>
