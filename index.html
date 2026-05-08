@@ -199,7 +199,7 @@
             100% { transform: rotate(0deg); }
         }
     </style>
-  <script type="module" crossorigin src="/Fishing-Frenzy/assets/index-BDyjNLx-.js"></script>
+  <script type="module" crossorigin src="/Fishing-Frenzy/assets/index-CPMPf5xp.js"></script>
 </head>
 <body>
     <div id="orientation-overlay">
@@ -207,6 +207,33 @@
         <h2 class="text-2xl font-bold mb-2">Vui lòng xoay ngang màn hình</h2>
         <p class="text-slate-400">Fishing Frenzy trải nghiệm tốt nhất ở chế độ nằm ngang.</p>
     </div>
-    <div id="root"></div>
+    <div id="root"></div>
+    <script>
+        window.requestMobileOptimizations = async () => {
+            const root = document.documentElement;
+            
+            // Try to go fullscreen
+            try {
+                if (root.requestFullscreen) {
+                    await root.requestFullscreen();
+                } else if (root.webkitRequestFullscreen) {
+                    await root.webkitRequestFullscreen();
+                } else if (root.msRequestFullscreen) {
+                    await root.msRequestFullscreen();
+                }
+            } catch (e) {
+                console.warn("Fullscreen request failed:", e);
+            }
+
+            // Try to lock orientation
+            try {
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape').catch(e => console.warn("Orientation lock failed:", e));
+                }
+            } catch (e) {
+                console.warn("Orientation lock API error:", e);
+            }
+        };
+    </script>
 </body>
 </html>
