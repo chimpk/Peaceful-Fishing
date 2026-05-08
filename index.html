@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fishing Frenzy Lite - Thần Thoại 2025</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Be Vietnam Pro"', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.5);
+            --secondary: #7c3aed;
+            --accent: #f59e0b;
+            --bg-deep: #020617;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--bg-deep);
+            font-family: 'Be Vietnam Pro', sans-serif;
+            color: #f1f5f9;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* High-end Noise Texture Overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Ffilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Dynamic Vignette */
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.4) 100%);
+            pointer-events: none;
+            z-index: 9998;
+        }
+
+        canvas {
+            touch-action: none;
+            display: block;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            -webkit-backdrop-filter: blur(25px) saturate(200%);
+            backdrop-filter: blur(25px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 
+                0 8px 32px 0 rgba(0, 0, 0, 0.5),
+                inset 0 0 20px rgba(255, 255, 255, 0.02);
+        }
+
+        .glass-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+            -webkit-backdrop-filter: blur(15px);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 24px;
+            box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .glass-card:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 
+                0 15px 35px 0 rgba(0, 0, 0, 0.6),
+                0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .text-glow {
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+        }
+
+        .premium-border {
+            position: relative;
+            background: linear-gradient(var(--bg-deep), var(--bg-deep)) padding-box,
+                        linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05)) border-box;
+            border: 1px solid transparent;
+        }
+
+        .progress-fill {
+            width: var(--progress, 0%);
+            transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Collection Tab dynamic styles */
+        .fish-glow {
+            background-image: radial-gradient(circle, var(--glow-color, #3b82f6), transparent);
+        }
+
+        .rarity-badge {
+            color: var(--rarity-color, #94a3b8);
+            border-color: rgba(var(--rarity-rgb, 148, 163, 184), 0.25);
+        }
+
+        .rarity-dot {
+            color: var(--rarity-color, #94a3b8);
+            background-color: var(--rarity-color, #94a3b8);
+            box-shadow: 0 0 10px var(--rarity-color, #94a3b8);
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .animate-float {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes epicFlash {
+            0%   { background: rgba(255,255,255,0.8); opacity: 1; }
+            100% { background: transparent; opacity: 1; }
+        }
+        @keyframes epicGlow {
+            0%   { opacity: 0.3; transform: scale(1); }
+            100% { opacity: 0.6; transform: scale(1.1); }
+        }
+        @keyframes epicCardPop {
+            0%   { opacity: 0; transform: scale(0.5) translateY(30px); filter: blur(10px); }
+            70%  { opacity: 1; transform: scale(1.1) translateY(0); filter: blur(0); }
+            100% { opacity: 1; transform: scale(1)   translateY(0); }
+        }
+        @keyframes confettiFall {
+            0%   { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    </style>
+  <script type="module" crossorigin src="/Fishing-Frenzy/assets/index-DweQEKCP.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
