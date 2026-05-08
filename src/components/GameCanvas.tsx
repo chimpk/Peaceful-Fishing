@@ -1998,8 +1998,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   useEffect(() => {
     const isResting = [
         GameState.IDLE, GameState.START, GameState.GAMEOVER, 
-        GameState.BOSS_FIGHT, GameState.WAITING, GameState.CHARGING, GameState.CASTING,
-        GameState.CAUGHT
+        GameState.WAITING, GameState.CHARGING, GameState.CASTING
     ].includes(gameState);
 
     if (isResting) {
