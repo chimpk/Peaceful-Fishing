@@ -329,8 +329,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [currentBait, currentTackle, getRandomFishType, skills.lucky, weather]);
 
   const spawnInitialFish = useCallback(() => {
+    const isMobile = window.innerWidth < 768;
+    const fishCount = isMobile ? 8 : 15;
     const initialFish: EnhancedFishInstance[] = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < fishCount; i++) {
       const fish = spawnSingleFish();
       // Spread out initial fish across a wider area, including off-screen edges
       fish.x = (Math.random() - 0.2) * (CANVAS_WIDTH * 1.4);
@@ -341,8 +343,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   useEffect(() => {
     spawnInitialFish();
+    const isMobile = window.innerWidth < 768;
+    const bubbleCount = isMobile ? 10 : 20;
     const initialBubbles: Particle[] = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < bubbleCount; i++) {
       initialBubbles.push({
         x: Math.random() * CANVAS_WIDTH,
         y: CANVAS_HEIGHT + Math.random() * 100,
@@ -636,26 +640,70 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [gameState, setGameState, addNotification, onBossDefeated, onSessionReset, onCast, skills.sharpEye, bossMaxHP, bossHP]);
 
+  // --- FPS & RESIZE HANDLER ---
+  const lastFrameTime = useRef(0);
+  const targetFPS = 60;
+  const frameInterval = 1000 / targetFPS;
+
   useEffect(() => {
     const handleBlur = () => { isSpacePressed.current = false; };
+    
+    const handleResize = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        
+        const dpr = window.devicePixelRatio || 1;
+        const displayWidth = window.innerWidth;
+        const displayHeight = window.innerHeight;
+        
+        // Match logical dimensions to data
+        canvas.style.width = '100vw';
+        canvas.style.height = '100vh';
+        
+        canvas.width = displayWidth * dpr;
+        canvas.height = displayHeight * dpr;
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('resize', handleResize);
     };
   }, [handleKeyDown, handleKeyUp]);
 
   const update = useCallback((ctx: CanvasRenderingContext2D) => {
+    const now = performance.now();
+    const delta = now - lastFrameTime.current;
+    
+    if (delta < frameInterval) return; // Cap to 60fps
+    lastFrameTime.current = now - (delta % frameInterval);
+
     frameCount.current++;
     
+    const dpr = window.devicePixelRatio || 1;
+    const logicalW = canvasRef.current?.clientWidth || CANVAS_WIDTH;
+    const logicalH = canvasRef.current?.clientHeight || CANVAS_HEIGHT;
+
     // 1. Clear screen in IDENTITY space
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, logicalW, logicalH);
+    
+    // Scale everything to fit logical dimensions if they differ from CANVAS_WIDTH/HEIGHT
+    const scaleX = logicalW / CANVAS_WIDTH;
+    const scaleY = logicalH / CANVAS_HEIGHT;
+    const mainScale = Math.min(scaleX, scaleY);
     
     ctx.save();
+    // Center the game content
+    ctx.translate((logicalW - CANVAS_WIDTH * mainScale) / 2, (logicalH - CANVAS_HEIGHT * mainScale) / 2);
+    ctx.scale(mainScale, mainScale);
 
     if (gameState === GameState.REELING) {
         const ft = activeFish.current?.type.tension || 0;
