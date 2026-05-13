@@ -170,6 +170,7 @@ class SoundManager {
       filter.connect(gain);
       gain.connect(this.masterGain);
       noise.start();
+      noise.stop(ctx.currentTime + 3.0);
     } catch (e) { }
   }
 

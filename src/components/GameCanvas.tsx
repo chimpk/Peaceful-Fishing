@@ -34,6 +34,7 @@ interface GameCanvasProps {
   isBossSpawned: boolean;
   setIsBossSpawned: (v: boolean) => void;
   onDurabilityChange: (type: 'rod' | 'tackle', amount: number) => void;
+  playerLevel?: number;
 }
 
 interface Particle {
@@ -67,7 +68,7 @@ interface EnhancedFishInstance extends FishInstance {
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentTackle, currentBait, baitCounts, ownedRods, ownedTackles, weather, skills, location, timeOfDay, streak, onBossDefeated, onSessionReset, onLineBroken, onRodBroken, onCast, addNotification, liveBait, setLiveBait, isBossSpawned, setIsBossSpawned, onDurabilityChange
+  gameState, setGameState, onFishCaught, onFishLost, currentRod, currentTackle, currentBait, baitCounts, ownedRods, ownedTackles, weather, skills, location, timeOfDay, streak, onBossDefeated, onSessionReset, onLineBroken, onRodBroken, onCast, addNotification, liveBait, setLiveBait, isBossSpawned, setIsBossSpawned, onDurabilityChange, playerLevel
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -274,8 +275,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
       if (f.rarity === Rarity.RARE) weight *= (finalBoost * 0.5 + 0.5) * weatherBonus;
       if (f.rarity === Rarity.EPIC) weight *= finalBoost * weatherBonus;
-      if (f.rarity === Rarity.LEGENDARY) weight *= (finalBoost * 1.5) * weatherBonus;
-      if (f.rarity === Rarity.MYTHIC) weight *= (finalBoost * 2) * weatherBonus;
+      if (f.rarity === Rarity.LEGENDARY) weight *= (finalBoost * 1.5) * weatherBonus * (skills.masterAngler > 0 ? 2.0 : 1.0);
+      if (f.rarity === Rarity.MYTHIC) weight *= (finalBoost * 2) * weatherBonus * (skills.masterAngler > 0 ? 3.0 : 1.0);
       return { type: f, weight };
     });
     const totalWeight = weightedTypes.reduce((sum, item) => sum + item.weight, 0);
@@ -285,7 +286,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       random -= item.weight;
     }
     return pool[0];
-  }, [weather, location, timeOfDay, liveBait]);
+  }, [weather, location, timeOfDay, liveBait, skills.masterAngler]);
 
   const spawnSingleFish = useCallback(() => {
     // 5% chance to spawn a chest
@@ -384,12 +385,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       addNotification('Thẻo câu đã hỏng. Hãy sửa chữa hoặc thay thẻo mới!', 'warning');
       return false;
     }
-    if (currentBaitCount <= 0) {
-      addNotification('Đã hết mồi câu. Vui lòng mua thêm mồi câu.', 'warning');
+    if (currentBaitCount <= 0 && !liveBait) {
+      addNotification('Đã hết mồi câu. Vui lòng mua thêm mồi câu hoặc chọn mồi sống từ túi đồ.', 'warning');
       return false;
     }
     return true;
-  }, [baitCounts, currentBait.id, currentRod, currentTackle, ownedRods, addNotification]);
+  }, [baitCounts, currentBait.id, currentRod, currentTackle, ownedRods, addNotification, liveBait]);
 
   const handleHookAction = useCallback(() => {
     if (gameState === GameState.NIBBLING && activeFish.current) {
@@ -1558,7 +1559,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       // PowerReel: boosted lift
       const powerReelLift = powerReelActive.current ? 1.8 : 1;
 
-      const weatherTension = WEATHER_BONUSES[weather].tension || 1.0;
+      let weatherTension = WEATHER_BONUSES[weather].tension || 1.0;
+      // weatherExpert: reduce negative weather effects by 50%
+      if (skills.weatherExpert > 0 && weatherTension > 1.0) {
+        weatherTension = 1.0 + (weatherTension - 1.0) * 0.5;
+      }
       if (isSpacePressed.current) tensionVelocity.current -= finalLift * powerReelLift;
       else tensionVelocity.current += finalGravity * focusMultiplier * weatherTension;
       tensionVelocity.current *= 0.95;
@@ -1675,10 +1680,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         activeFish.current = null;
       }
       
-      if (frameCount.current % 8 === 0) {
-        soundManager.playReel(Math.abs(tensionCursor.current - tensionZone.current) * 2);
-      }
-
       if (frameCount.current % 8 === 0) {
         soundManager.playReel(Math.abs(tensionCursor.current - tensionZone.current) * 2);
       }
@@ -2024,8 +2025,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [gameState, onFishCaught, onFishLost, setGameState, currentRod, currentTackle, currentBait, spawnSingleFish, lerpAngle, createSplash, createSparkles, skills, weather, location, timeOfDay]);
   useEffect(() => {
     if (gameState === GameState.BOSS_FIGHT) {
-      bossHP.current = 100;
-      bossMaxHP.current = 100;
+      const scaledHP = 100 + ((playerLevel || 1) - 1) * 30; // Scale boss HP by level
+      bossHP.current = scaledHP;
+      bossMaxHP.current = scaledHP;
       playerHP.current = 100;
       playerMaxHP.current = 100;
       bossAttackTimer.current = 0;

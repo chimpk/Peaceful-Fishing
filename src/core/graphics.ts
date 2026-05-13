@@ -54,7 +54,7 @@ const parseHex = (hex: string) => {
   return result;
 };
 
-const lerpCache: Record<string, string> = {};
+const lerpCache = new Map<string, string>();
 
 const lerpColor = (c1: string, c2: string, f: number) => {
   if (f <= 0) return c1;
@@ -62,7 +62,7 @@ const lerpColor = (c1: string, c2: string, f: number) => {
   
   // Cache key with 2-decimal precision for transition smoothness
   const cacheKey = `${c1}${c2}${f.toFixed(2)}`;
-  if (lerpCache[cacheKey]) return lerpCache[cacheKey];
+  if (lerpCache.has(cacheKey)) return lerpCache.get(cacheKey)!;
 
   const rgb1 = parseHex(c1);
   const rgb2 = parseHex(c2);
@@ -72,11 +72,12 @@ const lerpColor = (c1: string, c2: string, f: number) => {
   const b = (rgb1.b + (rgb2.b - rgb1.b) * f) | 0;
   
   const result = `rgb(${r},${g},${b})`;
-  lerpCache[cacheKey] = result;
+  lerpCache.set(cacheKey, result);
   
   // Simple cache management
-  if (Object.keys(lerpCache).length > 2000) {
-      delete lerpCache[Object.keys(lerpCache)[0]];
+  if (lerpCache.size > 2000) {
+      const firstKey = lerpCache.keys().next().value;
+      if (firstKey) lerpCache.delete(firstKey);
   }
   
   return result;
@@ -260,7 +261,10 @@ const drawVignette = (ctx: CanvasRenderingContext2D) => {
 const rainPool: { x: number; y: number; speed: number; len: number }[] = [];
 
 export const drawWeatherEffects = (ctx: CanvasRenderingContext2D, frame: number, weather: string, location: LocationType) => {
-  if (weather === 'sunny' || location === 'CAVE') return;
+  if (weather === 'sunny' || location === 'CAVE') {
+    if (rainPool.length > 0) rainPool.length = 0;
+    return;
+  }
 
   if (weather === 'meteor_shower') {
       ctx.save();
@@ -589,6 +593,10 @@ const drawUnderwaterPond = (ctx: CanvasRenderingContext2D, frame: number, transi
 };
 
 const bubblePool: { x: number; y: number; speed: number; size: number; sway: number }[] = [];
+
+export const resetOceanBubbles = () => {
+    bubblePool.length = 0;
+};
 
 const drawUnderwaterOcean = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
   // Distant sea trenches (gradients)

@@ -35,7 +35,7 @@ interface UIOverlayProps {
   onUpgradeCapacity: () => void;
   onResetData: () => void;
   onClaimQuest: (id: string) => void;
-  weather: 'sunny' | 'rainy' | 'stormy';
+  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy';
   onSellFish: (timestamp: number) => void;
   epicCatch: { fish: { name: string; rarity: string; value: number }; isGolden: boolean } | null;
   unlockedFish: string[];

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import Header from '../ui/Header';
 import BottomNav from '../ui/BottomNav';
-import { UIView, RodType, TackleType, BaitType, Quest, InventoryItem, FishType } from '../../core/types';
+import { UIView, RodType, TackleType, BaitType, Quest, InventoryItem, FishType, ProfileStats } from '../../core/types';
 import { RODS, TACKLES, NATURAL_BAITS, SEA_BAITS } from '../../core/gameData';
 
 interface ShopViewProps {
@@ -21,13 +21,15 @@ interface ShopViewProps {
   onUseAsBait?: (timestamp: number) => void;
   liveBait?: FishType | null;
   initialTab?: 'rod' | 'tackle' | 'bait';
+  stats?: ProfileStats;
 }
 
 const ShopView: React.FC<ShopViewProps> = ({ 
   gold, ownedRods, ownedTackles, currentRod, currentTackle, baitCounts, quests,
-  setActiveView, onBuy, onSelect, setProfileTab, inventory = [], onUseAsBait, liveBait, initialTab = 'rod'
+  setActiveView, onBuy, onSelect, setProfileTab, inventory = [], onUseAsBait, liveBait, initialTab = 'rod', stats
 }) => {
   const [shopTab, setShopTab] = useState<'rod' | 'tackle' | 'bait'>(initialTab);
+  const playerLevel = stats?.level || 1;
 
   return (
     <div className="absolute inset-0 bg-slate-950 flex flex-col pointer-events-auto text-white overflow-hidden pb-24 animate-in fade-in duration-500">
@@ -63,8 +65,8 @@ const ShopView: React.FC<ShopViewProps> = ({
                          {isEquipped ? 'ĐANG SỬ DỤNG' : 'TRANG BỊ'}
                       </button>
                     ) : (
-                      <button onClick={() => onBuy(rod, 'rod')} disabled={rod.isLocked} className="w-full py-4 bg-yellow-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95 disabled:opacity-20">
-                         {rod.isLocked ? 'CẦN KHÓA' : `MUA (${rod.price.toLocaleString()} 💰)`}
+                      <button onClick={() => onBuy(rod, 'rod')} disabled={rod.isLocked && playerLevel < 30} className="w-full py-4 bg-yellow-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95 disabled:opacity-20">
+                         {rod.isLocked && playerLevel < 30 ? `MỞ KHÓA Ở CẤP 30 🔒` : `MUA (${rod.price.toLocaleString()} 💰)`}
                       </button>
                     )}
                  </div>

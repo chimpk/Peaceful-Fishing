@@ -348,7 +348,7 @@ const App: React.FC = () => {
     setQuests(generateDailyQuests());
     setLastQuestReset(Date.now());
     setUnlockedFish([]);
-    setSkills({ sharpEye: 0, fastHands: 0, lucky: 0, focus: 0, powerReel: 0 });
+    setSkills({ sharpEye: 0, fastHands: 0, lucky: 0, focus: 0, powerReel: 0, deepSeaDiver: 0, weatherExpert: 0, masterAngler: 0 });
     setDailyMarketBoosts([]);
     setCurrentLocation('POND');
     setSessionFishCount(0);
@@ -370,25 +370,7 @@ const App: React.FC = () => {
             setGameState(GameState.START);
             setActiveView(UIView.RESULTS);
             
-            // Save to leaderboard
-            setLeaderboard(prevLb => {
-              // We need to use a functional update for competitionScore as well to avoid stale closure
-              setCompetitionScore(currentScore => {
-                 const newEntry = { score: currentScore, date: new Date().toLocaleDateString('vi-VN') };
-                 const newList = [...prevLb, newEntry].sort((a, b) => b.score - a.score).slice(0, 10);
-                 return currentScore; // Keep score as is, we just needed it for the leaderboard
-              });
-              
-              // We return prevLb initially, the actual update happens via a separate setLeaderboard call inside
-              // Or better, since we can't easily access the latest competitionScore inside setLeaderboard's callback without a ref,
-              // let's just do it directly. A slight hack: we rely on the fact that competitionScore changes might trigger this effect,
-              // but we only care about the value when time runs out. The functional update above is a bit messy.
-              // Let's use a cleaner approach in the useEffect dependencies.
-              return prevLb; 
-            });
-            
-            // To properly fix the leaderboard, let's use functional state updates where possible or a ref.
-            // Since we don't have a ref, we'll use a functional update trick.
+            // Save to leaderboard using functional update to get latest score
             setCompetitionScore(finalScore => {
                setLeaderboard(prevLb => {
                  const newEntry = { score: finalScore, date: new Date().toLocaleDateString('vi-VN') };
@@ -403,7 +385,7 @@ const App: React.FC = () => {
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [competitionMode, competitionTimeLeft, gameState, competitionScore]);
+  }, [competitionMode, competitionTimeLeft, gameState]);
 
   const startCompetition = () => {
     setCompetitionMode(true);
@@ -437,10 +419,10 @@ const App: React.FC = () => {
         [Rarity.MYTHIC]: 6000
       };
       
-      const xpGain = xpGains[newFish.rarity] || 10;
+      const xpGain = (xpGains[newFish.rarity] || 10) * (isGolden ? 3 : 1);
       let nextXp = (prev.xp || 0) + xpGain;
       let nextLevel = prev.level || 1;
-      const xpToLevel = nextLevel * 800; // Faster leveling early
+      const xpToLevel = Math.floor(800 * Math.pow(1.3, nextLevel - 1)); // Exponential scaling
       
       if (nextXp >= xpToLevel) {
         nextXp -= xpToLevel;
@@ -530,15 +512,17 @@ const App: React.FC = () => {
   }, [addNotification]);
 
   const handleCast = useCallback(() => {
+    if (liveBait) return; // Do not consume regular bait when using live bait
+
     setBaitCounts(prev => {
       const currentCount = prev[currentBait.id] || 0;
       if (currentCount <= 0) return prev;
       return { ...prev, [currentBait.id]: currentCount - 1 };
     });
-  }, [currentBait.id]);
+  }, [currentBait.id, liveBait]);
 
   const startGame = () => {
-    console.log("!!! startGame triggered !!!");
+
     setGameState(GameState.IDLE);
     setActiveView(UIView.GAME);
     
@@ -567,7 +551,8 @@ const App: React.FC = () => {
       else if (newStreak >= 6) comboMultiplier = 2;
       else if (newStreak >= 3) comboMultiplier = 1.5;
 
-      finalValue = Math.floor((isGolden ? fish.value * 2 : fish.value) * comboMultiplier);
+      const caveBonus = (currentLocation === 'CAVE' && skills.deepSeaDiver > 0) ? 1.25 : 1;
+      finalValue = Math.floor((isGolden ? fish.value * 3 : fish.value) * comboMultiplier * caveBonus);
       return newStreak;
     });
     
@@ -847,6 +832,7 @@ const App: React.FC = () => {
             isBossSpawned={isBossSpawned}
             setIsBossSpawned={setIsBossSpawned}
             onDurabilityChange={handleDurabilityChange}
+            playerLevel={stats.level || 1}
           />
         )}
         

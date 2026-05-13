@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import BottomNav from '../ui/BottomNav';
-import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem } from '../../core/types';
+import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem, ProfileStats } from '../../core/types';
 import { RODS, TACKLES, BAITS, WEATHER_BONUSES } from '../../core/gameData';
 
 interface GameViewProps {
@@ -37,6 +37,9 @@ interface GameViewProps {
   onSelect: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
   levelData: { level: number; progress: number; title: string; xp: number; xpToLevel: number };
   onRepair: (type: 'rod' | 'tackle') => void;
+  dailyMarketBoosts: string[];
+  stats?: ProfileStats;
+  onClaimDailyReward?: () => void;
 }
 
 const GameView: React.FC<GameViewProps> = ({ 
@@ -44,12 +47,20 @@ const GameView: React.FC<GameViewProps> = ({
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
   notifications, epicCatch, quests, onStart, onStartCompetition, onChangeLocation,
   setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait, onSelect, ownedRods, ownedTackles,
-  levelData, onRepair, onOpenShop
+  levelData, onRepair, onOpenShop, dailyMarketBoosts, stats, onClaimDailyReward
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isGearExpanded, setIsGearExpanded] = useState(false);
   const [showSpacePrompt, setShowSpacePrompt] = useState(true);
+  const [tutorialStep, setTutorialStep] = useState(0);
   const progressRef = React.useRef<HTMLDivElement>(null);
+
+  const canClaimDaily = React.useMemo(() => {
+    if (!stats) return false;
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    return !stats.lastDailyRewardClaimed || (now - stats.lastDailyRewardClaimed >= oneDay);
+  }, [stats?.lastDailyRewardClaimed]);
 
   React.useEffect(() => {
     if (gameState === GameState.IDLE) {
@@ -185,6 +196,17 @@ const GameView: React.FC<GameViewProps> = ({
                    <span className="group-hover:rotate-12 transition-transform">❓</span>
                  </button>
               </div>
+
+              {/* Daily Market Boost Badge */}
+              {dailyMarketBoosts.length > 0 && (
+                <div className="bg-gradient-to-r from-orange-950/80 to-amber-950/80 backdrop-blur-xl px-4 py-2 rounded-xl border border-yellow-500/20 flex items-center gap-2 shadow-2xl">
+                  <span className="text-sm animate-pulse">🔥</span>
+                  <div>
+                    <div className="text-[7px] text-yellow-500 font-black tracking-widest uppercase leading-none">GIÁ x3 HÔM NAY</div>
+                    <div className="text-[9px] font-bold text-yellow-300/80 truncate max-w-[120px]">{dailyMarketBoosts.slice(0, 2).join(', ')}{dailyMarketBoosts.length > 2 ? '...' : ''}</div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Center: Level Display (Premium 2.0) */}
@@ -268,33 +290,63 @@ const GameView: React.FC<GameViewProps> = ({
                   </div>
                 </div>
 
-               <div onClick={() => onOpenShop('bait')} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
-                 <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">🪱</div>
-                 <div onClick={(e) => { e.stopPropagation(); cycleBait(); }} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 active:scale-90 transition-all text-[7px] font-black px-1.5 py-1 rounded-full cursor-pointer shadow-lg border border-white/10">x{baitCounts[currentBait.id] || 0}</div>
-                 {isGearExpanded && (
-                   <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
-                     <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest">MỒI CÂU</span>
-                     <span className="text-[9px] font-black text-white whitespace-nowrap uppercase tracking-tighter truncate max-w-[120px]">{currentBait.name}</span>
-                   </div>
+               <div onClick={() => !liveBait && onOpenShop('bait')} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
+                 {liveBait ? (
+                   <>
+                     <div className="w-10 h-10 bg-red-950/60 rounded-xl border border-red-500/50 flex items-center justify-center text-xl group-hover:scale-110 transition-transform animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.2)]">🐟</div>
+                     <div className="absolute top-1 right-1 bg-red-600 text-[7px] font-black px-1.5 py-1 rounded-full shadow-lg border border-red-400">x1</div>
+                     {isGearExpanded && (
+                       <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
+                         <span className="text-[7px] font-black text-red-400 uppercase tracking-widest">MỒI SỐNG</span>
+                         <span className="text-[9px] font-black text-white whitespace-nowrap uppercase tracking-tighter truncate max-w-[120px]">{liveBait.name}</span>
+                       </div>
+                     )}
+                   </>
+                 ) : (
+                   <>
+                     <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">🪱</div>
+                     <div onClick={(e) => { e.stopPropagation(); cycleBait(); }} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 active:scale-90 transition-all text-[7px] font-black px-1.5 py-1 rounded-full cursor-pointer shadow-lg border border-white/10">x{baitCounts[currentBait.id] || 0}</div>
+                     {isGearExpanded && (
+                       <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
+                         <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest">MỒI CÂU</span>
+                         <span className="text-[9px] font-black text-white whitespace-nowrap uppercase tracking-tighter truncate max-w-[120px]">{currentBait.name}</span>
+                       </div>
+                     )}
+                   </>
                  )}
                </div>
             </div>
           </div>
 
-          {/* Idle prompt (Moved to Bottom to avoid covering fish) */}
-          {gameState === GameState.IDLE && showSpacePrompt && (
-            <div className="absolute bottom-32 left-1/2 -translate-x-1/2 bg-black/40 px-6 py-2.5 rounded-2xl border border-white/5 backdrop-blur-md flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-              <div className="flex items-center gap-3">
-                <span className="bg-white text-black px-1.5 py-0.5 rounded text-[10px] font-black shadow-lg">SPACE</span>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">NHẤN GIỮ ĐỂ QUĂNG CẦN</span>
-              </div>
-            </div>
-          )}
+           {/* Idle prompt */}
+           {gameState === GameState.IDLE && showSpacePrompt && (
+             <div className="absolute bottom-32 left-1/2 -translate-x-1/2 bg-black/40 px-6 py-2.5 rounded-2xl border border-white/5 backdrop-blur-md flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+               <div className="flex items-center gap-3">
+                 <span className="bg-white text-black px-1.5 py-0.5 rounded text-[10px] font-black shadow-lg">SPACE</span>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">NHẤN GIỮ ĐỂ QUĂNG CẦN</span>
+               </div>
+             </div>
+           )}
+
+           {/* Daily Reward Banner */}
+           {canClaimDaily && gameState === GameState.IDLE && (
+             <div className="absolute bottom-32 right-8 bg-gradient-to-br from-yellow-900/80 to-amber-900/80 backdrop-blur-md px-6 py-4 rounded-[2rem] border border-yellow-500/50 shadow-2xl flex flex-col items-center gap-3 animate-in slide-in-from-right-10 fade-in duration-500 z-[90] pointer-events-auto cursor-pointer hover:scale-105 transition-transform"
+                  onClick={() => {
+                    setActiveView(UIView.PROFILE);
+                    setProfileTab('stats');
+                  }}>
+                <div className="text-3xl animate-bounce">🎁</div>
+                <div className="text-center">
+                   <div className="text-[10px] font-black text-yellow-500 uppercase tracking-widest leading-none mb-1">QUÀ HÀNG NGÀY</div>
+                   <div className="text-xs font-bold text-white">Đã Sẵn Sàng!</div>
+                </div>
+             </div>
+           )}
 
           {/* Notifications */}
-          <div className="absolute top-[15%] left-1/2 -translate-x-1/2 flex flex-col gap-2 pointer-events-none w-full max-w-sm">
-            {notifications.slice(0, 2).map(n => (
-              <div key={n.id} className="bg-slate-950/90 px-4 py-3 rounded-2xl border border-white/10 text-xs font-black text-center shadow-2xl animate-in slide-in-from-top-2">{n.message}</div>
+          <div className="absolute top-32 left-1/2 -translate-x-1/2 flex flex-col gap-3 pointer-events-none w-80 items-center z-[100]">
+            {notifications.slice(0, 3).map(n => (
+              <div key={n.id} className={`bg-slate-950/90 px-6 py-3 rounded-full border border-white/20 text-xs font-black text-center shadow-2xl animate-in slide-in-from-top-4 slide-out-to-top-4 fade-in fade-out duration-300 backdrop-blur-md ${n.type === 'boss' ? 'border-red-500/50 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.3)]' : n.type === 'warning' ? 'border-orange-500/50 text-orange-400 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : n.type === 'achievement' ? 'border-yellow-500/50 text-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.3)]' : 'text-white'}`}>{n.message}</div>
             ))}
           </div>
 
@@ -317,15 +369,62 @@ const GameView: React.FC<GameViewProps> = ({
 
       {/* Tutorial Overlay */}
       {showTutorial && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[400] flex items-center justify-center p-6 pointer-events-auto">
-          <div className="bg-slate-900 border border-white/10 rounded-3xl p-8 max-w-sm w-full">
-            <h2 className="text-2xl font-black text-blue-400 mb-4 text-center">HƯỚNG DẪN</h2>
-            <div className="space-y-4 text-sm opacity-80">
-              <p>• Nhấn giữ <b>SPACE</b> để chọn lực quăng cần.</p>
-              <p>• Nhấn nhấp <b>SPACE</b> để giữ thanh lực trong vùng màu khi kéo cá.</p>
-              <p>• Nhấn <b>F</b> để Tập Trung, <b>G</b> để Kéo Mạnh (khi đã học).</p>
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-[400] flex items-center justify-center p-6 pointer-events-auto animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl overflow-hidden relative">
+            <div className="flex justify-between items-center mb-6">
+               <h2 className="text-xl font-black text-blue-400">HƯỚNG DẪN ({tutorialStep + 1}/3)</h2>
+               <button onClick={() => { setShowTutorial(false); setTutorialStep(0); }} className="text-slate-500 hover:text-white font-black">✕</button>
             </div>
-            <button onClick={() => setShowTutorial(false)} className="w-full mt-8 py-3 bg-blue-600 rounded-xl font-black uppercase tracking-widest active:scale-95">ĐÃ HIỂU</button>
+            
+            <div className="relative h-48 w-full bg-slate-950/50 rounded-2xl mb-6 flex items-center justify-center border border-white/5 overflow-hidden">
+               {tutorialStep === 0 && (
+                 <div className="flex flex-col items-center gap-4 animate-in slide-in-from-right-8 fade-in duration-300">
+                    <div className="w-48 h-4 bg-slate-800 rounded-full overflow-hidden relative">
+                       <div className="absolute inset-y-0 left-0 bg-blue-500 animate-[pulse_1s_ease-in-out_infinite]" style={{ width: '70%' }}></div>
+                    </div>
+                    <div className="bg-white text-black px-4 py-2 rounded-xl text-xs font-black shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-bounce">NHẤN GIỮ [SPACE]</div>
+                 </div>
+               )}
+               {tutorialStep === 1 && (
+                 <div className="flex flex-col items-center gap-4 animate-in slide-in-from-right-8 fade-in duration-300">
+                    <div className="w-12 h-32 bg-slate-800 rounded-full relative border-2 border-white/10 flex flex-col justify-end p-1">
+                       <div className="absolute w-full h-12 bg-green-500/30 top-8 left-0 border-y border-green-500"></div>
+                       <div className="w-full h-6 bg-yellow-400 rounded-full absolute transition-all duration-300 animate-[bounce_1.5s_ease-in-out_infinite] left-0"></div>
+                    </div>
+                    <div className="bg-white text-black px-4 py-2 rounded-xl text-xs font-black shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-pulse">NHẤN NHẤP [SPACE]</div>
+                 </div>
+               )}
+               {tutorialStep === 2 && (
+                 <div className="flex gap-6 animate-in slide-in-from-right-8 fade-in duration-300">
+                    <div className="flex flex-col items-center gap-2">
+                       <div className="w-12 h-12 bg-blue-600/20 rounded-xl border border-blue-500 flex items-center justify-center text-xl font-black text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]">F</div>
+                       <span className="text-[9px] font-black uppercase text-slate-400">Tập trung</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-2">
+                       <div className="w-12 h-12 bg-orange-600/20 rounded-xl border border-orange-500 flex items-center justify-center text-xl font-black text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]">G</div>
+                       <span className="text-[9px] font-black uppercase text-slate-400">Kéo mạnh</span>
+                    </div>
+                 </div>
+               )}
+            </div>
+
+            <p className="text-sm text-slate-300 h-16 text-center leading-relaxed font-medium">
+              {tutorialStep === 0 && "Giữ phím SPACE để chọn lực quăng. Quăng trúng vùng xanh sẽ nhận được Bonus thả mồi hoàn hảo!"}
+              {tutorialStep === 1 && "Khi cá cắn, hãy nhấp nhả SPACE để giữ thanh lực màu vàng nằm bên trong vùng an toàn màu xanh."}
+              {tutorialStep === 2 && "Sử dụng kỹ năng đặc biệt khi bạn đã học chúng trong Cây Kỹ Năng để dễ dàng bắt cá hiếm hơn."}
+            </p>
+
+            <div className="flex gap-3 mt-6">
+               {tutorialStep > 0 && (
+                  <button onClick={() => setTutorialStep(prev => prev - 1)} className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-xs uppercase tracking-widest transition-all">TRƯỚC</button>
+               )}
+               <button onClick={() => {
+                  if (tutorialStep < 2) setTutorialStep(prev => prev + 1);
+                  else { setShowTutorial(false); setTutorialStep(0); }
+               }} className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-600/30 transition-all active:scale-95">
+                  {tutorialStep < 2 ? 'TIẾP THEO' : 'ĐÃ HIỂU'}
+               </button>
+            </div>
           </div>
         </div>
       )}

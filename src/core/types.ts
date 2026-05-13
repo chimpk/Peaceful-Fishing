@@ -59,6 +59,8 @@ export interface FishType {
   allowedTimes?: TimeOfDay[];
   preferredBaits?: string[];
   isChest?: boolean; // Mới: Phân biệt rương kho báu
+  description?: string;
+  spriteInfo?: { color?: string; shape?: string; [key: string]: any };
 }
 
 export interface RodType {

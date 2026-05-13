@@ -70,14 +70,20 @@ export const drawFishByModel = (
   if (n.includes('mặt trăng')) return Unique.drawSunfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (n.includes('ngựa')) return Unique.drawSeahorse(ctx, fish, frameCount, size, finalColor);
   if (n.includes('rồng') || n.includes('long ngư') || n.includes('leviathan') || n.includes('tượng long')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor);
-  if (n.includes('kraken') || n.includes('tuộc')) return Unique.drawKraken(ctx, fish, frameCount, size, finalColor);
+  if (n.includes('kraken')) return Unique.drawKraken(ctx, fish, frameCount, size, finalColor);
+  if (n.includes('bạch tuộc')) return Unique.drawOctopus(ctx, fish, frameCount, size, finalColor);
   if (n.includes('sát thủ')) return Unique.drawOrca(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (n.includes('mao tiên')) return Unique.drawLionfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (n.includes('cá bay')) return Unique.drawFlyingFish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (n.includes('nóc')) return Unique.drawPufferFish(ctx, fish, frameCount, size, finalColor, isStruggling);
+  if (n.includes('đèn lồng')) return Unique.drawAnglerFish(ctx, fish, frameCount, size, finalColor);
+  if (n.includes('nòng nọc')) return Unique.drawTadpole(ctx, fish, frameCount, size, finalColor);
+  if (n.includes('cá mù')) return Unique.drawBlindFish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  if (n.includes('cá sấu mù')) return Unique.drawBlindAlligator(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  if (n.includes('cua khổng lồ')) return Unique.drawGiantCrab(ctx, fish, frameCount, size, finalColor);
 
   // 4. ELONGATED
-  if (n.includes('trê') || n.includes('lóc') || n.includes('chình') || n.includes('cá vua')) return Classic.drawCatfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  if (n.includes('trê') || n.includes('lóc') || n.includes('chình') || n.includes('cá vua') || n.includes('lươn')) return Classic.drawCatfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
 
   // 5. CLASSIC (Fallback)
   return Classic.drawClassicFish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
