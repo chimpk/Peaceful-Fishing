@@ -1611,7 +1611,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
         // Damage increased for more challenge
-        let baseDamage = (0.28 + (ft / 350) + Math.min(1.0, mismatchPenalty * 0.25));
+        let baseDamage = 2 * (0.28 + (ft / 350) + Math.min(1.0, mismatchPenalty * 0.25));
         let damage = baseDamage / currentRod.lineStrength; 
 
         // Miracle Save Mechanic: 2% base + skill bonus chance to ignore most damage when low HP

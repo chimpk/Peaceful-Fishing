@@ -428,8 +428,8 @@ const App: React.FC = () => {
         nextXp -= xpToLevel;
         nextLevel++;
         setTimeout(() => {
-          addNotification(`LEVEL UP! Cấp độ mới: ${nextLevel}! +5000 vàng`, 'achievement');
-          setGold(g => g + 5000);
+          addNotification(`LEVEL UP! Cấp độ mới: ${nextLevel}! +1000 vàng`, 'achievement');
+          setGold(g => g + 1000);
           soundManager.playTrophyCatch();
           
           // Auto-unlock active skills

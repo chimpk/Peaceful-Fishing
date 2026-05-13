@@ -53,6 +53,9 @@ const GameView: React.FC<GameViewProps> = ({
   const [isGearExpanded, setIsGearExpanded] = useState(false);
   const [showSpacePrompt, setShowSpacePrompt] = useState(true);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [showRodDropdown, setShowRodDropdown] = useState(false);
+  const [showTackleDropdown, setShowTackleDropdown] = useState(false);
+  const [showBaitDropdown, setShowBaitDropdown] = useState(false);
   const progressRef = React.useRef<HTMLDivElement>(null);
 
   const canClaimDaily = React.useMemo(() => {
@@ -242,7 +245,7 @@ const GameView: React.FC<GameViewProps> = ({
                </button>
 
                 <div className="flex flex-col gap-1">
-                  <div onClick={cycleRod} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group">
+                  <div onClick={() => setShowRodDropdown(!showRodDropdown)} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
                     <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform relative">
                         🎣
                         {/* Durability Dot */}
@@ -264,10 +267,23 @@ const GameView: React.FC<GameViewProps> = ({
                         <button onClick={(e) => { e.stopPropagation(); onRepair('rod'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
                     )}
                   </div>
+                  {showRodDropdown && (
+                    <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl z-50">
+                      {ownedRods.map(rodId => {
+                        const rod = RODS.find(r => r.id === rodId);
+                        if (!rod) return null;
+                        return (
+                          <button key={rodId} onClick={() => { onSelect(rod, 'rod'); setShowRodDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                            {rod.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <div onClick={cycleTackle} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group">
+                  <div onClick={() => setShowTackleDropdown(!showTackleDropdown)} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
                     <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform relative">
                         🔗
                         <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${(currentTackle.durability || 0) > 50 ? 'bg-green-500' : (currentTackle.durability || 0) > 20 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
@@ -288,9 +304,22 @@ const GameView: React.FC<GameViewProps> = ({
                         <button onClick={(e) => { e.stopPropagation(); onRepair('tackle'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
                     )}
                   </div>
+                  {showTackleDropdown && (
+                    <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl z-50">
+                      {ownedTackles.map(tackleId => {
+                        const tackle = TACKLES.find(t => t.id === tackleId);
+                        if (!tackle) return null;
+                        return (
+                          <button key={tackleId} onClick={() => { onSelect(tackle, 'tackle'); setShowTackleDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                            {tackle.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-               <div onClick={() => !liveBait && onOpenShop('bait')} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
+               <div onClick={() => !liveBait && setShowBaitDropdown(!showBaitDropdown)} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
                  {liveBait ? (
                    <>
                      <div className="w-10 h-10 bg-red-950/60 rounded-xl border border-red-500/50 flex items-center justify-center text-xl group-hover:scale-110 transition-transform animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.2)]">🐟</div>
@@ -315,6 +344,15 @@ const GameView: React.FC<GameViewProps> = ({
                    </>
                  )}
                </div>
+               {showBaitDropdown && !liveBait && (
+                 <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl z-50">
+                   {BAITS.filter(b => (baitCounts[b.id] || 0) > 0).map(bait => (
+                     <button key={bait.id} onClick={() => { onSelect(bait, 'bait'); setShowBaitDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                       {bait.name} (x{baitCounts[bait.id] || 0})
+                     </button>
+                   ))}
+                 </div>
+               )}
             </div>
           </div>
 
