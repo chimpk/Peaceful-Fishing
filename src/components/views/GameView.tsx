@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import BottomNav from '../ui/BottomNav';
 import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem, ProfileStats } from '../../core/types';
 import { RODS, TACKLES, BAITS, WEATHER_BONUSES } from '../../core/gameData';
+import { soundManager } from '../../core/soundManager';
 
 interface GameViewProps {
   gameState: GameState;
@@ -61,8 +62,9 @@ const GameView: React.FC<GameViewProps> = ({
   const canClaimDaily = React.useMemo(() => {
     if (!stats) return false;
     const now = Date.now();
-    const oneDay = 24 * 60 * 60 * 1000;
-    return !stats.lastDailyRewardClaimed || (now - stats.lastDailyRewardClaimed >= oneDay);
+    const today = new Date(now).setHours(0, 0, 0, 0);
+    const lastClaimed = stats.lastDailyRewardClaimed ? new Date(stats.lastDailyRewardClaimed).setHours(0, 0, 0, 0) : 0;
+    return stats.lastDailyRewardClaimed === 0 || today > lastClaimed;
   }, [stats?.lastDailyRewardClaimed]);
 
   React.useEffect(() => {
@@ -120,15 +122,15 @@ const GameView: React.FC<GameViewProps> = ({
             </h1>
           </div>
           <div className="relative flex flex-col gap-6 w-full max-w-sm px-8 animate-in slide-in-from-bottom-10 duration-700 delay-300">
-            <button onClick={onStart} className="group relative bg-gradient-to-r from-blue-600 to-blue-400 text-white px-12 py-6 rounded-[2rem] font-black text-2xl tracking-tight transition-all active:scale-95 shadow-[0_20px_50px_rgba(37,99,235,0.3)]">
+            <button onClick={() => { soundManager.playClick(); onStart(); }} className="group relative bg-gradient-to-r from-blue-600 to-blue-400 text-white px-12 py-6 rounded-[2rem] font-black text-2xl tracking-tight transition-all active:scale-95 shadow-[0_20px_50px_rgba(37,99,235,0.3)]">
                VÀO CÂU NGAY →
             </button>
-            <button onClick={onStartCompetition} className="group relative bg-slate-900 border border-white/10 text-white px-12 py-5 rounded-[2rem] font-black text-xl transition-all active:scale-95 shadow-2xl hover:bg-slate-800">
+            <button onClick={() => { soundManager.playClick(); onStartCompetition(); }} className="group relative bg-slate-900 border border-white/10 text-white px-12 py-5 rounded-[2rem] font-black text-xl transition-all active:scale-95 shadow-2xl hover:bg-slate-800">
               <span className="bg-clip-text bg-gradient-to-r from-orange-400 to-amber-500 text-transparent">CHẾ ĐỘ THI ĐẤU</span>
             </button>
             <div className="flex gap-4">
-              <button onClick={() => setShowTutorial(true)} className="flex-1 bg-white/5 px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest border border-white/5">CÁCH CHƠI</button>
-              <button onClick={() => setActiveView(UIView.LEADERBOARD)} className="flex-1 bg-white/5 px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest border border-white/5">XẾP HẠNG</button>
+              <button onClick={() => { soundManager.playClick(); setShowTutorial(true); }} className="flex-1 bg-white/5 px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest border border-white/5">CÁCH CHƠI</button>
+              <button onClick={() => { soundManager.playClick(); setActiveView(UIView.LEADERBOARD); }} className="flex-1 bg-white/5 px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest border border-white/5">XẾP HẠNG</button>
             </div>
           </div>
         </div>
@@ -139,7 +141,7 @@ const GameView: React.FC<GameViewProps> = ({
             {/* Left Side: Location & Weather */}
             <div className="flex flex-col gap-2 pointer-events-auto">
               <div className="flex gap-2">
-                 <div className="bg-slate-950/60 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 shadow-2xl group cursor-pointer relative" onClick={() => setShowLocationDropdown(!showLocationDropdown)}>
+                 <div className="bg-slate-950/60 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 shadow-2xl group cursor-pointer relative" onClick={() => { soundManager.playClick(); setShowLocationDropdown(!showLocationDropdown); }}>
                    <span className="text-xl">📍</span>
                    <div>
                      <div className="text-[8px] text-blue-400 font-black tracking-widest uppercase opacity-60 leading-none">KHU VỰC</div>
@@ -147,9 +149,9 @@ const GameView: React.FC<GameViewProps> = ({
                    </div>
                    {showLocationDropdown && (
                      <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl">
-                        <button onClick={() => onChangeLocation('POND')} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">AO LÀNG</button>
-                        <button onClick={() => onChangeLocation('OCEAN')} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">ĐẠI DƯƠNG</button>
-                        <button onClick={() => onChangeLocation('CAVE')} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">HANG TỐI</button>
+                        <button onClick={() => { soundManager.playClick(); onChangeLocation('POND'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">AO LÀNG</button>
+                        <button onClick={() => { soundManager.playClick(); onChangeLocation('OCEAN'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">ĐẠI DƯƠNG</button>
+                        <button onClick={() => { soundManager.playClick(); onChangeLocation('CAVE'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">HANG TỐI</button>
                      </div>
                    )}
                  </div>
@@ -187,14 +189,14 @@ const GameView: React.FC<GameViewProps> = ({
               </div>
 
               <div className="flex gap-3 mt-1 pointer-events-auto">
-                 <div onClick={() => setActiveView(UIView.INVENTORY)} className="bg-slate-950/60 glass-panel px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition-all shadow-2xl">
+                 <div onClick={() => { soundManager.playClick(); setActiveView(UIView.INVENTORY); }} className="bg-slate-950/60 glass-panel px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition-all shadow-2xl">
                    <span className="text-xl">🎒</span>
                    <div className="text-right">
                      <div className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">TÚI ĐỒ</div>
                      <div className="text-xs font-black">{inventory.length}/{inventoryCapacity}</div>
                    </div>
                  </div>
-                 <button onClick={() => setShowTutorial(true)} className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/40 glass-panel rounded-xl border border-blue-500/30 flex items-center gap-2 text-white transition-all group">
+                 <button onClick={() => { soundManager.playClick(); setShowTutorial(true); }} className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/40 glass-panel rounded-xl border border-blue-500/30 flex items-center gap-2 text-white transition-all group">
                    <span className="text-xs font-black tracking-widest uppercase">HƯỚNG DẪN</span>
                    <span className="group-hover:rotate-12 transition-transform">❓</span>
                  </button>
@@ -214,7 +216,7 @@ const GameView: React.FC<GameViewProps> = ({
 
             {/* Center: Level Display (Premium 2.0) */}
             <div className="absolute left-1/2 -translate-x-1/2 top-4 flex flex-col items-center pointer-events-auto">
-              <div onClick={() => setActiveView(UIView.PROFILE)} className="bg-slate-950/60 glass-panel px-5 py-2 rounded-2xl border border-white/10 flex items-center gap-4 cursor-pointer hover:bg-slate-800 transition-all shadow-2xl">
+              <div onClick={() => { soundManager.playClick(); setActiveView(UIView.PROFILE); }} className="bg-slate-950/60 glass-panel px-5 py-2 rounded-2xl border border-white/10 flex items-center gap-4 cursor-pointer hover:bg-slate-800 transition-all shadow-2xl">
                  <div className="w-9 h-9 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 font-black text-sm border border-blue-500/30">{levelData.level}</div>
                  <div className="flex flex-col min-w-[160px]">
                     <div className="flex justify-between items-end text-[9px] font-black mb-1">
@@ -238,14 +240,14 @@ const GameView: React.FC<GameViewProps> = ({
                
                {/* Collapse/Expand Toggle */}
                <button 
-                 onClick={() => setIsGearExpanded(!isGearExpanded)}
+                 onClick={() => { soundManager.playClick(); setIsGearExpanded(!isGearExpanded); }}
                  className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center shadow-lg border-2 border-slate-900 pointer-events-auto hover:scale-110 transition-transform active:scale-90"
                >
                  <span className={`text-xs transition-transform duration-500 ${isGearExpanded ? 'rotate-180' : ''}`}>▶</span>
                </button>
 
                 <div className="flex flex-col gap-1">
-                  <div onClick={() => setShowRodDropdown(!showRodDropdown)} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
+                  <div onClick={() => { soundManager.playClick(); setShowRodDropdown(!showRodDropdown); }} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
                     <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform relative">
                         🎣
                         {/* Durability Dot */}
@@ -264,7 +266,7 @@ const GameView: React.FC<GameViewProps> = ({
                       </div>
                     )}
                     {isGearExpanded && (currentRod.durability || 0) < (currentRod.maxDurability || 100) && (
-                        <button onClick={(e) => { e.stopPropagation(); onRepair('rod'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
+                        <button onClick={(e) => { e.stopPropagation(); soundManager.playClick(); onRepair('rod'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
                     )}
                   </div>
                   {showRodDropdown && (
@@ -273,7 +275,7 @@ const GameView: React.FC<GameViewProps> = ({
                         const rod = RODS.find(r => r.id === rodId);
                         if (!rod) return null;
                         return (
-                          <button key={rodId} onClick={() => { onSelect(rod, 'rod'); setShowRodDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                          <button key={rodId} onClick={() => { soundManager.playClick(); onSelect(rod, 'rod'); setShowRodDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
                             {rod.name}
                           </button>
                         );
@@ -283,7 +285,7 @@ const GameView: React.FC<GameViewProps> = ({
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <div onClick={() => setShowTackleDropdown(!showTackleDropdown)} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
+                  <div onClick={() => { soundManager.playClick(); setShowTackleDropdown(!showTackleDropdown); }} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
                     <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform relative">
                         🔗
                         <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${(currentTackle.durability || 0) > 50 ? 'bg-green-500' : (currentTackle.durability || 0) > 20 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
@@ -301,7 +303,7 @@ const GameView: React.FC<GameViewProps> = ({
                       </div>
                     )}
                     {isGearExpanded && (currentTackle.durability || 0) < (currentTackle.maxDurability || 30) && (
-                        <button onClick={(e) => { e.stopPropagation(); onRepair('tackle'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
+                        <button onClick={(e) => { e.stopPropagation(); soundManager.playClick(); onRepair('tackle'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
                     )}
                   </div>
                   {showTackleDropdown && (
@@ -310,7 +312,7 @@ const GameView: React.FC<GameViewProps> = ({
                         const tackle = TACKLES.find(t => t.id === tackleId);
                         if (!tackle) return null;
                         return (
-                          <button key={tackleId} onClick={() => { onSelect(tackle, 'tackle'); setShowTackleDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                          <button key={tackleId} onClick={() => { soundManager.playClick(); onSelect(tackle, 'tackle'); setShowTackleDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
                             {tackle.name}
                           </button>
                         );
@@ -319,7 +321,7 @@ const GameView: React.FC<GameViewProps> = ({
                   )}
                 </div>
 
-               <div onClick={() => !liveBait && setShowBaitDropdown(!showBaitDropdown)} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
+               <div onClick={() => { if (!liveBait) { soundManager.playClick(); setShowBaitDropdown(!showBaitDropdown); } }} className="flex items-center gap-4 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-all group relative">
                  {liveBait ? (
                    <>
                      <div className="w-10 h-10 bg-red-950/60 rounded-xl border border-red-500/50 flex items-center justify-center text-xl group-hover:scale-110 transition-transform animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.2)]">🐟</div>
@@ -334,7 +336,7 @@ const GameView: React.FC<GameViewProps> = ({
                  ) : (
                    <>
                      <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">🪱</div>
-                     <div onClick={(e) => { e.stopPropagation(); cycleBait(); }} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 active:scale-90 transition-all text-[7px] font-black px-1.5 py-1 rounded-full cursor-pointer shadow-lg border border-white/10">x{baitCounts[currentBait.id] || 0}</div>
+                     <div onClick={(e) => { e.stopPropagation(); soundManager.playClick(); cycleBait(); }} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 active:scale-90 transition-all text-[7px] font-black px-1.5 py-1 rounded-full cursor-pointer shadow-lg border border-white/10">x{baitCounts[currentBait.id] || 0}</div>
                      {isGearExpanded && (
                        <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
                          <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest">MỒI CÂU</span>
@@ -347,7 +349,7 @@ const GameView: React.FC<GameViewProps> = ({
                {showBaitDropdown && !liveBait && (
                  <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl z-50">
                    {BAITS.filter(b => (baitCounts[b.id] || 0) > 0).map(bait => (
-                     <button key={bait.id} onClick={() => { onSelect(bait, 'bait'); setShowBaitDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                     <button key={bait.id} onClick={() => { soundManager.playClick(); onSelect(bait, 'bait'); setShowBaitDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
                        {bait.name} (x{baitCounts[bait.id] || 0})
                      </button>
                    ))}

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { InventoryItem } from '../../../core/types';
+import { soundManager } from '../../../core/soundManager';
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
@@ -16,8 +17,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, inventoryCapacit
   return (
     <div className="p-8 space-y-8 animate-in fade-in zoom-in-95 duration-300">
        <div className="flex gap-4 mb-6">
-          <button onClick={() => setTab('items')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'items' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>VẬT PHẨM</button>
-          <button onClick={() => setTab('upgrade')} className={`flex-1 py-4 rounded-2xl font-black text-[10px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'upgrade' ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>NÂNG CẤP</button>
+          <button onClick={() => { soundManager.playClick(); setTab('items'); }} className={`flex-1 py-4 rounded-2xl font-black text-[10px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'items' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>VẬT PHẨM</button>
+          <button onClick={() => { soundManager.playClick(); setTab('upgrade'); }} className={`flex-1 py-4 rounded-2xl font-black text-[10px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'upgrade' ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>NÂNG CẤP</button>
        </div>
 
        {tab === 'items' ? (
@@ -35,8 +36,8 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, inventoryCapacit
                    <h4 className="font-black text-sm italic tracking-tight mb-2 text-white/90 line-clamp-1">{item.fish.name}</h4>
                    <div className="text-yellow-500 font-black text-xs mb-4">{(item.isGolden ? item.fish.value * 2 : item.fish.value).toLocaleString()} 💰</div>
                    <div className="flex gap-2 w-full mt-auto">
-                     <button onClick={() => onSellFish(item.timestamp)} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
-                     <button onClick={() => onUseAsBait(item.timestamp)} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
+                     <button onClick={() => { soundManager.playClick(); onSellFish(item.timestamp); }} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
+                     <button onClick={() => { soundManager.playClick(); onUseAsBait(item.timestamp); }} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
                    </div>
                 </div>
               ))
@@ -61,7 +62,7 @@ const InventoryTab: React.FC<InventoryTabProps> = ({ inventory, inventoryCapacit
             </div>
 
             <button 
-              onClick={onUpgradeCapacity}
+              onClick={() => { soundManager.playClick(); onUpgradeCapacity(); }}
               className="w-full py-6 bg-gradient-to-r from-yellow-500 to-amber-500 text-black rounded-3xl font-black tracking-widest text-sm hover:scale-105 transition-all shadow-[0_20px_50px_rgba(234,179,8,0.3)] active:scale-95"
             >
               NÂNG CẤP ({(inventoryCapacity * 100).toLocaleString()} 💰)

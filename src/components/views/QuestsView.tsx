@@ -3,6 +3,7 @@ import React from 'react';
 import Header from '../ui/Header';
 import BottomNav from '../ui/BottomNav';
 import { UIView, Quest } from '../../core/types';
+import { soundManager } from '../../core/soundManager';
 
 interface QuestsViewProps {
   gold: number;
@@ -56,7 +57,7 @@ const QuestsView: React.FC<QuestsViewProps> = ({ gold, quests, setActiveView, on
                   <span className="text-[10px] font-black text-slate-600 italic">REWARDED</span>
                 ) : q.isCompleted ? (
                   <button 
-                    onClick={() => onClaimQuest(q.id)}
+                    onClick={() => { soundManager.playClick(); onClaimQuest(q.id); }}
                     className="bg-yellow-500 text-black px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-[0_10px_30px_rgba(234,179,8,0.3)] active:scale-95 animate-glow"
                   >
                     NHẬN THƯỞNG

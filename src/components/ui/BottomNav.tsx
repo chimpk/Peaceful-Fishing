@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { UIView, Quest } from '../../core/types';
+import { soundManager } from '../../core/soundManager';
 
 interface BottomNavProps {
   activeView: UIView;
@@ -26,7 +27,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeView, setActiveView, quests
         return (
           <button 
             key={item.view}
-            onClick={() => setActiveView(item.view)} 
+            onClick={() => { soundManager.playClick(); setActiveView(item.view); }} 
             className={`relative flex flex-col items-center justify-center gap-1 transition-all duration-500 group py-3 md:py-4 px-3 md:px-5 rounded-[1.5rem] md:rounded-[2rem] ${isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
           >
             {isActive && (

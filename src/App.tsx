@@ -209,9 +209,12 @@ const App: React.FC = () => {
         if (data.leaderboard) setLeaderboard(data.leaderboard);
         
         const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000;
-        if (!data.lastQuestReset || now - data.lastQuestReset > oneDay) {
+        const today = new Date(now).setHours(0, 0, 0, 0);
+        const lastReset = data.lastQuestReset ? new Date(data.lastQuestReset).setHours(0, 0, 0, 0) : 0;
+
+        if (today > lastReset) {
           setGold(g => g + 1000);
+          addNotification("Chào mừng trở lại! Bạn nhận được 1,000 vàng cho ngày mới.", "success");
           setQuests(generateDailyQuests());
           setLastQuestReset(now);
           const fishNames = FISH_TYPES.map(f => f.name);
@@ -296,9 +299,10 @@ const App: React.FC = () => {
 
   const claimDailyReward = useCallback(() => {
     const now = Date.now();
-    const oneDay = 24 * 60 * 60 * 1000;
+    const today = new Date(now).setHours(0, 0, 0, 0);
+    const lastClaimed = stats.lastDailyRewardClaimed ? new Date(stats.lastDailyRewardClaimed).setHours(0, 0, 0, 0) : 0;
     
-    if (stats.lastDailyRewardClaimed && now - stats.lastDailyRewardClaimed < oneDay) {
+    if (today <= lastClaimed && stats.lastDailyRewardClaimed !== 0) {
         addNotification("Bạn đã nhận quà hôm nay rồi! Hãy quay lại vào ngày mai.", "warning");
         return;
     }
@@ -529,6 +533,7 @@ const App: React.FC = () => {
     // Play sounds after state transition to ensure no blocking
     setTimeout(() => {
       try { soundManager.playClick(); } catch(e) { console.error("Sound click error", e); }
+      try { soundManager.playMusic(); } catch(e) { console.error("Music play error", e); }
       try { soundManager.setAmbientLocation(currentLocation); } catch(e) { console.error("Sound ambient error", e); }
     }, 10);
   };

@@ -4,6 +4,7 @@ import Header from '../ui/Header';
 import BottomNav from '../ui/BottomNav';
 import { UIView, RodType, TackleType, BaitType, Quest, InventoryItem, FishType, ProfileStats } from '../../core/types';
 import { RODS, TACKLES, NATURAL_BAITS, SEA_BAITS } from '../../core/gameData';
+import { soundManager } from '../../core/soundManager';
 
 interface ShopViewProps {
   gold: number;
@@ -35,9 +36,9 @@ const ShopView: React.FC<ShopViewProps> = ({
     <div className="absolute inset-0 bg-slate-950 flex flex-col pointer-events-auto text-white overflow-hidden pb-24 animate-in fade-in duration-500">
       <Header title="CỬA HÀNG ĐỒ CÂU" gold={gold} setActiveView={setActiveView} />
       <div className="px-8 flex gap-3 my-6">
-         <button onClick={() => setShopTab('rod')} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-all shadow-2xl border ${shopTab === 'rod' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>CẦN CÂU</button>
-         <button onClick={() => setShopTab('tackle')} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-all shadow-2xl border ${shopTab === 'tackle' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>THẺO CÂU</button>
-         <button onClick={() => setShopTab('bait')} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-all shadow-2xl border ${shopTab === 'bait' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>MỒI CÂU</button>
+         <button onClick={() => { soundManager.playClick(); setShopTab('rod'); }} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-all shadow-2xl border ${shopTab === 'rod' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>CẦN CÂU</button>
+         <button onClick={() => { soundManager.playClick(); setShopTab('tackle'); }} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-all shadow-2xl border ${shopTab === 'tackle' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>THẺO CÂU</button>
+         <button onClick={() => { soundManager.playClick(); setShopTab('bait'); }} className={`flex-1 py-4 rounded-2xl font-black text-[9px] tracking-[0.2em] transition-all shadow-2xl border ${shopTab === 'bait' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>MỒI CÂU</button>
       </div>
 
       <div className="flex-1 px-8 overflow-y-auto pb-10">
@@ -61,11 +62,11 @@ const ShopView: React.FC<ShopViewProps> = ({
                     </div>
                     
                     {isOwned ? (
-                      <button onClick={() => onSelect(rod, 'rod')} disabled={isEquipped} className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${isEquipped ? 'bg-blue-600/10 text-blue-400 border border-blue-400/30' : 'bg-slate-800 text-white hover:bg-slate-700 active:scale-95'}`}>
+                      <button onClick={() => { soundManager.playClick(); onSelect(rod, 'rod'); }} disabled={isEquipped} className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${isEquipped ? 'bg-blue-600/10 text-blue-400 border border-blue-400/30' : 'bg-slate-800 text-white hover:bg-slate-700 active:scale-95'}`}>
                          {isEquipped ? 'ĐANG SỬ DỤNG' : 'TRANG BỊ'}
                       </button>
                     ) : (
-                      <button onClick={() => onBuy(rod, 'rod')} disabled={rod.isLocked && playerLevel < 30} className="w-full py-4 bg-yellow-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95 disabled:opacity-20">
+                      <button onClick={() => { soundManager.playClick(); onBuy(rod, 'rod'); }} disabled={rod.isLocked && playerLevel < 30} className="w-full py-4 bg-yellow-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95 disabled:opacity-20">
                          {rod.isLocked && playerLevel < 30 ? `MỞ KHÓA Ở CẤP 30 🔒` : `MUA (${rod.price.toLocaleString()} 💰)`}
                       </button>
                     )}
@@ -87,11 +88,11 @@ const ShopView: React.FC<ShopViewProps> = ({
                     </div>
                     <p className="text-[10px] text-slate-500 mb-4 font-medium leading-relaxed">{tackle.description}</p>
                     {isOwned ? (
-                      <button onClick={() => onSelect(tackle, 'tackle')} disabled={isEquipped} className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${isEquipped ? 'bg-orange-600/10 text-orange-400 border border-orange-400/30' : 'bg-slate-800 text-white hover:bg-slate-700 active:scale-95'}`}>
+                      <button onClick={() => { soundManager.playClick(); onSelect(tackle, 'tackle'); }} disabled={isEquipped} className={`w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${isEquipped ? 'bg-orange-600/10 text-orange-400 border border-orange-400/30' : 'bg-slate-800 text-white hover:bg-slate-700 active:scale-95'}`}>
                          {isEquipped ? 'ĐANG SỬ DỤNG' : 'TRANG BỊ'}
                       </button>
                     ) : (
-                      <button onClick={() => onBuy(tackle, 'tackle')} className="w-full py-4 bg-yellow-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
+                      <button onClick={() => { soundManager.playClick(); onBuy(tackle, 'tackle'); }} className="w-full py-4 bg-yellow-500 text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
                          MUA ({tackle.price.toLocaleString()} 💰)
                       </button>
                     )}
@@ -112,7 +113,7 @@ const ShopView: React.FC<ShopViewProps> = ({
                             <h4 className="font-black italic text-lg tracking-tight text-white/90">{bait.name}</h4>
                           </div>
                           <p className="text-[9px] text-slate-500 mb-4 font-medium leading-relaxed">{bait.description}</p>
-                          <button onClick={() => onBuy(bait, 'bait')} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
+                          <button onClick={() => { soundManager.playClick(); onBuy(bait, 'bait'); }} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
                             MUA x10 ({bait.price.toLocaleString()} 💰)
                           </button>
                       </div>
@@ -134,7 +135,7 @@ const ShopView: React.FC<ShopViewProps> = ({
                             <h4 className="font-black italic text-lg tracking-tight text-white/90">{bait.name}</h4>
                           </div>
                           <p className="text-[9px] text-slate-500 mb-4 font-medium leading-relaxed">{bait.description}</p>
-                          <button onClick={() => onBuy(bait, 'bait')} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
+                          <button onClick={() => { soundManager.playClick(); onBuy(bait, 'bait'); }} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
                             MUA x10 ({bait.price.toLocaleString()} 💰)
                           </button>
                       </div>
@@ -195,7 +196,7 @@ const ShopView: React.FC<ShopViewProps> = ({
                            <div className={`text-[9px] font-black uppercase ${textClass}`}>{item.fish.rarity}</div>
                            <div className="text-[9px] text-yellow-400 font-bold">{item.fish.value.toLocaleString()} 💰</div>
                            <button 
-                             onClick={() => onUseAsBait?.(item.timestamp)}
+                             onClick={() => { soundManager.playClick(); onUseAsBait?.(item.timestamp); }}
                              disabled={isEquipped}
                              className={`w-full py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 ${isEquipped ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'}`}
                            >

@@ -6,6 +6,7 @@ import StatsTab from './profile/StatsTab';
 import SkillsTab from './profile/SkillsTab';
 import CollectionTab from './profile/CollectionTab';
 import { UIView, ProfileStats, InventoryItem, PlayerSkills, Quest } from '../../core/types';
+import { soundManager } from '../../core/soundManager';
 
 interface ProfileViewProps {
   gold: number;
@@ -46,7 +47,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({
         {profileTabs.map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setProfileTab(tab.id as any)}
+            onClick={() => { soundManager.playClick(); setProfileTab(tab.id as any); }}
             className={`flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl font-black text-[8px] md:text-[10px] tracking-widest transition-all shrink-0 border ${profileTab === tab.id ? 'bg-blue-600 border-blue-400 shadow-lg scale-105 z-10' : 'bg-slate-800/50 border-white/5 text-slate-500 hover:text-slate-300'}`}
           >
             <span className="text-sm md:text-base">{tab.icon}</span>

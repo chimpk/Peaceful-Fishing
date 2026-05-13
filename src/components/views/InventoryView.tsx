@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Header from '../ui/Header';
 import BottomNav from '../ui/BottomNav';
 import { UIView, InventoryItem, RodType, BaitType, Quest, Rarity } from '../../core/types';
+import { soundManager } from '../../core/soundManager';
 
 interface InventoryViewProps {
   gold: number;
@@ -58,8 +59,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({
       <Header title="TÚI ĐỒ CỦA BẠN" gold={gold} setActiveView={setActiveView} />
       
       <div className="px-8 flex gap-4 my-6">
-          <button onClick={() => setTab('items')} className={`flex-1 py-4 rounded-2xl font-black text-[11px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'items' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>VẬT PHẨM ({inventory.length}/{inventoryCapacity})</button>
-          <button onClick={() => setTab('upgrade')} className={`flex-1 py-4 rounded-2xl font-black text-[11px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'upgrade' ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>NÂNG CẤP</button>
+          <button onClick={() => { soundManager.playClick(); setTab('items'); }} className={`flex-1 py-4 rounded-2xl font-black text-[11px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'items' ? 'bg-blue-600 border-blue-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>VẬT PHẨM ({inventory.length}/{inventoryCapacity})</button>
+          <button onClick={() => { soundManager.playClick(); setTab('upgrade'); }} className={`flex-1 py-4 rounded-2xl font-black text-[11px] tracking-[0.2em] transition-all shadow-2xl border ${tab === 'upgrade' ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-900 text-slate-500 border-white/5 opacity-50'}`}>NÂNG CẤP</button>
       </div>
 
       <div className="flex-1 px-8 overflow-y-auto pb-10">
@@ -78,6 +79,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                 </select>
                 <button 
                   onClick={() => {
+                    soundManager.playClick();
                     const hasRare = inventory.some(i => [Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(i.fish.rarity));
                     if (hasRare) {
                       setConfirmSellAll(true);
@@ -99,7 +101,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                     <p className="text-sm font-black italic tracking-widest uppercase opacity-30">TÚI ĐỒ ĐANG TRỐNG</p>
                     <p className="text-xs text-slate-500 max-w-[240px] leading-relaxed">Hãy đi câu cá để lấp đầy túi đồ và bán kiếm vàng!</p>
                     <button 
-                      onClick={() => setActiveView(UIView.GAME)}
+                      onClick={() => { soundManager.playClick(); setActiveView(UIView.GAME); }}
                       className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-400 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(37,99,235,0.3)] hover:shadow-[0_20px_50px_rgba(37,99,235,0.4)] transition-all active:scale-95"
                     >
                       ĐI CÂU CÁ NGAY →
@@ -113,8 +115,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                       <h4 className="font-black text-sm italic tracking-tight mb-2 text-white/90 line-clamp-1">{item.fish.name}</h4>
                       <div className="text-yellow-500 font-black text-xs mb-4">{(item.isGolden ? item.fish.value * 2 : item.fish.value).toLocaleString()} 💰</div>
                       <div className="flex gap-2 w-full mt-auto">
-                        <button onClick={() => handleSellClick(item)} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
-                        <button onClick={() => onUseAsBait(item.timestamp)} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
+                        <button onClick={() => { soundManager.playClick(); handleSellClick(item); }} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
+                        <button onClick={() => { soundManager.playClick(); onUseAsBait(item.timestamp); }} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
                       </div>
                    </div>
                  ))
@@ -140,7 +142,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
              </div>
 
              <button 
-               onClick={onUpgradeCapacity}
+               onClick={() => { soundManager.playClick(); onUpgradeCapacity(); }}
                className="w-full py-6 bg-gradient-to-r from-yellow-500 to-amber-500 text-black rounded-3xl font-black tracking-widest text-sm hover:scale-105 transition-all shadow-[0_20px_50px_rgba(234,179,8,0.3)] active:scale-95"
              >
                NÂNG CẤP ({(inventoryCapacity * 100).toLocaleString()} 💰)
@@ -162,13 +164,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({
             </p>
             <div className="flex gap-4">
               <button 
-                onClick={() => setConfirmSellTarget(null)}
+                onClick={() => { soundManager.playClick(); setConfirmSellTarget(null); }}
                 className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-xs text-slate-400 uppercase tracking-widest transition-all"
               >
                 HỦY BỎ
               </button>
               <button 
                 onClick={() => {
+                  soundManager.playClick();
                   onSellFish(confirmSellTarget.timestamp);
                   setConfirmSellTarget(null);
                 }}
@@ -192,13 +195,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({
             </p>
             <div className="flex gap-4">
               <button 
-                onClick={() => setConfirmSellAll(false)}
+                onClick={() => { soundManager.playClick(); setConfirmSellAll(false); }}
                 className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl font-black text-xs text-slate-400 uppercase tracking-widest transition-all"
               >
                 HỦY BỎ
               </button>
               <button 
                 onClick={() => {
+                  soundManager.playClick();
                   onSellAll();
                   setConfirmSellAll(false);
                 }}

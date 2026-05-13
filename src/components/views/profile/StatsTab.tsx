@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { soundManager } from '../../../core/soundManager';
 
 interface StatsTabProps {
   levelData: { level: number; progress: number; title: string; nextCap: number };
@@ -39,7 +40,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ levelData, stats, gold, onResetData
              </div>
              {canClaimDaily ? (
                 <button 
-                  onClick={onClaimDailyReward}
+                  onClick={() => { soundManager.playClick(); onClaimDailyReward(); }}
                   className="px-8 py-4 btn-premium text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all"
                 >
                    NHẬN NGAY
@@ -143,13 +144,13 @@ const StatsTab: React.FC<StatsTabProps> = ({ levelData, stats, gold, onResetData
 
           <div className="mt-12 space-y-5">
              <button 
-              onClick={onViewLeaderboard}
+              onClick={() => { soundManager.playClick(); onViewLeaderboard(); }}
               className="w-full py-5 bg-orange-500 text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:bg-orange-400 transition-all active:scale-95 shadow-[0_15px_40px_rgba(245,158,11,0.25)]"
              >
                 BẢNG XẾP HẠNG THẾ GIỚI
              </button>
              <button 
-              onClick={onResetData}
+              onClick={() => { soundManager.playClick(); onResetData(); }}
               className="w-full py-4 text-slate-600 hover:text-red-500 transition-colors font-black text-[9px] uppercase tracking-[0.4em] text-center"
              >
                 CÀI LẠI TIẾN TRÌNH TRÒ CHƠI

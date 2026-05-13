@@ -203,6 +203,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   }, [timeOfDay]);
 
+  useEffect(() => {
+    if (weather === 'rainy' || weather === 'stormy') {
+      soundManager.startRain();
+    } else {
+      soundManager.stopRain();
+    }
+  }, [weather]);
+
   const lerpAngle = (current: number, target: number, speed: number) => {
     let diff = target - current;
     while (diff > Math.PI) diff -= Math.PI * 2;
@@ -853,7 +861,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 lightningStrikeTimer.current = 60;
                 lightningStrikeX.current = Math.random() * CANVAS_WIDTH;
                 lightningStrikeAlpha.current = 0.8;
-                soundManager.playThunder();
+                soundManager.playLightningStrike();
                 
                 // Gameplay impact: if reeling, add a tension spike and stun
                 if (gameState === GameState.REELING) {
@@ -863,7 +871,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                     shakeIntensity.current = 20;
                     addNotification("SÉT ĐÁNH! Mất kiểm soát cần câu!", "warning");
                 }
+            } else if (Math.random() < 0.001) {
+                // Occasional distant thunder without lightning
+                soundManager.playThunder();
             }
+        }
+    } else if (weather === 'rainy' && location !== 'CAVE') {
+        // Occasional distant thunder during rain
+        if (Math.random() < 0.0005) {
+            soundManager.playThunder();
         }
     }
 
@@ -1572,11 +1588,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       
       // --- 2. DYNAMIC MOVEMENT PATTERNS (Task #2) ---
       const rarity = activeFish.current.type.rarity;
-      // ft is already declared above at line 491
       
-      let zoneSpeed = 0.005 + (ft / 120000); 
-      let wobble = 0.002 + ft / 80000;
-      let jitter = (Math.random() - 0.5) * (ft / 4000);
+      // Speed scales with tension and gold value for higher difficulty
+      let zoneSpeed = 0.005 + (ft / 100000) + (fishValue / 800000); 
+      let wobble = 0.002 + ft / 60000 + (fishValue / 400000);
+      let jitter = (Math.random() - 0.5) * (ft / 3000 + (fishValue / 20000));
 
       // Specific patterns based on rarity
       if (rarity === Rarity.RARE || rarity === Rarity.EPIC) {
@@ -1610,8 +1626,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         lineHealth.current = Math.min(100, lineHealth.current + 0.22 * progressFactor); // Reduced recovery speed (was 0.5)
         hookX.current = Math.max(rodEndX + 20, hookX.current - 0.5);
       } else {
-        // Damage increased for more challenge
-        let baseDamage = 2 * (0.28 + (ft / 350) + Math.min(1.0, mismatchPenalty * 0.25));
+        // Damage increased for more challenge (doubled as requested)
+        let baseDamage = 4 * (0.28 + (ft / 350) + Math.min(1.0, mismatchPenalty * 0.25));
         let damage = baseDamage / currentRod.lineStrength; 
 
         // Miracle Save Mechanic: 2% base + skill bonus chance to ignore most damage when low HP

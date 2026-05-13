@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { UIView } from '../../core/types';
+import { soundManager } from '../../core/soundManager';
 
 interface HeaderProps {
   title: string;
@@ -15,7 +16,7 @@ const Header: React.FC<HeaderProps> = ({ title, showBack = true, gold, setActive
       <div className="flex items-center gap-7">
         {showBack && (
           <button 
-            onClick={() => setActiveView(UIView.GAME)}
+            onClick={() => { soundManager.playClick(); setActiveView(UIView.GAME); }}
             className="w-14 h-14 rounded-[1.25rem] glass-card flex items-center justify-center text-white transition-all pointer-events-auto border border-white/10 active:scale-90"
           >
             <span className="text-2xl text-blue-400">←</span>

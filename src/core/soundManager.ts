@@ -7,6 +7,7 @@ class SoundManager {
   private isAmbientRunning = false;
   private ambientNodes: { noise?: AudioBufferSourceNode, lfo?: OscillatorNode, filter?: BiquadFilterNode, gain?: GainNode, oscs?: OscillatorNode[] } = {};
   private currentLocation: LocationType | 'POND' = 'POND';
+  private musicAudio: HTMLAudioElement | null = null;
 
   private getCtx(): AudioContext | null {
     if (this.ctx) {
@@ -153,24 +154,35 @@ class SoundManager {
     try {
       const ctx = this.getCtx();
       if (!ctx || !this.masterGain) return;
-      const bufferSize = ctx.sampleRate * 3;
+      const bufferSize = ctx.sampleRate * 4;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      for (let i = 0; i < bufferSize; i++) {
+          // Low frequency noise for rumble
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+      }
       const noise = ctx.createBufferSource();
       noise.buffer = buffer;
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(150, ctx.currentTime);
-      filter.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 2.5);
+      filter.frequency.setValueAtTime(100, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 3.5);
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.5, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3.0);
+      gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 4.0);
       noise.connect(filter);
       filter.connect(gain);
       gain.connect(this.masterGain);
       noise.start();
-      noise.stop(ctx.currentTime + 3.0);
+      noise.stop(ctx.currentTime + 4.0);
+    } catch (e) { }
+  }
+
+  playLightningStrike() {
+    try {
+      const audio = new Audio('./Tieng_sam.mp3');
+      audio.volume = 0.6;
+      audio.play().catch(e => console.error("Lightning sound error", e));
     } catch (e) { }
   }
 
@@ -224,7 +236,7 @@ class SoundManager {
       osc.type = 'sine';
       osc.frequency.value = 800;
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
       osc.connect(gain);
       gain.connect(this.masterGain);
@@ -335,6 +347,30 @@ class SoundManager {
       
       this.isAmbientRunning = true;
     } catch(e) { }
+  }
+
+  playMusic() {
+    try {
+      if (!this.musicAudio) {
+        // Use relative path from root, Vite will handle the base path
+        this.musicAudio = new Audio('./nhac_nen.mp3');
+        this.musicAudio.loop = true;
+        this.musicAudio.volume = 0.1;
+      }
+      
+      if (this.musicAudio.paused) {
+        this.musicAudio.play().catch(e => console.warn("Music autoplay blocked or failed:", e));
+      }
+    } catch (e) {
+      console.error("Error playing music:", e);
+    }
+  }
+
+  stopMusic() {
+    if (this.musicAudio) {
+      this.musicAudio.pause();
+      this.musicAudio.currentTime = 0;
+    }
   }
 }
 

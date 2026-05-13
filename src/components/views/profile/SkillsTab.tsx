@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { PlayerSkills } from '../../../core/types';
+import { soundManager } from '../../../core/soundManager';
 
 interface SkillsTabProps {
   skills: PlayerSkills;
@@ -50,7 +51,7 @@ const SkillsTab: React.FC<SkillsTabProps> = ({ skills, onBuySkill, playerLevel }
                       </div>
                    ) : (
                       <button 
-                        onClick={() => onBuySkill(s.id as keyof PlayerSkills)} 
+                        onClick={() => { soundManager.playClick(); onBuySkill(s.id as keyof PlayerSkills); }} 
                         className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-black text-[8px] md:text-[9px] tracking-[0.2em] md:tracking-[0.3em] transition-all active:scale-95 shadow-xl uppercase ${isSpecial ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
                       >
                          {isSpecial ? 'KÍCH HOẠT' : `NÂNG CẤP (${cost.toLocaleString()} V)`}
