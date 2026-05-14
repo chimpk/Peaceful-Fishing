@@ -6,6 +6,45 @@ import * as Unique from './UniqueModels';
 import * as Junk from './JunkModels';
 import { ChestModels } from './ChestModels';
 
+const drawRarityEffects = (ctx: CanvasRenderingContext2D, fish: FishType, frameCount: number) => {
+  const { rarity, size, color } = fish;
+  
+  if (rarity === Rarity.MYTHIC || rarity === Rarity.LEGENDARY || rarity === Rarity.EPIC) {
+    ctx.save();
+    
+    // Glowing Aura
+    const pulse = (Math.sin(frameCount * 0.05) + 1) / 2;
+    const auraAlpha = rarity === Rarity.MYTHIC ? 0.4 : (rarity === Rarity.LEGENDARY ? 0.25 : 0.15);
+    
+    ctx.shadowBlur = size * (rarity === Rarity.MYTHIC ? 1.5 : 1.0);
+    ctx.shadowColor = color;
+    
+    ctx.globalAlpha = auraAlpha * (0.8 + pulse * 0.2);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 2.2, size * 1.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    
+    // Sparkles for Mythic
+    if (rarity === Rarity.MYTHIC) {
+      for (let i = 0; i < 5; i++) {
+        const ang = (frameCount * 0.03 + i * (Math.PI * 2 / 5));
+        const dist = size * 1.8;
+        const px = Math.cos(ang) * dist;
+        const py = Math.sin(ang) * dist;
+        const s = 2 + Math.sin(frameCount * 0.1 + i) * 2;
+        
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(px, py, s, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    
+    ctx.restore();
+  }
+};
+
 export const drawFishByModel = (
   ctx: CanvasRenderingContext2D,
   fish: FishType,
@@ -29,6 +68,9 @@ export const drawFishByModel = (
     wagFreq = 0.05 + (currentSpeed * 0.12);
     wagAmp = 0.04 + (currentSpeed * 0.06);
   }
+
+  // DRAW RARITY EFFECTS (Global Aura)
+  drawRarityEffects(ctx, fish, frameCount);
 
   // DISPATCHER
   // Normalize to NFC to handle Vietnamese accent variations in different environments
@@ -83,6 +125,13 @@ export const drawFishByModel = (
   if (has('cá sấu mù')) return Unique.drawBlindAlligator(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (has('cá mù')) return Unique.drawBlindFish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (has('cua khổng lồ')) return Unique.drawGiantCrab(ctx, fish, frameCount, size, finalColor);
+  if (has('robot')) return Unique.drawRobotFish(ctx, fish, frameCount, size, finalColor);
+  if (has('pha lê')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor);
+  if (has('linh hồn')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); // Soul fish uses crystal model
+  if (has('thiên hà')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); // Galaxy goldfish uses crystal model
+  if (has('phượng hoàng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor); // Phoenix uses dragon model
+  if (has('megalodon')) return Sharks.drawShark(ctx, fish, frameCount, size * 1.5, finalColor, wagFreq, wagAmp);
+  if (has('vampire') || has('ma cà rồng')) return Unique.drawAnglerFish(ctx, fish, frameCount, size, finalColor); // Vampire uses angler model
 
   // 4. ELONGATED (Cá thân dài)
   // Ưu tiên Cá Lóc trước để tránh nhầm lẫn

@@ -6,7 +6,7 @@ import { SKY_COLORS, WATER_COLORS, lerpColor, drawVignette } from './Utils';
 export const drawWaterAndSky = (
   ctx: CanvasRenderingContext2D, 
   frame: number, 
-  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' = 'sunny', 
+  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' | 'meteor_shower' | 'rainbow' | 'aurora' = 'sunny', 
   location: LocationType = 'POND', 
   timeOfDay: TimeOfDay = 'DAY',
   prevTimeOfDay: TimeOfDay = 'DAY',
@@ -40,12 +40,20 @@ export const drawWaterAndSky = (
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, CANVAS_WIDTH, 200);
 
+  // Sun/Moon
+  if (location !== 'CAVE') {
+    drawSunMoon(ctx, frame, timeOfDay, prevTimeOfDay, transition, weather);
+  }
+
   // --- Background Scenery ---
   ctx.save();
   if (location === 'POND') {
     drawHills(ctx, frame, transition, timeOfDay, prevTimeOfDay);
+    drawWindParticles(ctx, frame, transition, 'POND');
   } else if (location === 'OCEAN') {
     drawClouds(ctx, frame, transition, timeOfDay, prevTimeOfDay);
+    drawDistantLighthouse(ctx, frame, transition, timeOfDay);
+    drawWindParticles(ctx, frame, transition, 'OCEAN');
     if (weather === 'sunny') {
         drawBirds(ctx, frame);
     }
@@ -87,17 +95,9 @@ export const drawWaterAndSky = (
     drawUnderwaterCave(ctx, frame, transition);
   }
 
+  drawBackgroundFish(ctx, frame, location);
   drawUnderwaterParticles(ctx, frame, location);
 
-  // Water Reflection
-  if (location !== 'CAVE') {
-    ctx.save();
-    ctx.globalAlpha = 0.2;
-    ctx.scale(1, -0.3);
-    ctx.translate(0, -1333);
-    if (location === 'POND') drawHills(ctx, frame, transition, timeOfDay, prevTimeOfDay);
-    ctx.restore();
-  }
 
   // Wave Layers
   const drawWave = (offsetY: number, amplitude: number, frequency: number, colors: string[], alpha: number) => {
@@ -346,25 +346,156 @@ export const drawHills = (ctx: CanvasRenderingContext2D, frame: number, transiti
   }
   ctx.lineTo(CANVAS_WIDTH, 200);
   ctx.fill();
+
+  // Add trees to hills
+  drawTrees(ctx, frame, transition, time, prevTime);
+  
+  // Reeds in foreground
+  drawReeds(ctx, frame, transition, time, prevTime);
+};
+
+export const drawReeds = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
+    const getReedColor = (t: TimeOfDay) => {
+        if (t === 'DAY') return '#166534';
+        if (t === 'SUNSET') return '#451a03';
+        return '#052e16';
+    };
+    
+    ctx.save();
+    ctx.globalAlpha = transition;
+    ctx.fillStyle = lerpColor(getReedColor(prevTime), getReedColor(time), transition);
+    
+    for (let i = 0; i < 8; i++) {
+        const x = (i * 120 + (Math.sin(i * 123) * 50)) % (CANVAS_WIDTH + 40);
+        const h = 30 + (i % 3) * 15;
+        const sway = Math.sin(frame * 0.02 + i) * 5;
+        
+        ctx.beginPath();
+        ctx.moveTo(x, 200);
+        ctx.quadraticCurveTo(x + sway, 200 - h/2, x, 200 - h);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.stroke();
+        
+        // Reed head
+        ctx.fillStyle = '#713f12';
+        ctx.beginPath();
+        ctx.ellipse(x + sway * 0.8, 200 - h + 5, 3, 10, sway * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+};
+
+export const drawTrees = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
+    const getTreeColor = (t: TimeOfDay) => {
+        if (t === 'DAY') return '#064e3b';
+        if (t === 'SUNSET') return '#451a03';
+        return '#021a0a';
+    };
+    
+    ctx.save();
+    ctx.globalAlpha = transition;
+    ctx.fillStyle = lerpColor(getTreeColor(prevTime), getTreeColor(time), transition);
+    
+    for (let i = 0; i < 15; i++) {
+        const x = (i * 137) % CANVAS_WIDTH;
+        const hillY = 160 + Math.sin(x * 0.008 + 2) * 25 + Math.cos(x * 0.015) * 15;
+        const h = 20 + (i % 3) * 10;
+        const w = 8 + (i % 2) * 4;
+        
+        // Tree trunk
+        ctx.fillRect(x - 2, hillY - 5, 4, 10);
+        
+        // Tree foliage (triangular)
+        ctx.beginPath();
+        ctx.moveTo(x - w, hillY - 5);
+        ctx.lineTo(x, hillY - 5 - h);
+        ctx.lineTo(x + w, hillY - 5);
+        ctx.fill();
+    }
+    ctx.restore();
+};
+
+export const drawSunMoon = (ctx: CanvasRenderingContext2D, frame: number, time: TimeOfDay, prevTime: TimeOfDay, transition: number, weather: string) => {
+    const isNight = time === 'NIGHT' || (prevTime === 'NIGHT' && transition < 0.5);
+    const alpha = (weather === 'sunny' || weather === 'rainbow') ? 1 : 0.3;
+    
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    
+    const x = CANVAS_WIDTH * 0.2 + (time === 'SUNSET' ? CANVAS_WIDTH * 0.6 * transition : 0);
+    const y = time === 'SUNSET' ? 120 + transition * 50 : 60;
+    
+    if (time === 'NIGHT' || (prevTime === 'NIGHT' && transition < 0.8)) {
+        // Moon
+        const moonAlpha = time === 'NIGHT' ? transition : 1 - transition;
+        ctx.globalAlpha = moonAlpha * alpha;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH * 0.8, 50, 25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Moon crater effect
+        ctx.globalAlpha = moonAlpha * 0.2;
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath(); ctx.arc(CANVAS_WIDTH * 0.8 - 8, 45, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(CANVAS_WIDTH * 0.8 + 5, 55, 8, 0, Math.PI * 2); ctx.fill();
+    } else {
+        // Sun
+        const sunAlpha = (prevTime === 'NIGHT' && transition < 1) ? transition : 1;
+        ctx.globalAlpha = sunAlpha * alpha;
+        const sunColor = time === 'SUNSET' ? '#fbbf24' : '#fef3c7';
+        const glowColor = time === 'SUNSET' ? '#f59e0b' : '#fbbf24';
+        
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = glowColor;
+        ctx.fillStyle = sunColor;
+        ctx.beginPath();
+        ctx.arc(x, y, 30, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Sun rays
+        if (weather === 'sunny') {
+            ctx.strokeStyle = glowColor;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = sunAlpha * 0.3;
+            for (let i = 0; i < 8; i++) {
+                const angle = (i * 45 + frame * 0.2) * Math.PI / 180;
+                ctx.beginPath();
+                ctx.moveTo(x + Math.cos(angle) * 40, y + Math.sin(angle) * 40);
+                ctx.lineTo(x + Math.cos(angle) * 60, y + Math.sin(angle) * 60);
+                ctx.stroke();
+            }
+        }
+    }
+    ctx.restore();
 };
 
 export const drawClouds = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
-  const alpha = time === 'NIGHT' ? (1 - transition) * 0.3 : (prevTime === 'NIGHT' ? transition * 0.3 : 0.6);
-  if (alpha <= 0) return;
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = 'white';
-  for (let i = 0; i < 5; i++) {
-    const x = ((i * 250 + frame * 0.1) % (CANVAS_WIDTH + 400)) - 200;
-    const y = 40 + Math.sin(i + frame * 0.01) * 20;
-    const size = 40 + (i % 3) * 20;
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.arc(x + size * 0.6, y - size * 0.2, size * 0.7, 0, Math.PI * 2);
-    ctx.arc(x + size * 1.2, y, size * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
+  const baseAlpha = time === 'NIGHT' ? (1 - transition) * 0.3 : (prevTime === 'NIGHT' ? transition * 0.3 : 0.6);
+  if (baseAlpha <= 0) return;
+  
+  const drawCloudLayer = (count: number, speed: number, alphaMult: number, yOffset: number, scale: number) => {
+    ctx.save();
+    ctx.globalAlpha = baseAlpha * alphaMult;
+    ctx.fillStyle = time === 'SUNSET' ? '#fed7aa' : 'white';
+    for (let i = 0; i < count; i++) {
+      const x = ((i * (CANVAS_WIDTH/count*1.5) + frame * speed) % (CANVAS_WIDTH + 400)) - 200;
+      const y = yOffset + Math.sin(i + frame * 0.01) * 20;
+      const size = (40 + (i % 3) * 20) * scale;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.arc(x + size * 0.6, y - size * 0.2, size * 0.7, 0, Math.PI * 2);
+      ctx.arc(x + size * 1.2, y, size * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  };
+
+  drawCloudLayer(4, 0.05, 0.4, 30, 0.8); // Distant slow clouds
+  drawCloudLayer(5, 0.12, 1.0, 60, 1.0); // Main clouds
 };
 
 export const drawCaveFormations = (ctx: CanvasRenderingContext2D, frame: number, transition: number) => {
@@ -396,6 +527,46 @@ export const drawCaveFormations = (ctx: CanvasRenderingContext2D, frame: number,
     ctx.fill();
     ctx.restore();
   }
+  
+  drawDrippingWater(ctx, frame);
+};
+
+const caveDripPool: { x: number; y: number; speed: number; delay: number }[] = [];
+
+export const drawDrippingWater = (ctx: CanvasRenderingContext2D, frame: number) => {
+    if (caveDripPool.length === 0) {
+        for (let i = 0; i < 5; i++) {
+            caveDripPool.push({
+                x: (i * 150 + 100) % CANVAS_WIDTH,
+                y: -10,
+                speed: 2 + Math.random() * 2,
+                delay: Math.random() * 200
+            });
+        }
+    }
+    
+    ctx.save();
+    ctx.fillStyle = 'rgba(125, 211, 252, 0.6)';
+    caveDripPool.forEach(d => {
+        if (frame > d.delay) {
+            d.y += d.speed;
+            if (d.y > 200) {
+                // Ripple effect on water surface
+                ctx.beginPath();
+                ctx.ellipse(d.x, 200, 5, 2, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.stroke();
+                
+                d.y = -10;
+                d.delay = frame + Math.random() * 300;
+            }
+            
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+    ctx.restore();
 };
 
 export const drawUnderwaterPond = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
@@ -682,4 +853,145 @@ export const drawAmbientNight = (ctx: CanvasRenderingContext2D, frame: number) =
     ctx.save(); ctx.globalAlpha = l.opacity; ctx.translate(l.x, l.y); ctx.rotate(l.rot); ctx.fillStyle = '#65a30d'; ctx.beginPath(); ctx.ellipse(0, 0, l.size, l.size * 0.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   });
   ctx.restore();
+};
+
+const bgFishPool: { x: number; y: number; speed: number; size: number; phase: number; color: string }[] = [];
+
+export const drawBackgroundFish = (ctx: CanvasRenderingContext2D, frame: number, location: LocationType) => {
+    if (bgFishPool.length === 0) {
+        for (let i = 0; i < 10; i++) {
+            bgFishPool.push({
+                x: Math.random() * CANVAS_WIDTH,
+                y: 250 + Math.random() * 300,
+                speed: 0.5 + Math.random() * 1,
+                size: 4 + Math.random() * 4,
+                phase: Math.random() * Math.PI * 2,
+                color: location === 'OCEAN' ? 'rgba(125, 211, 252, 0.3)' : 'rgba(74, 222, 128, 0.2)'
+            });
+        }
+    }
+    
+    ctx.save();
+    bgFishPool.forEach(f => {
+        f.x += f.speed;
+        if (f.x > CANVAS_WIDTH + 50) {
+            f.x = -50;
+            f.y = 250 + Math.random() * 300;
+        }
+        
+        const sway = Math.sin(frame * 0.05 + f.phase) * 3;
+        ctx.fillStyle = f.color;
+        
+        ctx.beginPath();
+        // Body
+        ctx.ellipse(f.x, f.y + sway, f.size, f.size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Tail
+        ctx.beginPath();
+        ctx.moveTo(f.x - f.size * 0.8, f.y + sway);
+        ctx.lineTo(f.x - f.size * 1.5, f.y + sway - f.size * 0.4);
+        ctx.lineTo(f.x - f.size * 1.5, f.y + sway + f.size * 0.4);
+        ctx.closePath();
+        ctx.fill();
+    });
+    ctx.restore();
+};
+
+export const drawDistantLighthouse = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay) => {
+    const x = CANVAS_WIDTH * 0.85;
+    const y = 195;
+    
+    ctx.save();
+    // Island base
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(x - 30, y + 5);
+    ctx.quadraticCurveTo(x, y - 5, x + 30, y + 5);
+    ctx.fill();
+    
+    // Lighthouse body
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(x - 5, y - 30, 10, 30);
+    
+    // Red stripes
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(x - 5, y - 25, 10, 5);
+    ctx.fillRect(x - 5, y - 10, 10, 5);
+    
+    // Top
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(x - 7, y - 35, 14, 5);
+    
+    // Light
+    if (time === 'NIGHT' || time === 'SUNSET') {
+        const glow = (Math.sin(frame * 0.05) + 1) / 2;
+        ctx.shadowBlur = 20 * glow;
+        ctx.shadowColor = '#fde047';
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath();
+        ctx.arc(x, y - 32, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Light beam
+        if (time === 'NIGHT') {
+            ctx.save();
+            ctx.globalAlpha = 0.2 * glow;
+            const beamAngle = (frame * 0.02) % (Math.PI * 2);
+            const beamGrad = ctx.createRadialGradient(x, y - 32, 0, x, y - 32, 150);
+            beamGrad.addColorStop(0, '#fde047');
+            beamGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = beamGrad;
+            ctx.beginPath();
+            ctx.moveTo(x, y - 32);
+            ctx.arc(x, y - 32, 150, beamAngle - 0.2, beamAngle + 0.2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+    ctx.restore();
+};
+
+const windParticlePool: { x: number; y: number; vx: number; vy: number; rot: number; rotSpeed: number; size: number; color: string }[] = [];
+
+export const drawWindParticles = (ctx: CanvasRenderingContext2D, frame: number, transition: number, location: LocationType) => {
+    if (windParticlePool.length === 0) {
+        for (let i = 0; i < 15; i++) {
+            windParticlePool.push({
+                x: Math.random() * CANVAS_WIDTH,
+                y: Math.random() * 200,
+                vx: 1 + Math.random() * 2,
+                vy: 0.2 + Math.random() * 0.5,
+                rot: Math.random() * Math.PI * 2,
+                rotSpeed: 0.02 + Math.random() * 0.05,
+                size: 3 + Math.random() * 3,
+                color: location === 'POND' ? '#84cc16' : '#fecaca' // Leaves for Pond, Petals for Ocean
+            });
+        }
+    }
+    
+    ctx.save();
+    ctx.globalAlpha = 0.6 * transition;
+    windParticlePool.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy + Math.sin(frame * 0.02 + p.x) * 0.2;
+        p.rot += p.rotSpeed;
+        
+        if (p.x > CANVAS_WIDTH + 20) {
+            p.x = -20;
+            p.y = Math.random() * 180;
+        }
+        if (p.y > 200) p.y = 0;
+        
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+    ctx.restore();
 };

@@ -1,0 +1,21 @@
+
+import { FishType, Rarity, FishBehavior } from '../../../types';
+
+export const LEGENDARY_FISH: FishType[] = [
+  // Cá Kiếm Bạc
+  { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 8000, tension: 90, color: '#e2e8f0', size: 50, weight: 0.8, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Mập Trắng
+  { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 15000, tension: 94, color: '#94a3b8', size: 65, weight: 0.5, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Rồng Vàng
+  { name: 'Cá Rồng Vàng', rarity: Rarity.LEGENDARY, value: 20000, tension: 88, color: '#fbbf24', size: 45, weight: 0.4, allowedLocations: ['POND'], preferredBaits: ['bait_natural_2'], canBerserk: true },
+  // Cá Voi Xanh Con
+  { name: 'Cá Voi Xanh Con', rarity: Rarity.LEGENDARY, value: 25000, tension: 92, color: '#1d4ed8', size: 70, weight: 0.3, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Voi Sát Thủ
+  { name: 'Cá Voi Sát Thủ', rarity: Rarity.LEGENDARY, value: 35000, tension: 96, color: '#020617', size: 85, weight: 0.2, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Vua (Oarfish)
+  { name: 'Cá Vua (Oarfish)', rarity: Rarity.LEGENDARY, value: 45000, tension: 98, color: '#cbd5e1', size: 120, weight: 0.15, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_natural_4'], canBerserk: true },
+  // Cá Ma Cà Rồng
+  { name: 'Cá Ma Cà Rồng', rarity: Rarity.LEGENDARY, value: 30000, tension: 92, color: '#7f1d1d', size: 40, weight: 0.8, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_natural_4'], canBerserk: true },
+  // Cá Vàng Thiên Hà
+  { name: 'Cá Vàng Thiên Hà', rarity: Rarity.LEGENDARY, value: 45000, tension: 95, color: '#1e1b4b', size: 50, weight: 0.6, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+];
