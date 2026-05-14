@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UIView } from '../../core/types';
+import { UIView } from '../../types';
 
 interface ResultsViewProps {
   competitionScore: number;

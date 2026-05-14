@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { UIView, Quest } from '../../core/types';
-import { soundManager } from '../../core/soundManager';
+import { UIView, Quest } from '../../types';
+import { soundManager } from '../../core/systems/soundManager';
 
 interface BottomNavProps {
   activeView: UIView;

@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import BottomNav from '../ui/BottomNav';
-import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem, ProfileStats } from '../../core/types';
-import { RODS, TACKLES, BAITS, WEATHER_BONUSES } from '../../core/gameData';
-import { soundManager } from '../../core/soundManager';
+import BottomNav from '../layout/BottomNav';
+import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem, ProfileStats } from '../../types';
+import { RODS, TACKLES, BAITS, WEATHER_BONUSES } from '../../core/data/gameData';
+import { soundManager } from '../../core/systems/soundManager';
 
 interface GameViewProps {
   gameState: GameState;
@@ -26,29 +26,29 @@ interface GameViewProps {
   notifications: NotificationItem[];
   epicCatch: { fish: { name: string; rarity: string; value: number }; isGolden: boolean } | null;
   quests: Quest[];
-  onStart: () => void;
-  onStartCompetition: () => void;
-  onChangeLocation: (loc: LocationType) => void;
+  startGame: () => void;
+  startCompetition: () => void;
+  setLocation: (loc: LocationType) => void;
   setActiveView: (view: UIView) => void;
   setProfileTab: (tab: 'stats' | 'skills' | 'collection') => void;
   onOpenShop: (tab: 'rod' | 'tackle' | 'bait') => void;
   setShowTutorial: (show: boolean) => void;
   showTutorial: boolean;
   liveBait: FishType | null;
-  onSelect: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
+  handleSelect: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
   levelData: { level: number; progress: number; title: string; xp: number; xpToLevel: number };
-  onRepair: (type: 'rod' | 'tackle') => void;
+  handleRepair: (type: 'rod' | 'tackle') => void;
   dailyMarketBoosts: string[];
   stats?: ProfileStats;
-  onClaimDailyReward?: () => void;
+  claimDailyReward?: () => void;
 }
 
 const GameView: React.FC<GameViewProps> = ({ 
   gameState, gold, inventory, inventoryCapacity, currentRod, currentTackle, currentBait, baitCounts,
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
-  notifications, epicCatch, quests, onStart, onStartCompetition, onChangeLocation,
-  setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait, onSelect, ownedRods, ownedTackles,
-  levelData, onRepair, onOpenShop, dailyMarketBoosts, stats, onClaimDailyReward
+  notifications, epicCatch, quests, startGame, startCompetition, setLocation,
+  setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait, handleSelect, ownedRods, ownedTackles,
+  levelData, handleRepair, onOpenShop, dailyMarketBoosts, stats, claimDailyReward
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isGearExpanded, setIsGearExpanded] = useState(false);
@@ -87,7 +87,7 @@ const GameView: React.FC<GameViewProps> = ({
     const nextIndex = (currentIndex + 1) % ownedRods.length;
     const nextRodId = ownedRods[nextIndex];
     const nextRod = RODS.find(r => r.id === nextRodId);
-    if (nextRod) onSelect(nextRod, 'rod');
+    if (nextRod) handleSelect(nextRod, 'rod');
   };
 
   const cycleTackle = () => {
@@ -96,7 +96,7 @@ const GameView: React.FC<GameViewProps> = ({
     const nextIndex = (currentIndex + 1) % ownedTackles.length;
     const nextTackleId = ownedTackles[nextIndex];
     const nextTackle = TACKLES.find(t => t.id === nextTackleId);
-    if (nextTackle) onSelect(nextTackle, 'tackle');
+    if (nextTackle) handleSelect(nextTackle, 'tackle');
   };
 
   const cycleBait = () => {
@@ -105,7 +105,7 @@ const GameView: React.FC<GameViewProps> = ({
     const currentIndex = availableBaits.findIndex(b => b.id === currentBait.id);
     const nextIndex = (currentIndex + 1) % availableBaits.length;
     const nextBait = availableBaits[nextIndex];
-    if (nextBait) onSelect(nextBait, 'bait');
+    if (nextBait) handleSelect(nextBait, 'bait');
   };
 
   const isFishing = ![GameState.IDLE, GameState.START, GameState.CAUGHT, GameState.GAMEOVER].includes(gameState);
@@ -122,10 +122,10 @@ const GameView: React.FC<GameViewProps> = ({
             </h1>
           </div>
           <div className="relative flex flex-col gap-6 w-full max-w-sm px-8 animate-in slide-in-from-bottom-10 duration-700 delay-300">
-            <button onClick={() => { soundManager.playClick(); onStart(); }} className="group relative bg-gradient-to-r from-blue-600 to-blue-400 text-white px-12 py-6 rounded-[2rem] font-black text-2xl tracking-tight transition-all active:scale-95 shadow-[0_20px_50px_rgba(37,99,235,0.3)]">
+            <button onClick={() => { soundManager.playClick(); startGame(); }} className="group relative bg-gradient-to-r from-blue-600 to-blue-400 text-white px-12 py-6 rounded-[2rem] font-black text-2xl tracking-tight transition-all active:scale-95 shadow-[0_20px_50px_rgba(37,99,235,0.3)]">
                VÀO CÂU NGAY →
             </button>
-            <button onClick={() => { soundManager.playClick(); onStartCompetition(); }} className="group relative bg-slate-900 border border-white/10 text-white px-12 py-5 rounded-[2rem] font-black text-xl transition-all active:scale-95 shadow-2xl hover:bg-slate-800">
+            <button onClick={() => { soundManager.playClick(); startCompetition(); }} className="group relative bg-slate-900 border border-white/10 text-white px-12 py-5 rounded-[2rem] font-black text-xl transition-all active:scale-95 shadow-2xl hover:bg-slate-800">
               <span className="bg-clip-text bg-gradient-to-r from-orange-400 to-amber-500 text-transparent">CHẾ ĐỘ THI ĐẤU</span>
             </button>
             <div className="flex gap-4">
@@ -149,9 +149,9 @@ const GameView: React.FC<GameViewProps> = ({
                    </div>
                    {showLocationDropdown && (
                      <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl">
-                        <button onClick={() => { soundManager.playClick(); onChangeLocation('POND'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">AO LÀNG</button>
-                        <button onClick={() => { soundManager.playClick(); onChangeLocation('OCEAN'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">ĐẠI DƯƠNG</button>
-                        <button onClick={() => { soundManager.playClick(); onChangeLocation('CAVE'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">HANG TỐI</button>
+                        <button onClick={() => { soundManager.playClick(); setLocation('POND'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">AO LÀNG</button>
+                        <button onClick={() => { soundManager.playClick(); setLocation('OCEAN'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">ĐẠI DƯƠNG</button>
+                        <button onClick={() => { soundManager.playClick(); setLocation('CAVE'); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">HANG TỐI</button>
                      </div>
                    )}
                  </div>
@@ -266,7 +266,7 @@ const GameView: React.FC<GameViewProps> = ({
                       </div>
                     )}
                     {isGearExpanded && (currentRod.durability || 0) < (currentRod.maxDurability || 100) && (
-                        <button onClick={(e) => { e.stopPropagation(); soundManager.playClick(); onRepair('rod'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
+                        <button onClick={(e) => { e.stopPropagation(); soundManager.playClick(); handleRepair('rod'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
                     )}
                   </div>
                   {showRodDropdown && (
@@ -275,7 +275,7 @@ const GameView: React.FC<GameViewProps> = ({
                         const rod = RODS.find(r => r.id === rodId);
                         if (!rod) return null;
                         return (
-                          <button key={rodId} onClick={() => { soundManager.playClick(); onSelect(rod, 'rod'); setShowRodDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                          <button key={rodId} onClick={() => { soundManager.playClick(); handleSelect(rod, 'rod'); setShowRodDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
                             {rod.name}
                           </button>
                         );
@@ -303,7 +303,7 @@ const GameView: React.FC<GameViewProps> = ({
                       </div>
                     )}
                     {isGearExpanded && (currentTackle.durability || 0) < (currentTackle.maxDurability || 30) && (
-                        <button onClick={(e) => { e.stopPropagation(); soundManager.playClick(); onRepair('tackle'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
+                        <button onClick={(e) => { e.stopPropagation(); soundManager.playClick(); handleRepair('tackle'); }} className="bg-blue-600 hover:bg-blue-500 text-[8px] font-black px-2 py-1 rounded-lg transition-colors">SỬA</button>
                     )}
                   </div>
                   {showTackleDropdown && (
@@ -312,7 +312,7 @@ const GameView: React.FC<GameViewProps> = ({
                         const tackle = TACKLES.find(t => t.id === tackleId);
                         if (!tackle) return null;
                         return (
-                          <button key={tackleId} onClick={() => { soundManager.playClick(); onSelect(tackle, 'tackle'); setShowTackleDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                          <button key={tackleId} onClick={() => { soundManager.playClick(); handleSelect(tackle, 'tackle'); setShowTackleDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
                             {tackle.name}
                           </button>
                         );
@@ -349,7 +349,7 @@ const GameView: React.FC<GameViewProps> = ({
                {showBaitDropdown && !liveBait && (
                  <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl z-50">
                    {BAITS.filter(b => (baitCounts[b.id] || 0) > 0).map(bait => (
-                     <button key={bait.id} onClick={() => { soundManager.playClick(); onSelect(bait, 'bait'); setShowBaitDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
+                     <button key={bait.id} onClick={() => { soundManager.playClick(); handleSelect(bait, 'bait'); setShowBaitDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
                        {bait.name} (x{baitCounts[bait.id] || 0})
                      </button>
                    ))}

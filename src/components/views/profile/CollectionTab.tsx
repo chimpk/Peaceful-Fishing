@@ -1,67 +1,88 @@
 
 import React, { useEffect, useRef } from 'react';
-import { FishType, Rarity } from '../../../core/types';
-import { FISH_TYPES } from '../../../core/gameData';
-import { drawFishByModel } from '../../../core/fish';
+import { FishType, Rarity } from '../../../types';
+import { FISH_TYPES } from '../../../core/data/gameData';
+import { drawFishByModel } from '../../../core/entities/index';
 
 interface FishCanvasProps {
   fish: FishType;
   isUnlocked: boolean;
 }
 
-const FishCanvas: React.FC<FishCanvasProps> = ({ fish, isUnlocked }) => {
+const FishCanvas: React.FC<FishCanvasProps> = React.memo(({ fish, isUnlocked }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isHovered, setIsHovered] = React.useState(false);
   const frameRef = useRef<number>(0);
+  const isAnimated = isUnlocked && isHovered;
 
-  useEffect(() => {
+  // Initial draw and update on hover
+  React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    let animationId: number;
-    const render = () => {
+    // Static draw function
+    const draw = (frame: number) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Save state
       ctx.save();
       ctx.translate(canvas.width / 2, canvas.height / 2);
       
-      // If locked, draw a silhouette
       if (!isUnlocked) {
         ctx.filter = 'brightness(0) opacity(0.2)';
       }
 
-      // Draw the fish
       drawFishByModel(
         ctx, 
         fish, 
-        frameRef.current, 
-        false, // isStruggling
-        1.0,   // currentSpeed
-        true,  // isCaught
-        false  // isGolden
+        frame, 
+        false,
+        0.5, // Slow movement
+        true,
+        false
       );
-
       ctx.restore();
-      
-      frameRef.current += 1;
+    };
+
+    // If not animated, just draw once
+    if (!isAnimated) {
+      draw(0);
+      return;
+    }
+
+    // Animation loop ONLY when hovered
+    let animationId: number;
+    let lastTime = 0;
+    const interval = 1000 / 30; // 30fps
+
+    const render = (time: number) => {
+      if (time - lastTime >= interval) {
+        lastTime = time;
+        draw(frameRef.current);
+        frameRef.current += 1;
+      }
       animationId = requestAnimationFrame(render);
     };
 
-    render();
+    animationId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animationId);
-  }, [fish, isUnlocked]);
+  }, [fish, isUnlocked, isAnimated]);
 
   return (
-    <canvas 
-      ref={canvasRef} 
-      width={120} 
-      height={80} 
-      className="w-full h-full object-contain pointer-events-none"
-    />
+    <div 
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="w-full h-full flex items-center justify-center cursor-help"
+    >
+      <canvas 
+        ref={canvasRef} 
+        width={120} 
+        height={80} 
+        className="w-full h-full object-contain pointer-events-none"
+      />
+    </div>
   );
-};
+});
 
 interface CollectionTabProps {
   unlockedFish: string[];
@@ -69,8 +90,11 @@ interface CollectionTabProps {
 }
 
 const CollectionTab: React.FC<CollectionTabProps> = ({ unlockedFish, fishCounts }) => {
+  // Use useMemo to prevent re-calculating the list on every render
+  const fishList = React.useMemo(() => FISH_TYPES, []);
+
   return (
-    <div className="p-8 animate-in fade-in zoom-in-95 duration-300">
+    <div className="p-8 animate-in fade-in duration-300">
        <div className="flex justify-between items-center mb-8 glass-panel p-8 rounded-[2.5rem] border border-white/10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/20"></div>
           <div className="flex flex-col relative z-10">
@@ -80,13 +104,13 @@ const CollectionTab: React.FC<CollectionTabProps> = ({ unlockedFish, fishCounts 
           <div className="flex items-center gap-5 relative z-10">
              <div className="flex flex-col items-end">
                 <span className="text-[9px] font-black opacity-30 uppercase tracking-widest leading-none mb-1.5">TIẾN ĐỘ</span>
-                <span className="text-3xl font-black italic text-white tracking-tighter leading-none">{unlockedFish.length}<span className="text-sm not-italic opacity-30 mx-1">/</span>{FISH_TYPES.length}</span>
+                <span className="text-3xl font-black italic text-white tracking-tighter leading-none">{unlockedFish.length}<span className="text-sm not-italic opacity-30 mx-1">/</span>{fishList.length}</span>
              </div>
-             <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-white/5 animate-pulse">📚</div>
+             <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-white/5">📚</div>
           </div>
        </div>
        <div className="grid grid-cols-2 gap-6 pb-24">
-          {FISH_TYPES.map((fish, i) => {
+          {fishList.map((fish, i) => {
              const isUnlocked = unlockedFish.includes(fish.name);
              const rarityRGB = {
                [Rarity.JUNK]: '148, 163, 184',
@@ -99,12 +123,11 @@ const CollectionTab: React.FC<CollectionTabProps> = ({ unlockedFish, fishCounts 
              }[fish.rarity];
 
              return (
-                <div key={i} className={`relative p-6 rounded-[2.5rem] border transition-all duration-700 flex flex-col items-center text-center shadow-2xl group ${isUnlocked ? 'glass-card hover:border-blue-500/40' : 'bg-slate-950/40 border-white/5 opacity-40 grayscale'}`}>
+                <div key={i} className={`relative p-6 rounded-[2.5rem] border transition-transform duration-300 flex flex-col items-center text-center shadow-2xl group ${isUnlocked ? 'glass-card' : 'bg-slate-950/40 border-white/5 opacity-40 grayscale'}`}>
                    {/* Fish Preview Box */}
-                   <div className="w-full h-32 rounded-[2rem] mb-5 flex items-center justify-center relative overflow-hidden bg-slate-950/60 shadow-inner group-hover:scale-105 transition-transform duration-700 ease-out">
-                      {/* Ambient Glow */}
+                   <div className="w-full h-32 rounded-[2rem] mb-5 flex items-center justify-center relative overflow-hidden bg-slate-950/60 shadow-inner">
                       {isUnlocked && (
-                        <div className={`absolute inset-0 fish-glow blur-3xl opacity-10 group-hover:opacity-30 transition-opacity [--glow-color:${fish.color}]`}></div>
+                        <div className={`absolute inset-0 fish-glow blur-3xl opacity-5 group-hover:opacity-20 transition-opacity [--glow-color:${fish.color}]`}></div>
                       )}
                       <FishCanvas fish={fish} isUnlocked={isUnlocked} />
                       

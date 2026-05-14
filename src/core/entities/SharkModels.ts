@@ -1,5 +1,5 @@
 
-import { FishType } from '../types';
+import { FishType } from '../../types';
 
 export const drawShark = (
   ctx: CanvasRenderingContext2D,

@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import Header from '../ui/Header';
-import BottomNav from '../ui/BottomNav';
-import { UIView, InventoryItem, RodType, BaitType, Quest, Rarity } from '../../core/types';
-import { soundManager } from '../../core/soundManager';
+import Header from '../layout/Header';
+import BottomNav from '../layout/BottomNav';
+import { UIView, InventoryItem, RodType, BaitType, Quest, Rarity } from '../../types';
+import { soundManager } from '../../core/systems/soundManager';
 
 interface InventoryViewProps {
   gold: number;
@@ -11,15 +11,15 @@ interface InventoryViewProps {
   inventoryCapacity: number;
   quests: Quest[];
   setActiveView: (view: UIView) => void;
-  onSellFish: (timestamp: number) => void;
-  onUpgradeCapacity: () => void;
-  onSellAll: () => void;
-  onUseAsBait: (timestamp: number) => void;
+  sellFish: (timestamp: number) => void;
+  upgradeCapacity: () => void;
+  sellAllFish: () => void;
+  useFishAsBait: (timestamp: number) => void;
 }
 
 const InventoryView: React.FC<InventoryViewProps> = ({ 
   gold, inventory, inventoryCapacity, quests,
-  setActiveView, onSellFish, onUpgradeCapacity, onSellAll, onUseAsBait 
+  setActiveView, sellFish, upgradeCapacity, sellAllFish, useFishAsBait 
 }) => {
   const [tab, setTab] = useState<'items' | 'upgrade'>('items');
   const [confirmSellTarget, setConfirmSellTarget] = useState<InventoryItem | null>(null);
@@ -50,7 +50,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
     if (item.fish.rarity === Rarity.LEGENDARY || item.fish.rarity === Rarity.MYTHIC || item.fish.rarity === Rarity.EPIC) {
       setConfirmSellTarget(item);
     } else {
-      onSellFish(item.timestamp);
+      sellFish(item.timestamp);
     }
   };
 
@@ -84,7 +84,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                     if (hasRare) {
                       setConfirmSellAll(true);
                     } else {
-                      onSellAll();
+                      sellAllFish();
                     }
                   }}
                   className="flex-1 py-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black text-[10px] tracking-widest uppercase transition-all"
@@ -116,7 +116,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                       <div className="text-yellow-500 font-black text-xs mb-4">{(item.isGolden ? item.fish.value * 2 : item.fish.value).toLocaleString()} 💰</div>
                       <div className="flex gap-2 w-full mt-auto">
                         <button onClick={() => { soundManager.playClick(); handleSellClick(item); }} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
-                        <button onClick={() => { soundManager.playClick(); onUseAsBait(item.timestamp); }} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
+                        <button onClick={() => { soundManager.playClick(); useFishAsBait(item.timestamp); }} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
                       </div>
                    </div>
                  ))
@@ -142,7 +142,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
              </div>
 
              <button 
-               onClick={() => { soundManager.playClick(); onUpgradeCapacity(); }}
+               onClick={() => { soundManager.playClick(); upgradeCapacity(); }}
                className="w-full py-6 bg-gradient-to-r from-yellow-500 to-amber-500 text-black rounded-3xl font-black tracking-widest text-sm hover:scale-105 transition-all shadow-[0_20px_50px_rgba(234,179,8,0.3)] active:scale-95"
              >
                NÂNG CẤP ({(inventoryCapacity * 100).toLocaleString()} 💰)
@@ -172,7 +172,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
               <button 
                 onClick={() => {
                   soundManager.playClick();
-                  onSellFish(confirmSellTarget.timestamp);
+                  sellFish(confirmSellTarget.timestamp);
                   setConfirmSellTarget(null);
                 }}
                 className="flex-1 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-600/30 transition-all active:scale-95"
@@ -203,7 +203,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
               <button 
                 onClick={() => {
                   soundManager.playClick();
-                  onSellAll();
+                  sellAllFish();
                   setConfirmSellAll(false);
                 }}
                 className="flex-1 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-600/30 transition-all active:scale-95"

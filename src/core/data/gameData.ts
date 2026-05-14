@@ -1,5 +1,5 @@
 
-import { Rarity, FishType, RodType, TackleType, BaitType, Achievement, Quest, FishBehavior } from './types';
+import { Rarity, FishType, RodType, TackleType, BaitType, Achievement, Quest, FishBehavior } from '../../types';
 
 export const CANVAS_WIDTH = 1100;
 export const CANVAS_HEIGHT = 650;

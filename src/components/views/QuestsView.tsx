@@ -1,9 +1,9 @@
 
 import React from 'react';
-import Header from '../ui/Header';
-import BottomNav from '../ui/BottomNav';
-import { UIView, Quest } from '../../core/types';
-import { soundManager } from '../../core/soundManager';
+import Header from '../layout/Header';
+import BottomNav from '../layout/BottomNav';
+import { UIView, Quest } from '../../types';
+import { soundManager } from '../../core/systems/soundManager';
 
 interface QuestsViewProps {
   gold: number;

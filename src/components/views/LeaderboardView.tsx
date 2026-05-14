@@ -1,8 +1,8 @@
 
 import React from 'react';
-import Header from '../ui/Header';
-import BottomNav from '../ui/BottomNav';
-import { UIView, Quest } from '../../core/types';
+import Header from '../layout/Header';
+import BottomNav from '../layout/BottomNav';
+import { UIView, Quest } from '../../types';
 
 interface LeaderboardViewProps {
   gold: number;
@@ -30,18 +30,18 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ gold, leaderboard, qu
                  </div>
                ) : (
                  leaderboard.map((entry, i) => (
-                  <div key={i} className={`p-8 flex justify-between items-center transition-all hover:bg-white/5 ${i === 0 ? 'bg-yellow-500/5' : ''}`}>
-                     <div className="flex items-center gap-6">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black shadow-2xl ${i === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-600 text-black animate-float' : i === 1 ? 'bg-gradient-to-br from-slate-200 to-slate-400 text-black' : i === 2 ? 'bg-gradient-to-br from-orange-500 to-amber-700 text-black' : 'bg-slate-800 text-white border border-white/10'}`}>
-                          {i + 1}
-                        </div>
-                        <div>
-                           <div className="text-sm font-black text-white/90 italic tracking-tight">{i === 0 ? 'NHÀ VÔ ĐỊCH' : i === 1 ? 'Á QUÂN I' : i === 2 ? 'Á QUÂN II' : 'CẦN THỦ'}</div>
-                           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{entry.date}</div>
-                        </div>
-                     </div>
-                     <div className={`text-3xl font-black italic tracking-tighter ${i === 0 ? 'text-yellow-400 drop-shadow-[0_0_15px_#eab308]' : 'text-white/80'}`}>{entry.score.toLocaleString()}</div>
-                  </div>
+                   <div key={i} className={`p-8 flex justify-between items-center transition-all hover:bg-white/5 ${i === 0 ? 'bg-yellow-500/5' : ''}`}>
+                      <div className="flex items-center gap-6">
+                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-black shadow-2xl ${i === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-600 text-black animate-float' : i === 1 ? 'bg-gradient-to-br from-slate-200 to-slate-400 text-black' : i === 2 ? 'bg-gradient-to-br from-orange-500 to-amber-700 text-black' : 'bg-slate-800 text-white border border-white/10'}`}>
+                           {i + 1}
+                         </div>
+                         <div>
+                            <div className="text-sm font-black text-white/90 italic tracking-tight">{i === 0 ? 'NHÀ VÔ ĐỊCH' : i === 1 ? 'Á QUÂN I' : i === 2 ? 'Á QUÂN II' : 'CẦN THỦ'}</div>
+                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{entry.date}</div>
+                         </div>
+                      </div>
+                      <div className={`text-3xl font-black italic tracking-tighter ${i === 0 ? 'text-yellow-400 drop-shadow-[0_0_15px_#eab308]' : 'text-white/80'}`}>{entry.score.toLocaleString()}</div>
+                   </div>
                  ))
                )}
             </div>

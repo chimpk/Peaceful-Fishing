@@ -1,4 +1,4 @@
-import { Rarity } from "../types";
+import { Rarity } from "../../types";
 
 export const ChestModels = {
   drawChest: (ctx: CanvasRenderingContext2D, rarity: Rarity, frame: number, x: number, y: number, size: number = 20) => {

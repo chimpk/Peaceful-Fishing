@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { soundManager } from '../../../core/soundManager';
+import { soundManager } from '../../../core/systems/soundManager';
 
 interface StatsTabProps {
   levelData: { level: number; progress: number; title: string; nextCap: number };

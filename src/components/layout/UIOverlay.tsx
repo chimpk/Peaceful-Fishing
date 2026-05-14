@@ -1,15 +1,15 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem } from '../core/types';
+import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem } from '../../types';
 
 // Views
-import GameView from './views/GameView';
-import ShopView from './views/ShopView';
-import QuestsView from './views/QuestsView';
-import ProfileView from './views/ProfileView';
-import ResultsView from './views/ResultsView';
-import LeaderboardView from './views/LeaderboardView';
-import InventoryView from './views/InventoryView';
+import GameView from '../views/GameView';
+import ShopView from '../views/ShopView';
+import QuestsView from '../views/QuestsView';
+import ProfileView from '../views/ProfileView';
+import ResultsView from '../views/ResultsView';
+import LeaderboardView from '../views/LeaderboardView';
+import InventoryView from '../views/InventoryView';
 
 interface UIOverlayProps {
   gameState: GameState;
@@ -28,37 +28,37 @@ interface UIOverlayProps {
   stats: ProfileStats;
   achievements: Achievement[];
   quests: Quest[];
-  onStart: () => void;
-  onSellAll: () => void;
-  onBuy: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
-  onSelect: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
-  onUpgradeCapacity: () => void;
+  startGame: () => void;
+  sellAllFish: () => void;
+  buyItem: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
+  handleSelect: (item: RodType | TackleType | BaitType, type: 'rod' | 'tackle' | 'bait') => void;
+  upgradeCapacity: () => void;
   onResetData: () => void;
-  onClaimQuest: (id: string) => void;
+  claimQuest: (id: string) => void;
   weather: 'sunny' | 'rainy' | 'stormy' | 'foggy';
-  onSellFish: (timestamp: number) => void;
+  sellFish: (timestamp: number) => void;
   epicCatch: { fish: { name: string; rarity: string; value: number }; isGolden: boolean } | null;
   unlockedFish: string[];
   skills: PlayerSkills;
   dailyMarketBoosts: string[];
-  onBuySkill: (skillId: keyof PlayerSkills) => void;
+  buySkill: (skillId: keyof PlayerSkills) => void;
   location: LocationType;
   timeOfDay: TimeOfDay;
   streak: number;
-  onChangeLocation: (loc: LocationType) => void;
+  setLocation: (loc: LocationType) => void;
   competitionMode: boolean;
   competitionTimeLeft: number;
   competitionScore: number;
   leaderboard: { score: number; date: string }[];
-  onStartCompetition: () => void;
+  startCompetition: () => void;
   liveBait: FishType | null;
-  onUseAsBait: (timestamp: number) => void;
-  onClaimDailyReward: () => void;
-  onRepair: (type: 'rod' | 'tackle') => void;
+  useFishAsBait: (timestamp: number) => void;
+  claimDailyReward: () => void;
+  handleRepair: (type: 'rod' | 'tackle') => void;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = (props) => {
-  const { activeView, setActiveView, stats, gold, quests } = props;
+  const { activeView, setActiveView, stats } = props;
   
   const [showTutorial, setShowTutorial] = useState(false);
   const [profileTab, setProfileTab] = useState<'stats' | 'skills' | 'collection'>('stats');
@@ -72,7 +72,7 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
   const levelData = useMemo(() => {
     const level = stats.level || 1;
     const xp = stats.xp || 0;
-    const xpToLevel = level * 800;
+    const xpToLevel = Math.floor(800 * Math.pow(1.3, level - 1));
     const progress = (xp / xpToLevel) * 100;
     
     let title = "Tân Thủ";
@@ -100,7 +100,7 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
       case UIView.SHOP:
         return <ShopView {...props} initialTab={shopTab} />;
       case UIView.QUESTS:
-        return <QuestsView {...props} />;
+        return <QuestsView {...props} onClaimQuest={props.claimQuest} />;
       case UIView.PROFILE:
         return (
           <ProfileView 

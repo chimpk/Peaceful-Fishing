@@ -1,15 +1,15 @@
 
 import React from 'react';
-import { PlayerSkills } from '../../../core/types';
-import { soundManager } from '../../../core/soundManager';
+import { PlayerSkills } from '../../../types';
+import { soundManager } from '../../../core/systems/soundManager';
 
 interface SkillsTabProps {
   skills: PlayerSkills;
-  onBuySkill: (skillId: keyof PlayerSkills) => void;
+  buySkill: (skillId: keyof PlayerSkills) => void;
   playerLevel: number;
 }
 
-const SkillsTab: React.FC<SkillsTabProps> = ({ skills, onBuySkill, playerLevel }) => {
+const SkillsTab: React.FC<SkillsTabProps> = ({ skills, buySkill, playerLevel }) => {
   const skillDefs = [
     { id: 'sharpEye', name: 'MẮT TINH ANH', icon: '👁️', desc: 'Mở rộng đáng kể vùng an toàn khi kéo cá', req: 3 },
     { id: 'fastHands', name: 'TAY NHANH NHẸN', icon: '⚡', desc: 'Tăng tốc độ thu dây và phản ứng cần', req: 7 },
@@ -51,7 +51,7 @@ const SkillsTab: React.FC<SkillsTabProps> = ({ skills, onBuySkill, playerLevel }
                       </div>
                    ) : (
                       <button 
-                        onClick={() => { soundManager.playClick(); onBuySkill(s.id as keyof PlayerSkills); }} 
+                        onClick={() => { soundManager.playClick(); buySkill(s.id as keyof PlayerSkills); }} 
                         className={`w-full py-2 md:py-3 rounded-lg md:rounded-xl font-black text-[8px] md:text-[9px] tracking-[0.2em] md:tracking-[0.3em] transition-all active:scale-95 shadow-xl uppercase ${isSpecial ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}
                       >
                          {isSpecial ? 'KÍCH HOẠT' : `NÂNG CẤP (${cost.toLocaleString()} V)`}

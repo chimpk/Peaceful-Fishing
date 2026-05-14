@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { UIView } from '../../core/types';
-import { soundManager } from '../../core/soundManager';
+import { UIView } from '../../types';
+import { soundManager } from '../../core/systems/soundManager';
 
 interface HeaderProps {
   title: string;

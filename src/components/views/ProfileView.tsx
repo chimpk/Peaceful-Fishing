@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
-import Header from '../ui/Header';
-import BottomNav from '../ui/BottomNav';
+import React from 'react';
+import Header from '../layout/Header';
+import BottomNav from '../layout/BottomNav';
 import StatsTab from './profile/StatsTab';
 import SkillsTab from './profile/SkillsTab';
 import CollectionTab from './profile/CollectionTab';
-import { UIView, ProfileStats, InventoryItem, PlayerSkills, Quest } from '../../core/types';
-import { soundManager } from '../../core/soundManager';
+import { UIView, ProfileStats, InventoryItem, PlayerSkills, Quest } from '../../types';
+import { soundManager } from '../../core/systems/soundManager';
 
 interface ProfileViewProps {
   gold: number;
@@ -18,18 +18,18 @@ interface ProfileViewProps {
   levelData: { level: number; progress: number; title: string; nextCap: number };
   quests: Quest[];
   setActiveView: (view: UIView) => void;
-  onSellFish: (timestamp: number) => void;
-  onUpgradeCapacity: () => void;
+  sellFish: (timestamp: number) => void;
+  upgradeCapacity: () => void;
   onResetData: () => void;
-  onBuySkill: (skillId: keyof PlayerSkills) => void;
+  buySkill: (skillId: keyof PlayerSkills) => void;
   profileTab: 'stats' | 'skills' | 'collection';
   setProfileTab: (tab: any) => void;
-  onClaimDailyReward: () => void;
+  claimDailyReward: () => void;
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ 
   gold, inventory, inventoryCapacity, stats, skills, unlockedFish, levelData, quests,
-  setActiveView, onSellFish, onUpgradeCapacity, onResetData, onBuySkill, profileTab, setProfileTab, onClaimDailyReward
+  setActiveView, sellFish, upgradeCapacity, onResetData, buySkill, profileTab, setProfileTab, claimDailyReward
 }) => {
 
   const profileTabs = [
@@ -64,13 +64,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({
             gold={gold} 
             onResetData={onResetData} 
             onViewLeaderboard={() => setActiveView(UIView.LEADERBOARD)} 
-            onClaimDailyReward={onClaimDailyReward}
+            onClaimDailyReward={claimDailyReward}
           />
         )}
 
 
         {profileTab === 'skills' && (
-          <SkillsTab skills={skills} onBuySkill={onBuySkill} playerLevel={levelData.level} />
+          <SkillsTab skills={skills} buySkill={buySkill} playerLevel={levelData.level} />
         )}
 
         {profileTab === 'collection' && (

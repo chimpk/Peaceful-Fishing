@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { InventoryItem } from '../../../core/types';
-import { soundManager } from '../../../core/soundManager';
+import { InventoryItem } from '../../../types';
+import { soundManager } from '../../../core/systems/soundManager';
 
 interface InventoryTabProps {
   inventory: InventoryItem[];
