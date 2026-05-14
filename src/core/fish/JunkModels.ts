@@ -7,36 +7,47 @@ export const drawOldShoe = (
   size: number,
   color: string
 ) => {
+  ctx.save();
   const shoeGrad = ctx.createLinearGradient(0, -size, 0, size);
   shoeGrad.addColorStop(0, color);
   shoeGrad.addColorStop(1, '#1a0d06');
 
-  // Sole
-  ctx.fillStyle = '#000';
-  ctx.roundRect(-size, size * 0.4, size * 2.2, size * 0.4, 4);
+  // Sole (Thick and worn)
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.moveTo(-size * 1.2, size * 0.5);
+  ctx.lineTo(size * 1.0, size * 0.5);
+  ctx.quadraticCurveTo(size * 1.3, size * 0.5, size * 1.3, size * 0.2);
+  ctx.lineTo(-size * 1.2, size * 0.2);
+  ctx.closePath();
   ctx.fill();
 
-  // Upper
+  // Shoe Body (Upper)
   ctx.fillStyle = shoeGrad;
   ctx.beginPath();
-  ctx.moveTo(-size, size * 0.4);
-  ctx.lineTo(-size, -size * 0.3);
-  ctx.quadraticCurveTo(0, -size * 0.6, size * 1.0, size * 0.4);
+  ctx.moveTo(-size * 1.1, size * 0.2);
+  ctx.lineTo(-size * 1.1, -size * 0.6); // Boot neck
+  ctx.bezierCurveTo(-size * 0.2, -size * 0.6, size * 0.2, 0, size * 1.2, size * 0.2);
   ctx.fill();
 
-  // Details: Laces & Stitches
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); 
-  for(let i=0; i<3; i++) {
-    ctx.moveTo(-size * 0.2 + i*8, -size * 0.2); 
-    ctx.lineTo(size * 0.2 + i*8, 0);
+  // Tongue & Laces
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for(let i=0; i<4; i++) {
+    const ly = -size * 0.2 + i * size * 0.15;
+    ctx.moveTo(-size * 0.3, ly);
+    ctx.lineTo(size * 0.1, ly + size * 0.1);
+    ctx.moveTo(size * 0.1, ly);
+    ctx.lineTo(-size * 0.3, ly + size * 0.1);
   }
   ctx.stroke();
 
-  // Heel highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.beginPath(); ctx.arc(-size * 0.7, 0, size * 0.3, 0, Math.PI * 2); ctx.fill();
+  // Hole in the toe
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath(); ctx.ellipse(size * 0.8, size * 0.1, size * 0.2, size * 0.1, 0.2, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
 };
 
 export const drawTinCan = (
@@ -45,30 +56,47 @@ export const drawTinCan = (
   size: number,
   color: string
 ) => {
-  const metalGrad = ctx.createLinearGradient(-size, 0, size, 0);
-  metalGrad.addColorStop(0, '#475569');
+  ctx.save();
+  const metalGrad = ctx.createLinearGradient(-size, -size, size, size);
+  metalGrad.addColorStop(0, '#94a3b8');
   metalGrad.addColorStop(0.5, color);
-  metalGrad.addColorStop(1, '#0f172a');
+  metalGrad.addColorStop(1, '#1e293b');
 
-  // Body
+  // Dented Body
   ctx.fillStyle = metalGrad;
-  ctx.roundRect(-size * 0.7, -size, size * 1.4, size * 2, 6);
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.7, -size);
+  ctx.lineTo(size * 0.7, -size);
+  ctx.quadraticCurveTo(size * 0.9, 0, size * 0.7, size); // Dented side
+  ctx.lineTo(-size * 0.7, size);
+  ctx.bezierCurveTo(-size * 0.9, size * 0.5, -size * 0.5, -size * 0.5, -size * 0.7, -size);
   ctx.fill();
 
-  // Metallic Shine
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.fillRect(-size * 0.2, -size, size * 0.3, size * 2);
-
-  // Ridges
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = 1;
+  // Metallic Ridges
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
   for(let i=-3; i<=3; i++) {
-    ctx.beginPath(); ctx.moveTo(-size * 0.7, i * size * 0.25); ctx.lineTo(size * 0.7, i * size * 0.25); ctx.stroke();
+    if (i === 0) continue;
+    ctx.beginPath(); 
+    ctx.moveTo(-size * 0.65, i * size * 0.25); 
+    ctx.lineTo(size * 0.65, i * size * 0.25); 
+    ctx.stroke();
   }
 
-  // Label remnant
-  ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
-  ctx.fillRect(-size * 0.7, -size * 0.2, size * 1.4, size * 0.4);
+  // Peeling Label
+  ctx.fillStyle = '#ef4444';
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.rect(-size * 0.7, -size * 0.3, size * 1.0, size * 0.5);
+  ctx.fill();
+  
+  // Rust spots
+  ctx.fillStyle = '#78350f';
+  ctx.globalAlpha = 0.4;
+  for(let i=0; i<3; i++) {
+    ctx.beginPath(); ctx.arc(size * 0.3, -size * 0.6 + i*size*0.4, size*0.1, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.restore();
 };
 
 export const drawPlasticBag = (
@@ -78,27 +106,38 @@ export const drawPlasticBag = (
   size: number,
   color: string
 ) => {
-  const sway = Math.sin(frameCount * 0.05) * 8;
-  const bagGrad = ctx.createRadialGradient(sway, 0, 0, 0, 0, size * 1.5);
-  bagGrad.addColorStop(0, 'rgba(255,255,255,0.4)');
-  bagGrad.addColorStop(1, 'rgba(200,200,255,0.1)');
+  const time = frameCount * 0.05;
+  ctx.save();
+  
+  // Floating animation
+  const driftX = Math.sin(time) * size * 0.2;
+  const driftY = Math.cos(time * 0.7) * size * 0.1;
+  ctx.translate(driftX, driftY);
+  ctx.rotate(Math.sin(time * 0.3) * 0.2);
 
-  ctx.fillStyle = bagGrad;
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = 1.5;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.lineWidth = 1;
 
-  // Crinkled body
+  // Main Bag Body (Amorphous)
   ctx.beginPath();
-  ctx.moveTo(-size + sway, -size);
-  ctx.bezierCurveTo(size, -size * 1.5, size + sway, size * 1.5, -size + sway, size);
+  ctx.moveTo(-size, -size);
+  for (let i = 0; i < 8; i++) {
+    const angle = (i / 8) * Math.PI * 2;
+    const dist = size * (1.0 + Math.sin(time + i) * 0.2);
+    ctx.lineTo(Math.cos(angle) * dist, Math.sin(angle) * dist);
+  }
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Handles
+  // Highlights/Wrinkles
   ctx.beginPath();
-  ctx.ellipse(-size * 0.4 + sway, -size, size * 0.3, size * 0.5, 0.2, 0, Math.PI * 2);
+  ctx.moveTo(-size * 0.5, -size * 0.5);
+  ctx.quadraticCurveTo(0, 0, size * 0.5, size * 0.5);
   ctx.stroke();
+
+  ctx.restore();
 };
 
 export const drawBottle = (
@@ -107,30 +146,39 @@ export const drawBottle = (
   size: number,
   color: string
 ) => {
-  const glassGrad = ctx.createLinearGradient(0, -size, 0, size);
-  glassGrad.addColorStop(0, 'rgba(255,255,255,0.5)');
-  glassGrad.addColorStop(0.5, color);
-  glassGrad.addColorStop(1, 'rgba(0,0,0,0.3)');
-
   ctx.save();
-  ctx.globalAlpha = 0.7;
+  
+  // Glass Gradient
+  const glassGrad = ctx.createLinearGradient(-size, 0, size, 0);
+  glassGrad.addColorStop(0, 'rgba(186, 230, 253, 0.3)');
+  glassGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)');
+  glassGrad.addColorStop(1, 'rgba(186, 230, 253, 0.4)');
+
   // Bottle Body
   ctx.fillStyle = glassGrad;
-  ctx.roundRect(-size * 0.6, -size * 0.5, size * 1.6, size * 1.0, 10);
-  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 1.5;
   
-  // Reflection hit
-  ctx.fillStyle = 'white';
-  ctx.globalAlpha = 0.3;
-  ctx.roundRect(-size * 0.4, -size * 0.3, size * 0.8, size * 0.2, 5);
+  ctx.beginPath();
+  ctx.moveTo(-size * 1.5, -size * 0.6);
+  ctx.lineTo(size * 0.5, -size * 0.6);
+  ctx.quadraticCurveTo(size * 0.8, -size * 0.6, size * 1.0, -size * 0.3); // Neck start
+  ctx.lineTo(size * 1.5, -size * 0.3); // Neck
+  ctx.lineTo(size * 1.5, size * 0.3);
+  ctx.lineTo(size * 1.0, size * 0.3);
+  ctx.quadraticCurveTo(size * 0.8, size * 0.6, size * 0.5, size * 0.6);
+  ctx.lineTo(-size * 1.5, size * 0.6);
+  ctx.closePath();
   ctx.fill();
+  ctx.stroke();
 
-  // Neck & Cap
-  ctx.globalAlpha = 0.8;
-  ctx.fillStyle = color;
-  ctx.fillRect(size * 0.8, -size * 0.25, size * 0.6, size * 0.5);
-  ctx.fillStyle = 'white';
-  ctx.fillRect(size * 1.3, -size * 0.3, size * 0.2, size * 0.6);
-  
+  // Liquid inside (Murky water)
+  ctx.fillStyle = 'rgba(101, 163, 191, 0.3)';
+  ctx.fillRect(-size * 1.4, size * 0.1, size * 1.8, size * 0.4);
+
+  // Cork
+  ctx.fillStyle = '#78350f';
+  ctx.fillRect(size * 1.5, -size * 0.35, size * 0.2, size * 0.7);
+
   ctx.restore();
 };

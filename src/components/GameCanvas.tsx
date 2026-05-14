@@ -273,6 +273,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       let weight = f.weight;
       const weatherBonus = WEATHER_BONUSES[weather].rarity;
       
+      // 1. Preferred Bait Bonus (NEW!)
+      if (f.preferredBaits && f.preferredBaits.includes(currentBait.id)) {
+        weight *= 3.5; // Significant boost for using the right bait
+      }
+
+      // 2. Location-specific Rarity Scaling (NEW!)
+      if (location === 'POND') {
+        if (f.rarity === Rarity.RARE) weight *= 0.7;
+        if (f.rarity === Rarity.EPIC) weight *= 0.4;
+        if (f.rarity === Rarity.LEGENDARY || f.rarity === Rarity.MYTHIC) weight *= 0.2;
+      } else if (location === 'CAVE') {
+        if (f.rarity === Rarity.RARE) weight *= 1.5;
+        if (f.rarity === Rarity.EPIC) weight *= 2.0;
+        if (f.rarity === Rarity.LEGENDARY || f.rarity === Rarity.MYTHIC) weight *= 3.0;
+        if (f.rarity === Rarity.JUNK || f.rarity === Rarity.COMMON) weight *= 0.6;
+      }
+
       let finalBoost = rarityBoost * frenzyBoost * castBoost;
       if (liveBait) {
           // Live bait dramatically increases chance for high rarity
@@ -294,7 +311,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       random -= item.weight;
     }
     return pool[0];
-  }, [weather, location, timeOfDay, liveBait, skills.masterAngler]);
+  }, [weather, location, timeOfDay, liveBait, skills.masterAngler, currentBait.id]);
 
   const spawnSingleFish = useCallback(() => {
     // 5% chance to spawn a chest
@@ -316,7 +333,22 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         };
     }
     const type = getRandomFishType(currentTackle.rarityBoost + currentBait.rarityBoost + skills.lucky * 1.5);
-    const y = 300 + Math.random() * 250;
+    
+    // Depth Logic: Rare fish prefer deeper water (Higher Y)
+    let yBase = 300;
+    let yRange = 250;
+    
+    if (type.rarity === Rarity.RARE || type.rarity === Rarity.EPIC) {
+        yBase = 380; // Starts deeper
+    } else if (type.rarity === Rarity.LEGENDARY || type.rarity === Rarity.MYTHIC) {
+        yBase = 450; // Very deep
+        yRange = 150;
+    } else if (type.rarity === Rarity.JUNK) {
+        yBase = 250; // Often near surface or mid-water
+        yRange = 200;
+    }
+
+    const y = yBase + Math.random() * yRange;
     const initialDir = Math.random() > 0.5 ? 1 : -1;
     const baseSpeed = (0.4 + Math.random() * 0.6) * WEATHER_BONUSES[weather].speed;
     const personalities: FishPersonality[] = ['curious', 'shy', 'brave'];

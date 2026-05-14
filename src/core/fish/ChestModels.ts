@@ -1,56 +1,93 @@
 import { Rarity } from "../types";
 
 export const ChestModels = {
-  drawChest: (ctx: CanvasRenderingContext2D, rarity: Rarity, frame: number, x: number, y: number) => {
+  drawChest: (ctx: CanvasRenderingContext2D, rarity: Rarity, frame: number, x: number, y: number, size: number = 20) => {
     ctx.save();
     ctx.translate(x, y);
     
-    // Bounce animation
-    const bounce = Math.sin(frame * 0.15) * 5;
+    // Smooth floating animation
+    const bounce = Math.sin(frame * 0.1) * (size * 0.2);
     ctx.translate(0, bounce);
 
     let primaryColor = '#78350f'; // Wood
     let secondaryColor = '#f59e0b'; // Gold trim
-    let glowColor = 'rgba(251, 191, 36, 0.3)';
+    let glowColor = 'rgba(251, 191, 36, 0.4)';
 
     if (rarity === Rarity.RARE || rarity === Rarity.EPIC) {
-        primaryColor = '#94a3b8'; // Silver
+        primaryColor = '#475569'; // Steel/Silver
         secondaryColor = '#38bdf8'; // Cyan trim
-        glowColor = 'rgba(56, 189, 248, 0.4)';
+        glowColor = 'rgba(56, 189, 248, 0.5)';
     } else if (rarity === Rarity.LEGENDARY || rarity === Rarity.MYTHIC) {
         primaryColor = '#fbbf24'; // Gold
         secondaryColor = '#ef4444'; // Red trim
-        glowColor = 'rgba(239, 68, 68, 0.5)';
+        glowColor = 'rgba(239, 68, 68, 0.6)';
     }
 
-    // Shadow/Glow
-    ctx.shadowBlur = 15;
+    // Shadow & Outer Glow
+    ctx.shadowBlur = size * 0.8;
     ctx.shadowColor = glowColor;
 
-    // Main Box
-    ctx.fillStyle = primaryColor;
-    ctx.fillRect(-20, -15, 40, 30);
+    // === THÂN RƯƠNG (Chest Body) ===
+    const bodyGrad = ctx.createLinearGradient(-size, 0, size, 0);
+    bodyGrad.addColorStop(0, primaryColor);
+    bodyGrad.addColorStop(0.5, '#451a03'); // Darker center
+    bodyGrad.addColorStop(1, primaryColor);
     
-    // Lid line
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
+    ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.moveTo(-20, -5);
-    ctx.lineTo(20, -5);
-    ctx.stroke();
+    ctx.moveTo(-size, -size * 0.2);
+    ctx.lineTo(size, -size * 0.2);
+    ctx.lineTo(size, size * 0.8);
+    ctx.lineTo(-size, size * 0.8);
+    ctx.closePath();
+    ctx.fill();
 
-    // Trims
-    ctx.fillStyle = secondaryColor;
-    ctx.fillRect(-20, -15, 5, 30); // Left
-    ctx.fillRect(15, -15, 5, 30);  // Right
-    ctx.fillRect(-20, -15, 40, 5); // Top
+    // Wood Texture Lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.lineWidth = 1;
+    for(let i=-2; i<=2; i++) {
+        ctx.beginPath(); ctx.moveTo(-size, i * size * 0.2); ctx.lineTo(size, i * size * 0.2); ctx.stroke();
+    }
 
-    // Lock
-    ctx.fillStyle = '#000';
-    ctx.fillRect(-4, -8, 8, 8);
-    ctx.fillStyle = secondaryColor;
+    // === NẮP RƯƠNG VÒM (Curved Lid) ===
+    ctx.save();
+    ctx.translate(0, -size * 0.2);
+    const lidGrad = ctx.createLinearGradient(-size, -size * 0.5, size, size * 0.5);
+    lidGrad.addColorStop(0, primaryColor);
+    lidGrad.addColorStop(1, '#1e1b4b');
+    
+    ctx.fillStyle = lidGrad;
     ctx.beginPath();
-    ctx.arc(0, -4, 2, 0, Math.PI * 2);
+    ctx.moveTo(-size, 0);
+    ctx.bezierCurveTo(-size, -size * 1.2, size, -size * 1.2, size, 0);
+    ctx.fill();
+    ctx.restore();
+
+    // === ĐAI KIM LOẠI (Metal Bands) ===
+    ctx.fillStyle = secondaryColor;
+    ctx.shadowBlur = 0;
+    // Left band
+    ctx.beginPath();
+    ctx.rect(-size * 0.8, -size * 0.8, size * 0.25, size * 1.6);
+    ctx.fill();
+    // Right band
+    ctx.beginPath();
+    ctx.rect(size * 0.55, -size * 0.8, size * 0.25, size * 1.6);
+    ctx.fill();
+
+    // === KHÓA RƯƠNG (The Lock) ===
+    const lockPulse = (Math.sin(frame * 0.2) + 1) * 0.5;
+    ctx.shadowBlur = 10 * lockPulse;
+    ctx.shadowColor = secondaryColor;
+    
+    ctx.fillStyle = '#0f172a'; // Lock plate
+    ctx.beginPath();
+    ctx.roundRect(-size * 0.2, -size * 0.3, size * 0.4, size * 0.4, 2);
+    ctx.fill();
+    
+    ctx.fillStyle = secondaryColor; // Keyhole
+    ctx.beginPath();
+    ctx.arc(0, -size * 0.15, size * 0.08, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();

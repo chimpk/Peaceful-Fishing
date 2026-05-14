@@ -118,8 +118,8 @@ export const drawMechaSharkBoss = (
   ctx.beginPath(); ctx.arc(60, -15, 8, 0, Math.PI * 2); ctx.fill();
   ctx.shadowBlur = 0;
 
-  // Thruster
-  const thrusterSize = 20 + Math.random() * 20;
+  // Thruster — dùng Math.sin() thay Math.random() để flame mượt mà, không random flicker
+  const thrusterSize = 20 + Math.sin(time * 5) * 10;
   const fireGrad = ctx.createRadialGradient(-90, 0, 0, -90, 0, thrusterSize);
   fireGrad.addColorStop(0, '#fde047');
   fireGrad.addColorStop(1, 'rgba(234, 88, 12, 0)');

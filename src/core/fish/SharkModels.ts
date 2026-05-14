@@ -10,111 +10,67 @@ export const drawShark = (
   wagFreq: number,
   wagAmp: number
 ) => {
-  // 1. Shadow for depth
+  const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
+  ctx.save();
+  
   ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
   ctx.shadowBlur = size * 0.5;
-  ctx.shadowOffsetY = size * 0.3;
 
-  const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
-
-  // 2. Beautiful Shark Gradient (Dark top, light belly)
   const bodyGrad = ctx.createLinearGradient(0, -size * 1.5, 0, size * 1.5);
   bodyGrad.addColorStop(0, '#0f172a');
   bodyGrad.addColorStop(0.4, color);
-  bodyGrad.addColorStop(0.7, '#64748b');
-  bodyGrad.addColorStop(1, 'white');
+  bodyGrad.addColorStop(0.8, '#64748b');
+  bodyGrad.addColorStop(1, '#f1f5f9');
 
-  // Draw Tail
+  // === ĐUÔI CÁ MẬP (Caudal Fin) ===
   ctx.save();
-  ctx.translate(-size * 1.2, 0);
+  ctx.translate(-size * 1.0, 0);
   ctx.rotate(tailWag * 1.2);
+  ctx.fillStyle = bodyGrad;
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  // Upper tail
-  ctx.quadraticCurveTo(-size * 0.5, -size * 1.2, -size * 1.2, -size * 1.5);
-  ctx.quadraticCurveTo(-size * 0.6, -size * 0.5, -size * 0.4, 0);
-  // Lower tail
-  ctx.quadraticCurveTo(-size * 0.6, size * 0.5, -size * 1.0, size * 1.0);
+  ctx.quadraticCurveTo(-size * 0.5, -size * 1.5, -size * 1.5, -size * 2.0); // Cánh trên
+  ctx.quadraticCurveTo(-size * 0.8, -size * 0.5, -size * 0.5, 0);
+  ctx.quadraticCurveTo(-size * 0.8, size * 0.5, -size * 1.2, size * 1.2); // Cánh dưới
   ctx.quadraticCurveTo(-size * 0.5, size * 0.8, 0, 0);
+  ctx.fill();
+  ctx.restore();
+
+  // === THÂN HÌNH NGƯ LÔI (Torpedo Body) ===
+  ctx.beginPath();
+  ctx.moveTo(size * 1.8, 0); // Mõm sắc nhọn
+  ctx.bezierCurveTo(size * 1.2, -size * 1.2, -size * 0.8, -size * 1.0, -size * 1.2, 0);
+  ctx.bezierCurveTo(-size * 0.8, size * 1.0, size * 1.2, size * 1.2, size * 1.8, 0);
   ctx.fillStyle = bodyGrad;
   ctx.fill();
-  ctx.restore();
 
-  // 3. Torpedo Body
+  // Vây lưng (Dorsal Fin)
+  ctx.fillStyle = '#0f172a';
   ctx.beginPath();
-  ctx.moveTo(size * 1.4, 0); // Snout
-  ctx.bezierCurveTo(size * 1.0, -size * 1.1, -size * 0.5, -size * 1.0, -size * 1.4, 0); // Top
-  ctx.bezierCurveTo(-size * 0.5, size * 0.8, size * 1.0, size * 0.6, size * 1.4, 0); // Bottom
-  ctx.fillStyle = bodyGrad;
+  ctx.moveTo(0, -size * 0.8);
+  ctx.quadraticCurveTo(-size * 0.2, -size * 2.2, -size * 1.0, -size * 2.0);
+  ctx.quadraticCurveTo(-size * 0.6, -size * 1.0, -size * 0.3, -size * 0.8);
   ctx.fill();
 
-  ctx.shadowColor = 'transparent';
-
-  // 4. White Belly Highlight
-  ctx.save();
-  ctx.globalAlpha = 0.3;
-  ctx.fillStyle = 'white';
-  ctx.beginPath();
-  ctx.moveTo(size * 1.2, size * 0.1);
-  ctx.quadraticCurveTo(0, size * 0.7, -size * 1.0, size * 0.1);
-  ctx.quadraticCurveTo(0, size * 0.4, size * 1.2, size * 0.1);
-  ctx.fill();
-  ctx.restore();
-
-  // 5. Dorsal Fin
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(-size * 0.1, -size * 0.85);
-  ctx.quadraticCurveTo(-size * 0.3, -size * 1.8, -size * 0.8, -size * 1.8);
-  ctx.quadraticCurveTo(-size * 0.6, -size * 1.0, -size * 0.5, -size * 0.8);
-  ctx.fill();
-
-  // 6. Pectoral Fin (Animates slightly)
-  ctx.save();
-  ctx.translate(size * 0.3, size * 0.3);
-  ctx.rotate(-tailWag * 0.5);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(-size * 0.4, size * 1.2, -size * 0.8, size * 1.4);
-  ctx.quadraticCurveTo(-size * 0.2, size * 0.8, size * 0.2, 0);
-  ctx.fill();
-  ctx.restore();
-
-  // 7. Gills
-  ctx.strokeStyle = '#020617';
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = 'round';
+  // Mang cá (Gills)
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+  ctx.lineWidth = 2;
   for (let i = 0; i < 4; i++) {
-    const gx = size * 0.6 - i * (size * 0.15);
+    const gx = size * 0.8 - i * size * 0.2;
     ctx.beginPath();
-    ctx.moveTo(gx, -size * 0.1);
-    ctx.quadraticCurveTo(gx - size * 0.1, size * 0.1, gx + size * 0.05, size * 0.3);
+    ctx.moveTo(gx, -size * 0.2);
+    ctx.quadraticCurveTo(gx - size * 0.1, 0, gx, size * 0.2);
     ctx.stroke();
   }
 
-  // 8. Predator Eye
-  const eyeX = size * 1.0;
-  const eyeY = -size * 0.2;
-  ctx.fillStyle = 'black';
-  ctx.beginPath(); ctx.arc(eyeX, eyeY, size * 0.12, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#ff3333'; // Angry red glow
-  ctx.beginPath(); ctx.arc(eyeX + size * 0.03, eyeY, size * 0.04, 0, Math.PI * 2); ctx.fill();
-  
-  // Scary Mouth
-  ctx.strokeStyle = '#020617';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(size * 1.2, size * 0.25);
-  ctx.quadraticCurveTo(size * 0.9, size * 0.3, size * 0.7, size * 0.2);
-  ctx.stroke();
-  
-  // Teeth
-  ctx.fillStyle = 'white';
-  ctx.beginPath();
-  ctx.moveTo(size * 1.0, size * 0.26);
-  ctx.lineTo(size * 0.95, size * 0.35);
-  ctx.lineTo(size * 0.9, size * 0.24);
-  ctx.fill();
+  // Mắt kẻ săn mồi (Predator Eye)
+  const eyeX = size * 1.3;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(eyeX, -size * 0.2, size * 0.12, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ff3333'; // Đốm đỏ hung dữ
+  ctx.beginPath(); ctx.arc(eyeX + size * 0.04, -size * 0.22, size * 0.04, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
 };
 
 export const drawHammerhead = (
@@ -170,24 +126,25 @@ export const drawHammerhead = (
   ctx.shadowColor = 'transparent';
 
   // Hammer Head (T-shape)
-  const hammerGrad = ctx.createLinearGradient(size * 0.8, -size * 1.2, size * 0.8, size * 1.2);
+  // Thực tế: đầu búa cephalophoil ~ 0.9x chiều rộng thân → thu nhỏ từ size*1.4 → size*1.1
+  const hammerGrad = ctx.createLinearGradient(size * 0.8, -size * 1.1, size * 0.8, size * 1.1);
   hammerGrad.addColorStop(0, '#0f172a');
   hammerGrad.addColorStop(0.5, color);
   hammerGrad.addColorStop(1, '#0f172a');
   
   ctx.fillStyle = hammerGrad;
   ctx.beginPath();
-  ctx.ellipse(size * 0.9, 0, size * 0.4, size * 1.4, 0, 0, Math.PI * 2);
+  ctx.ellipse(size * 0.9, 0, size * 0.4, size * 1.1, 0, 0, Math.PI * 2);
   ctx.fill();
   
   // Real Eyes at edges of the hammer
   ctx.fillStyle = '#fef08a'; // Yellowish predator eye
-  ctx.beginPath(); ctx.ellipse(size * 0.9, -size * 1.3, size * 0.15, size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(size * 0.9, size * 1.3, size * 0.15, size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(size * 0.9, -size * 1.0, size * 0.15, size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(size * 0.9, size * 1.0, size * 0.15, size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
   
   ctx.fillStyle = 'black';
-  ctx.beginPath(); ctx.arc(size * 0.9, -size * 1.3, size * 0.05, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(size * 0.9, size * 1.3, size * 0.05, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(size * 0.9, -size * 1.0, size * 0.05, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(size * 0.9, size * 1.0, size * 0.05, 0, Math.PI * 2); ctx.fill();
 };
 
 export const drawSwordfish = (
@@ -244,13 +201,14 @@ export const drawSwordfish = (
   ctx.shadowColor = 'transparent';
 
   // The Sword (Long & Tapered)
+  // Lưỡi kiếm xuất phát tại y=0 (mõm chính xác), không lệch lên trên
   const swordGrad = ctx.createLinearGradient(size * 1.5, 0, size * 4.0, 0);
   swordGrad.addColorStop(0, '#94a3b8');
   swordGrad.addColorStop(1, 'rgba(248, 250, 252, 0)'); // Fades to tip
   ctx.strokeStyle = swordGrad;
   ctx.lineWidth = size * 0.15;
   ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(size * 1.5, -size * 0.1); ctx.lineTo(size * 4.0, -size * 0.1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(size * 1.5, 0); ctx.lineTo(size * 4.0, 0); ctx.stroke();
 
   // Professional Eye (Not googly!)
   const eyeX = size * 1.1;
