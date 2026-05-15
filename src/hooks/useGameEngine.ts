@@ -885,9 +885,17 @@ export const useGameEngine = (props: GameEngineProps) => {
         }
     } else bossInitialized.current = false;
 
-    fishRef.current.forEach(f => {
-      if (activeFish.current?.id === f.id) return; 
-      const dx = hookX.current - f.x; const dy = hookY.current - f.y;
+    const fishArray = fishRef.current;
+    const rightSideFishCount = fishArray.reduce((count, fi) => count + (fi.x > CANVAS_WIDTH * 0.7 ? 1 : 0), 0);
+    const currentFrame = frameCount.current;
+    const currentHookX = hookX.current;
+    const currentHookY = hookY.current;
+    const currentActiveFish = activeFish.current;
+
+    for (let fishIndex = 0, fishLength = fishArray.length; fishIndex < fishLength; fishIndex++) {
+      const f = fishArray[fishIndex];
+      if (currentActiveFish?.id === f.id) continue;
+      const dx = currentHookX - f.x; const dy = currentHookY - f.y;
       const distSq = dx * dx + dy * dy;
       const lineLimit = currentTackle.maxValue || 300;
       const sizeMatchRatio = Math.min(1, f.type.value / lineLimit);
@@ -895,7 +903,7 @@ export const useGameEngine = (props: GameEngineProps) => {
       const interestChance = 0.4 + sizeMatchRatio * 0.5;
       f.stateTimer--;
       if (canAttractFish && distSq < attractRange * attractRange) {
-        const isNearPier = hookX.current < 300; const scaredRange = isNearPier ? 60 : 100;
+        const isNearPier = currentHookX < 300; const scaredRange = isNearPier ? 60 : 100;
         if (f.state !== 'interested' && f.state !== 'scared' && Math.random() < interestChance / 20) {
             if (f.personality === 'shy' && distSq < scaredRange * scaredRange) { f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120; }
             else f.state = 'interested';
@@ -903,7 +911,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         if (f.state === 'scared') f.targetAngle = Math.atan2(-dy, -dx);
         else if (f.state === 'interested') {
           if (f.personality === 'shy' && distSq < scaredRange * scaredRange) { f.state = 'scared'; f.targetAngle = Math.atan2(-dy, -dx); f.stateTimer = 120; }
-          else { if (distSq > 120) f.targetAngle = Math.atan2(dy, dx); f.targetY = hookY.current; 
+          else { if (distSq > 120) f.targetAngle = Math.atan2(dy, dx); f.targetY = currentHookY; 
             if ([Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity)) {
               if (!highestInterestedRarity || f.type.rarity === Rarity.MYTHIC || (f.type.rarity === Rarity.LEGENDARY && highestInterestedRarity === Rarity.EPIC)) highestInterestedRarity = f.type.rarity;
             }
@@ -915,7 +923,7 @@ export const useGameEngine = (props: GameEngineProps) => {
           f.state = Math.random() > 0.8 ? 'inspecting' : 'wandering'; f.stateTimer = 60 + Math.random() * 200;
           if (f.state === 'wandering') {
             const inCenter = f.x > CANVAS_WIDTH * 0.3 && f.x < CANVAS_WIDTH * 0.7;
-            const rightSideEmpty = fishRef.current.filter(fi => fi.x > CANVAS_WIDTH * 0.7).length < 3;
+            const rightSideEmpty = rightSideFishCount < 3;
             let wanderDir = (rightSideEmpty && f.x < CANVAS_WIDTH * 0.5) ? 0 : (inCenter && Math.random() > 0.3 ? (f.x > CANVAS_WIDTH / 2 ? Math.PI : 0) : (f.velocity.x > 0 ? 0 : Math.PI));
             f.targetAngle = (Math.random() - 0.5) * 1.0 + wanderDir; f.targetY = 280 + Math.random() * 280;
           }
@@ -923,25 +931,25 @@ export const useGameEngine = (props: GameEngineProps) => {
       }
       let moveSpeed = f.baseSpeed;
       if (f.state === 'scared') moveSpeed *= 2.8; else if (f.state === 'interested') moveSpeed *= 1.1; else if (f.state === 'inspecting') moveSpeed *= 0.2; else if (f.state === 'predatory') moveSpeed *= 3.8;
-      if (f.swimStyle === 'jerky') moveSpeed *= (Math.sin(frameCount.current * 0.15) > 0 ? 2.0 : 0.1); else if (f.swimStyle === 'charger') moveSpeed *= 1.6;
-      const dx_hook = hookX.current - f.x; const dy_hook = hookY.current - f.y; const distToHook = Math.sqrt(dx_hook * dx_hook + dy_hook * dy_hook);
-      if (f.state === 'interested' && distToHook < 15) { moveSpeed *= 0.2; if (distToHook < 5) moveSpeed = 0; if ([Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity) && frameCount.current % 5 === 0) createSparkles(f.x, f.y, 1, [f.type.rarity === Rarity.MYTHIC ? '#a855f7' : '#eab308', '#ffffff']); }
-      const isSmallFishActive = activeFish.current && activeFish.current.id !== 'boss_dummy' && [Rarity.COMMON, Rarity.RARE].includes(activeFish.current.type.rarity);
+      if (f.swimStyle === 'jerky') moveSpeed *= (Math.sin(currentFrame * 0.15) > 0 ? 2.0 : 0.1); else if (f.swimStyle === 'charger') moveSpeed *= 1.6;
+      const dx_hook = currentHookX - f.x; const dy_hook = currentHookY - f.y; const distToHook = Math.sqrt(dx_hook * dx_hook + dy_hook * dy_hook);
+      if (f.state === 'interested' && distToHook < 15) { moveSpeed *= 0.2; if (distToHook < 5) moveSpeed = 0; if ([Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity) && currentFrame % 5 === 0) createSparkles(f.x, f.y, 1, [f.type.rarity === Rarity.MYTHIC ? '#a855f7' : '#eab308', '#ffffff']); }
+      const isSmallFishActive = currentActiveFish && currentActiveFish.id !== 'boss_dummy' && [Rarity.COMMON, Rarity.RARE].includes(currentActiveFish.type.rarity);
       if (isSmallFishActive && [GameState.NIBBLING, GameState.REELING].includes(gameState) && [Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity) && distToHook < 400 && f.state !== 'predatory' && Math.random() < 0.002) { f.state = 'predatory'; f.targetAngle = Math.atan2(dy_hook, dx_hook); addNotification(`CẢNH BÁO: Một con ${f.type.name} đang nhắm vào cá của bạn!`, 'warning'); }
       if (f.state === 'predatory') {
           if (!isSmallFishActive || ![GameState.NIBBLING, GameState.REELING].includes(gameState)) { f.state = 'wandering'; f.targetAngle = Math.random() * Math.PI * 2; }
-          else { f.targetAngle = Math.atan2(dy_hook, dx_hook); f.targetY = hookY.current; if (distToHook < 15) (f as any)._shouldEat = true; }
+          else { f.targetAngle = Math.atan2(dy_hook, dx_hook); f.targetY = currentHookY; if (distToHook < 15) (f as any)._shouldEat = true; }
       }
       f.angle = lerpAngle(f.angle, f.targetAngle, f.state === 'scared' ? 0.25 : (f.state === 'interested' ? 0.045 : 0.06));
       const vx = Math.cos(f.angle) * moveSpeed; const vy = Math.sin(f.angle) * moveSpeed; f.velocity = { x: vx, y: vy }; f.x += vx; f.y += vy + (f.targetY - f.y) * 0.015;
       if (f.x > CANVAS_WIDTH + 200) { f.x = -190; f.direction = 1; } if (f.x < -200) { f.x = CANVAS_WIDTH + 190; f.direction = -1; }
       if (f.y < 220) f.y = 220; if (f.y > CANVAS_HEIGHT) f.y = CANVAS_HEIGHT;
-      if ((moveSpeed > 1.5 || ['scared', 'interested'].includes(f.state)) && frameCount.current % (f.state === 'scared' ? 2 : 6) === 0) vfxParticlesRef.current.push({ x: f.x - Math.cos(f.angle) * (f.type.size * 0.8), y: f.y - Math.sin(f.angle) * (f.type.size * 0.8), size: 1 + Math.random() * 2, speed: 0, opacity: 0.4, life: 20 + Math.random() * 10, color: 'rgba(255,255,255,0.3)', type: 'circle' });
-      Graphics.drawFishTexture(ctx, f.type, frameCount.current, false, { x: f.x, y: f.y, angle: f.angle, direction: 1 }, moveSpeed, f.swimStyle, false, f.isGolden);
+      if ((moveSpeed > 1.5 || ['scared', 'interested'].includes(f.state)) && currentFrame % (f.state === 'scared' ? 2 : 6) === 0) vfxParticlesRef.current.push({ x: f.x - Math.cos(f.angle) * (f.type.size * 0.8), y: f.y - Math.sin(f.angle) * (f.type.size * 0.8), size: 1 + Math.random() * 2, speed: 0, opacity: 0.4, life: 20 + Math.random() * 10, color: 'rgba(255,255,255,0.3)', type: 'circle' });
+      Graphics.drawFishTexture(ctx, f.type, currentFrame, false, { x: f.x, y: f.y, angle: f.angle, direction: 1 }, moveSpeed, f.swimStyle, false, f.isGolden);
       if (f.state === 'interested' && [Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity)) Graphics.drawAlert(ctx, f.x, f.y, f.type.rarity);
-    });
+    }
     
-    const predator = fishRef.current.find(f => (f as any)._shouldEat);
+    const predator = fishArray.find(f => (f as any)._shouldEat);
     if (predator) {
         createSplash(hookX.current, hookY.current, 2.5); soundManager.playSplash(); addNotification(`KINH NGẠC! ${predator.type.name} đã nuốt chửng con cá nhỏ!`, 'success');
         const bigFishInstance = { ...predator }; delete (bigFishInstance as any)._shouldEat; bigFishInstance.state = 'interested'; activeFish.current = bigFishInstance;
@@ -1141,8 +1149,13 @@ export const useGameEngine = (props: GameEngineProps) => {
       const moveSpeed = isEnraged ? 1.5 : 1; bossX.current = CANVAS_WIDTH / 2 + Math.cos(time * 0.8 * moveSpeed) * (150 + (isEnraged ? 50 : 0)); bossY.current = CANVAS_HEIGHT / 2 + Math.sin(time * 1.2 * moveSpeed) * (80 + (isEnraged ? 30 : 0));
       bossAttackTimer.current++; const attackThreshold = isEnraged ? 70 : 100; const isWarning = bossAttackTimer.current > attackThreshold - 25;
       if (bossAttackTimer.current >= attackThreshold) { 
-        playerHP.current = Math.max(0, playerHP.current - (isEnraged ? 18 : 12)); bossAttackTimer.current = 0; shakeIntensity.current = 15;
-        vfxParticlesRef.current.push({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, size: 150, speed: 0, opacity: 0.4, life: 15, color: '#ff0000', type: 'ripple' });
+        playerHP.current = Math.max(0, playerHP.current - (isEnraged ? 18 : 12)); 
+        bossAttackTimer.current = 0; 
+        shakeIntensity.current = 15;
+        // Reduce particles during boss fight for performance
+        if (frameCount.current % 2 === 0) {
+          vfxParticlesRef.current.push({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, size: 100, speed: 0, opacity: 0.3, life: 10, color: '#ff0000', type: 'ripple' });
+        }
         if (location === 'OCEAN' && hpRatio < 0.6) inkAlpha.current = Math.min(0.85, inkAlpha.current + 0.005);
         else if (location === 'POND' && isEnraged && !torpedoActive.current && Math.random() < 0.015) { torpedoActive.current = true; torpedoProgress.current = 0; torpedoX.current = bossX.current; torpedoY.current = bossY.current; torpedoTargetX.current = 40 + Math.random() * 200; torpedoTargetY.current = CANVAS_HEIGHT - 70; addNotification("CẢNH BÁO: TÊN LỬA ĐANG LAO TỚI!", "warning"); }
         else if (location === 'CAVE' && isEnraged && frameCount.current % 200 === 0) { addNotification("CẢNH BÁO: XUNG ĐIỆN TÂM LINH!", "boss"); createSparkles(bossX.current, bossY.current, 50, ['#00f2ff', '#e0f2fe', '#ffffff']); if (isBossCharging.current) { playerHP.current = Math.max(0, playerHP.current - 15); shakeIntensity.current = 15; } }
@@ -1150,8 +1163,14 @@ export const useGameEngine = (props: GameEngineProps) => {
       }
       if (isBossCharging.current) playerAttackCharge.current = Math.min(100, playerAttackCharge.current + (2 + skills.fastHands * 0.8));
       else playerAttackCharge.current = Math.max(0, playerAttackCharge.current - 1.5);
-      ctx.save(); ctx.translate(bossX.current, bossY.current); if (isWarning && frameCount.current % 4 < 2) ctx.filter = 'brightness(2) contrast(1.5)';
-      const bossSize = 1.8 + (isEnraged ? 0.4 : 0); ctx.scale(bossSize, bossSize);
+      ctx.save(); 
+      ctx.translate(bossX.current, bossY.current); 
+      // Optimize: Remove expensive filter, use globalAlpha instead for warning effect
+      if (isWarning && frameCount.current % 4 < 2) {
+        ctx.globalAlpha = 0.85;
+      }
+      const bossSize = 1.8 + (isEnraged ? 0.4 : 0); 
+      ctx.scale(bossSize, bossSize);
       if (location === 'OCEAN') BossModels.drawAbyssalKraken(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning);
       else if (location === 'CAVE') { ctx.globalAlpha *= (hpRatio < 0.4 ? 0.2 : (hpRatio < 0.7 ? 0.4 : 1)); BossModels.drawGhostOctopus(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning); }
       else BossModels.drawMechaSharkBoss(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isWarning);
@@ -1164,16 +1183,36 @@ export const useGameEngine = (props: GameEngineProps) => {
       ctx.fillStyle = 'rgba(15, 23, 42, 0.8)'; ctx.roundRect(CANVAS_WIDTH - 260, CANVAS_HEIGHT - 70, 220, 15, 8); ctx.fill(); ctx.fillStyle = playerAttackCharge.current > 80 ? '#fbbf24' : '#eab308'; ctx.roundRect(CANVAS_WIDTH - 260, CANVAS_HEIGHT - 70, (playerAttackCharge.current / 100) * 220, 15, 8); ctx.fill();
       ctx.fillStyle = 'white'; ctx.textAlign = 'right'; ctx.fillText('VẬN LỰC (GIỮ SPACE - THẢ ĐỂ ĐÁNH)', CANVAS_WIDTH - 45, CANVAS_HEIGHT - 75);
       if (torpedoActive.current) {
-          torpedoProgress.current += 0.015; const tx = torpedoX.current + (torpedoTargetX.current - torpedoX.current) * torpedoProgress.current; const ty = torpedoY.current + (torpedoTargetY.current - torpedoY.current) * torpedoProgress.current;
-          ctx.save(); ctx.translate(tx, ty); ctx.rotate(Math.atan2(torpedoTargetY.current - torpedoY.current, torpedoTargetX.current - torpedoX.current)); ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.roundRect(-15, -5, 30, 10, 5); ctx.fill(); ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(-15, 0, 8 + Math.random() * 8, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          torpedoProgress.current += 0.015; 
+          const tx = torpedoX.current + (torpedoTargetX.current - torpedoX.current) * torpedoProgress.current; 
+          const ty = torpedoY.current + (torpedoTargetY.current - torpedoY.current) * torpedoProgress.current;
+          ctx.save(); 
+          ctx.translate(tx, ty); 
+          ctx.rotate(Math.atan2(torpedoTargetY.current - torpedoY.current, torpedoTargetX.current - torpedoX.current)); 
+          ctx.fillStyle = '#ef4444'; 
+          ctx.beginPath(); 
+          ctx.roundRect(-15, -5, 30, 10, 5); 
+          ctx.fill(); 
+          ctx.restore();
           if (torpedoProgress.current >= 1) { torpedoActive.current = false; if (isBossCharging.current) { playerHP.current = Math.max(0, playerHP.current - 25); shakeIntensity.current = 25; addNotification("HỨNG TRỌN TÊN LỬA! Thả Space để né đòn!", "warning"); } else { addNotification("NÉ ĐÒN THÀNH CÔNG!", "success"); createSparkles(tx, ty, 30, ['#ffffff', '#fbbf24']); } }
       }
     }
 
     if (inkAlpha.current > 0) {
-        ctx.save(); const inkGrad = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 100, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 600); inkGrad.addColorStop(0, 'rgba(0,0,0,0)'); inkGrad.addColorStop(1, `rgba(0, 0, 0, ${inkAlpha.current})`); ctx.fillStyle = inkGrad; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        ctx.fillStyle = `rgba(0, 0, 0, ${inkAlpha.current * 0.8})`;
-        for(let i=0; i<5; i++) { const sx = (Math.sin(i * 10 + frameCount.current * 0.01) * 400) + CANVAS_WIDTH/2; const sy = (Math.cos(i * 20 + frameCount.current * 0.01) * 200) + CANVAS_HEIGHT/2; ctx.beginPath(); ctx.ellipse(sx, sy, 100 * inkAlpha.current, 60 * inkAlpha.current, i, 0, Math.PI * 2); ctx.fill(); }
+        ctx.save(); 
+        // Simplified ink effect - no gradient, just fill
+        ctx.fillStyle = `rgba(0, 0, 0, ${inkAlpha.current * 0.5})`;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Fewer ink clouds for better performance
+        ctx.fillStyle = `rgba(0, 0, 0, ${inkAlpha.current * 0.3})`;
+        for(let i=0; i<3; i++) { 
+          const sx = (Math.sin(i * 10 + frameCount.current * 0.01) * 400) + CANVAS_WIDTH/2; 
+          const sy = (Math.cos(i * 20 + frameCount.current * 0.01) * 200) + CANVAS_HEIGHT/2; 
+          ctx.beginPath(); 
+          ctx.ellipse(sx, sy, 80 * inkAlpha.current, 50 * inkAlpha.current, i, 0, Math.PI * 2); 
+          ctx.fill(); 
+        }
         ctx.restore();
     }
 
@@ -1182,11 +1221,19 @@ export const useGameEngine = (props: GameEngineProps) => {
 
     Graphics.drawPlayerEquipment(ctx, gameState, pX, pY, rodEndX, rodEndY, hookX.current, hookY.current, gameState === GameState.CASTING, lineHealth.current, rodBendAmount, currentRod, chargePower.current, currentTackle, frameCount.current, reelRotation.current, location);
     
-    ctx.save(); const vignette = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 200, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 600); vignette.addColorStop(0, 'transparent'); vignette.addColorStop(1, `rgba(0, 0, 0, ${location === 'CAVE' ? 0.7 : (timeOfDay === 'NIGHT' ? 0.5 : 0.2)})`); ctx.fillStyle = vignette; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); ctx.restore();
+    // Simplified vignette - no gradient for better performance
+    ctx.save(); 
+    const vignetteAlpha = location === 'CAVE' ? 0.6 : (timeOfDay === 'NIGHT' ? 0.4 : 0.15);
+    ctx.fillStyle = `rgba(0, 0, 0, ${vignetteAlpha})`;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.restore();
 
     if (motionBlurAlpha.current > 0.01) {
-        ctx.save(); const pulse = 0.5 + 0.5 * Math.sin(frameCount.current * 0.18); const mbGrad = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.22, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_HEIGHT * 0.78); mbGrad.addColorStop(0, 'rgba(0,0,0,0)'); mbGrad.addColorStop(0.6, `rgba(80,0,0,${motionBlurAlpha.current * 0.35})`); mbGrad.addColorStop(1, `rgba(200,30,30,${motionBlurAlpha.current * (0.55 + pulse * 0.15)})`); ctx.fillStyle = mbGrad; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        ctx.globalAlpha = motionBlurAlpha.current * 0.12 * pulse; ctx.fillStyle = 'white'; for (let i = 0; i < 6; i++) { const lineY = (i / 6) * CANVAS_HEIGHT + (frameCount.current * 1.5 * (i % 2 === 0 ? 1 : -1)) % CANVAS_HEIGHT; ctx.fillRect(0, lineY, 30, 2); ctx.fillRect(CANVAS_WIDTH - 30, lineY, 30, 2); }
+        ctx.save(); 
+        const pulse = 0.5 + 0.5 * Math.sin(frameCount.current * 0.18); 
+        // Simplified motion blur - no gradient
+        ctx.fillStyle = `rgba(80,0,0,${motionBlurAlpha.current * 0.2 * pulse})`;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         ctx.restore();
     }
     ctx.restore();
@@ -1216,36 +1263,26 @@ export const useGameEngine = (props: GameEngineProps) => {
         
         const pulse = 0.5 + 0.5 * Math.sin(frameCount.current * 0.08);
         
-        // Premium Glassmorphism Background
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = `rgba(239, 68, 68, ${0.2 + pulse * 0.2})`;
-        
-        const grad = ctx.createLinearGradient(tx - totalW/2 - 30, 0, tx + totalW/2 + 30, 0);
-        grad.addColorStop(0, 'rgba(30, 41, 59, 0.9)');
-        grad.addColorStop(0.5, 'rgba(15, 23, 42, 0.95)');
-        grad.addColorStop(1, 'rgba(30, 41, 59, 0.9)');
-        
-        ctx.fillStyle = grad;
+        // Simplified background - no gradient, no shadow
+        ctx.fillStyle = `rgba(127, 29, 29, ${0.7 + pulse * 0.2})`;
         ctx.beginPath();
         ctx.roundRect(tx - totalW/2 - 30, ty - 28, totalW + 60, 42, 21);
         ctx.fill();
         
         // Border
-        ctx.strokeStyle = `rgba(239, 68, 68, ${0.4 + pulse * 0.4})`;
+        ctx.strokeStyle = `rgba(239, 68, 68, ${0.6})`;
         ctx.lineWidth = 1.5;
         ctx.stroke();
         
-        // Icon (Warning triangle)
+        // Icon and text
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.font = 'bold 16px Arial'; // Using Arial for emoji reliability
-        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = '#fca5a5';
         ctx.fillText('⚠️', startX, ty - 2);
         
-        // Text
         ctx.fillStyle = '#f8fafc';
         ctx.font = 'bold 13px "Be Vietnam Pro"';
-        ctx.shadowBlur = 0;
         ctx.fillText(msg, startX + iconW + spacing, ty - 2);
         
         ctx.restore();

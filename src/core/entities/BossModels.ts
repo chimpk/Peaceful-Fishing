@@ -10,21 +10,22 @@ export const drawAbyssalKraken = (
 ) => {
   const time = frameCount * 0.05;
   const hpRatio = hp / maxHp;
-  const size = 65; // Base scale for boss
-  const color = hpRatio < 0.3 ? '#991b1b' : '#4c1d95'; // Turns deep red when low HP
+  const size = 65;
+  const color = hpRatio < 0.3 ? '#991b1b' : '#4c1d95';
   
   ctx.save();
   
-  // 1. DYNAMIC AURA
+  // 1. SIMPLIFIED AURA - reduced complexity
   const glowRadius = 120 + Math.sin(time * 2) * 20;
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
-  glow.addColorStop(0, isAttacking ? 'rgba(239, 68, 68, 0.4)' : 'rgba(168, 85, 247, 0.2)');
-  glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow;
+  ctx.fillStyle = isAttacking ? 'rgba(239, 68, 68, 0.2)' : 'rgba(168, 85, 247, 0.1)';
   ctx.beginPath(); ctx.arc(0, 0, glowRadius, 0, Math.PI * 2); ctx.fill();
 
-  // 2. TENTACLES (High Detail with physics and suckers)
-  const numTentacles = 10; // More than regular Kraken
+  // 2. OPTIMIZED TENTACLES - fewer suckers
+  const numTentacles = 8;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size * 0.4;
+  ctx.lineCap = 'round';
+  
   for (let i = 0; i < numTentacles; i++) {
     const angle = (i / numTentacles) * Math.PI * 2 + Math.sin(time * 0.8 + i) * 0.25;
     const len = size * (2.2 + Math.sin(time * 1.2 + i) * 0.5);
@@ -32,96 +33,61 @@ export const drawAbyssalKraken = (
     ctx.save();
     ctx.rotate(angle);
     
-    const tentacleGrad = ctx.createLinearGradient(size * 0.4, 0, len, 0);
-    tentacleGrad.addColorStop(0, color);
-    tentacleGrad.addColorStop(1, '#020617');
-    
-    ctx.strokeStyle = tentacleGrad;
-    ctx.lineWidth = size * 0.45 * (0.8 + hpRatio * 0.2); // Thinner when damaged
-    ctx.lineCap = 'round';
-    
     const cp1x = size * 1.5;
-    const cp1y = Math.sin(time * 1.5 + i) * size * 1.2;
+    const cp1y = Math.sin(time * 1.5 + i) * size;
     const endX = len;
-    const endY = Math.cos(time + i) * size * 0.6;
+    const endY = Math.cos(time + i) * size * 0.5;
     
     ctx.beginPath();
     ctx.moveTo(size * 0.4, 0);
     ctx.quadraticCurveTo(cp1x, cp1y, endX, endY);
     ctx.stroke();
 
-    // Suckers
-    const suckerCount = 6;
+    // Fewer suckers per tentacle
+    const suckerCount = 3;
+    ctx.fillStyle = hpRatio < 0.3 ? '#f87171' : '#f472b6';
     for (let j = 1; j <= suckerCount; j++) {
       const t = j / (suckerCount + 1);
       const sx = size * 0.4 + (len - size * 0.4) * t;
-      const sy = cp1y * (1 - t) + endY * t + (size * 0.2); 
+      const sy = cp1y * (1 - t) + endY * t;
       
-      ctx.save();
-      ctx.translate(sx, sy);
-      ctx.fillStyle = hpRatio < 0.3 ? '#f87171' : '#f472b6'; // Redder suckers when low HP
-      ctx.beginPath(); ctx.arc(0, 0, size * 0.12 * (1 - t * 0.5), 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#4c1d95';
-      ctx.beginPath(); ctx.arc(0, 0, size * 0.05 * (1 - t * 0.5), 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
+      ctx.beginPath(); 
+      ctx.arc(sx, sy, size * 0.1 * (1 - t * 0.5), 0, Math.PI * 2); 
+      ctx.fill();
     }
     ctx.restore();
   }
 
-  // 3. MAIN MANTLE (Textured & Menacing)
+  // 3. SIMPLIFIED MANTLE
   const pulse = Math.sin(time * 1.2) * 0.08;
-  const mantleGrad = ctx.createRadialGradient(-size * 0.2, -size * 0.3, size * 0.1, 0, 0, size * 1.2);
-  mantleGrad.addColorStop(0, hpRatio < 0.3 ? '#ef4444' : '#a855f7'); 
-  mantleGrad.addColorStop(0.6, color);
-  mantleGrad.addColorStop(1, '#020617');
-
-  ctx.fillStyle = mantleGrad;
+  ctx.fillStyle = hpRatio < 0.3 ? '#ef4444' : '#a855f7';
   ctx.beginPath();
   ctx.ellipse(0, 0, size * 0.9, size * (1.1 + pulse), 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Skin Texture
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  for(let i=0; i<12; i++) {
-    const rx = Math.sin(i * 1.8) * size * 0.6;
-    const ry = Math.cos(i * 2.2) * size * 0.8;
-    ctx.beginPath(); ctx.arc(rx, ry, size * 0.08, 0, Math.PI * 2); ctx.fill();
+  // Minimal skin texture
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  for(let i=0; i<6; i++) {
+    const rx = Math.sin(i * 1.8) * size * 0.5;
+    const ry = Math.cos(i * 2.2) * size * 0.7;
+    ctx.beginPath(); ctx.arc(rx, ry, size * 0.06, 0, Math.PI * 2); ctx.fill();
   }
 
-  // 4. BOSS EYES (Intense and Layered)
+  // 4. SIMPLIFIED EYES - no shadow blur
   const drawBossEye = (side: number) => {
     const eyeX = size * 0.35, eyeY = side * size * 0.3;
-    ctx.save();
-    ctx.translate(eyeX, eyeY);
-    
-    // Outer Glow
-    ctx.shadowBlur = 20; 
-    ctx.shadowColor = isAttacking ? '#ff0000' : '#fef08a';
     
     // Sclera
     ctx.fillStyle = isAttacking ? '#fee2e2' : '#fef9c3';
-    ctx.beginPath(); ctx.ellipse(0, 0, size * 0.25, size * 0.35, side * 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(eyeX, eyeY, size * 0.2, size * 0.28, 0, 0, Math.PI * 2); ctx.fill();
     
     // Iris
-    ctx.shadowBlur = 0;
     ctx.fillStyle = isAttacking ? '#991b1b' : '#4c1d95';
-    ctx.beginPath(); ctx.arc(size * 0.05, 0, size * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(eyeX + size * 0.05, eyeY, size * 0.15, 0, Math.PI * 2); ctx.fill();
     
-    // Slit Pupil
+    // Pupil
     ctx.fillStyle = 'black';
-    ctx.beginPath(); ctx.ellipse(size * 0.08, 0, size * 0.04, size * 0.14, 0, 0, Math.PI * 2); ctx.fill();
-    
-    // Reflection
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.beginPath(); ctx.arc(-size * 0.05, -size * 0.05, size * 0.05, 0, Math.PI * 2); ctx.fill();
-    
-    // Scar/Anger veins if low HP
-    if (hpRatio < 0.5) {
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(-size * 0.2, -size * 0.2); ctx.lineTo(size * 0.2, size * 0.2); ctx.stroke();
-    }
-    ctx.restore();
+    ctx.beginPath(); ctx.arc(eyeX + size * 0.08, eyeY, size * 0.08, 0, Math.PI * 2); ctx.fill();
   };
   drawBossEye(-1);
   drawBossEye(1);

@@ -115,8 +115,9 @@ export interface FishInstance {
 
 export interface InventoryItem {
   fish: FishType;
+  count: number;
+  goldenCount: number;
   timestamp: number;
-  isGolden?: boolean;
 }
 
 export interface ProfileStats {

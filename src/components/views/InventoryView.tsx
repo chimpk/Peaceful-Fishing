@@ -113,7 +113,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                       <div className="absolute top-0 right-0 w-20 h-20 opacity-10 rounded-full blur-2xl" style={{ background: item.fish.color }}></div>
                       <div className="w-20 h-20 bg-slate-950/60 rounded-3xl mb-4 flex items-center justify-center text-4xl shadow-inner group-hover:scale-110 transition-transform animate-float">🐟</div>
                       <h4 className="font-black text-sm italic tracking-tight mb-2 text-white/90 line-clamp-1">{item.fish.name}</h4>
-                      <div className="text-yellow-500 font-black text-xs mb-4">{(item.isGolden ? item.fish.value * 2 : item.fish.value).toLocaleString()} 💰</div>
+                      <div className="text-slate-300 text-[10px] mb-2">Số lượng: {item.count}</div>
+                      {item.goldenCount > 0 && (
+                        <div className="text-amber-300 text-[10px] mb-2">Vàng: {item.goldenCount}</div>
+                      )}
+                      <div className="text-yellow-500 font-black text-xs mb-4">{item.fish.value.toLocaleString()} 💰</div>
                       <div className="flex gap-2 w-full mt-auto">
                         <button onClick={() => { soundManager.playClick(); handleSellClick(item); }} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
                         <button onClick={() => { soundManager.playClick(); useFishAsBait(item.timestamp); }} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>

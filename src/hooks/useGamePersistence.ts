@@ -16,7 +16,18 @@ export const useGamePersistence = (
     const data = loadGame();
     if (data) {
       if (data.gold !== undefined) state.setGold(data.gold);
-      if (data.inventory) state.setInventory(data.inventory);
+      if (data.inventory) {
+        state.setInventory(data.inventory.map((item: any) => {
+          const count = item.count !== undefined ? item.count : 1;
+          const goldenCount = item.goldenCount !== undefined ? item.goldenCount : (item.isGolden ? count : 0);
+          return {
+            fish: item.fish,
+            timestamp: item.timestamp,
+            count,
+            goldenCount
+          };
+        }));
+      }
       if (data.inventoryCapacity) state.setInventoryCapacity(data.inventoryCapacity);
       if (data.ownedRods) settings.setOwnedRods(data.ownedRods);
       if (data.baitCounts) settings.setBaitCounts(data.baitCounts);

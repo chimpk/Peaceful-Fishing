@@ -47,45 +47,39 @@ export const drawFishTexture = (
   isGolden: boolean = false
 ) => {
   const { size, rarity } = fishType;
-  
-  // High-fidelity isolation: Save full state and transform matrix
+
   ctx.save();
-  const matrix = ctx.getTransform(); 
 
   if (customPos) {
-    ctx.translate(customPos.x, customPos.y); 
+    ctx.translate(customPos.x, customPos.y);
     ctx.rotate(customPos.angle);
     if (customPos.direction === -1) ctx.scale(-1, 1);
     if (isStruggling || isCaught) ctx.translate(-size * 1.0, 0);
   }
 
   if (isCaught || isGolden) {
-    ctx.shadowBlur = isGolden ? 35 : 30; 
+    ctx.shadowBlur = isGolden ? 35 : 30;
     ctx.shadowColor = '#fbbf24';
-    ctx.save(); 
-    ctx.globalAlpha = 0.3 + Math.sin(frameCount * 0.2) * 0.2; 
-    ctx.fillStyle = '#fbbf24'; 
-    ctx.beginPath(); 
-    ctx.ellipse(0, 0, size * 1.4, size * 0.9, 0, 0, Math.PI * 2); 
-    ctx.fill(); 
+    ctx.save();
+    ctx.globalAlpha = 0.3 + Math.sin(frameCount * 0.2) * 0.2;
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 1.4, size * 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   } else {
     if (rarity === Rarity.MYTHIC || rarity === Rarity.LEGENDARY) {
-        // Cap shadowBlur at 80 to prevent massive performance drops on large entities
-        ctx.shadowBlur = Math.min(size * (rarity === Rarity.MYTHIC ? 1.2 : 0.8), 80); 
+        ctx.shadowBlur = Math.min(size * (rarity === Rarity.MYTHIC ? 1.2 : 0.8), 80);
         ctx.shadowColor = rarity === Rarity.MYTHIC ? '#ff0000' : '#fbbf24';
     } else if (rarity === Rarity.EPIC) {
-        ctx.shadowBlur = Math.min(size * 0.5, 40); 
+        ctx.shadowBlur = Math.min(size * 0.5, 40);
         ctx.shadowColor = '#a855f7';
     }
   }
 
   if (isStruggling) ctx.translate((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4);
 
-  // Execution: Draw the model
   drawFishByModel(ctx, fishType, frameCount, isStruggling, currentSpeed, isCaught, isGolden);
 
-  // Recovery: Hard-reset transform and restore stack
-  ctx.setTransform(matrix);
   ctx.restore();
 };
