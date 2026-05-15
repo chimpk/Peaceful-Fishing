@@ -18,4 +18,10 @@ export const LEGENDARY_FISH: FishType[] = [
   { name: 'Cá Ma Cà Rồng', rarity: Rarity.LEGENDARY, value: 30000, tension: 92, color: '#7f1d1d', size: 40, weight: 0.8, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_natural_4'], canBerserk: true },
   // Cá Vàng Thiên Hà
   { name: 'Cá Vàng Thiên Hà', rarity: Rarity.LEGENDARY, value: 45000, tension: 95, color: '#1e1b4b', size: 50, weight: 0.6, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Mực Khổng Lồ
+  { name: 'Mực Khổng Lồ', rarity: Rarity.LEGENDARY, value: 40000, tension: 96, color: '#991b1b', size: 90, weight: 0.1, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Mập Goblin
+  { name: 'Cá Mập Goblin', rarity: Rarity.LEGENDARY, value: 38000, tension: 94, color: '#fda4af', size: 60, weight: 0.12, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_natural_4'], canBerserk: true },
+  // Cá Mác Xanh (Blue Marlin)
+  { name: 'Cá Mác Xanh (Blue Marlin)', rarity: Rarity.LEGENDARY, value: 32000, tension: 92, color: '#1e3a8a', size: 80, weight: 0.15, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'], canBerserk: true },
 ];

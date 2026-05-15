@@ -10,38 +10,29 @@ const drawRarityEffects = (ctx: CanvasRenderingContext2D, fish: FishType, frameC
   const { rarity, size, color } = fish;
   
   if (rarity === Rarity.MYTHIC || rarity === Rarity.LEGENDARY || rarity === Rarity.EPIC) {
-    ctx.save();
+    // Only handle sparkles/particles here. 
+    // The main body glow is now handled in the dispatcher for better silhouette matching.
     
-    // Glowing Aura
-    const pulse = (Math.sin(frameCount * 0.05) + 1) / 2;
-    const auraAlpha = rarity === Rarity.MYTHIC ? 0.4 : (rarity === Rarity.LEGENDARY ? 0.25 : 0.15);
-    
-    ctx.shadowBlur = size * (rarity === Rarity.MYTHIC ? 1.5 : 1.0);
-    ctx.shadowColor = color;
-    
-    ctx.globalAlpha = auraAlpha * (0.8 + pulse * 0.2);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, size * 2.2, size * 1.5, 0, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    
-    // Sparkles for Mythic
-    if (rarity === Rarity.MYTHIC) {
-      for (let i = 0; i < 5; i++) {
-        const ang = (frameCount * 0.03 + i * (Math.PI * 2 / 5));
-        const dist = size * 1.8;
+    // Sparkles for Mythic/Legendary
+    if (rarity === Rarity.MYTHIC || rarity === Rarity.LEGENDARY) {
+      ctx.save();
+      const numSparkles = rarity === Rarity.MYTHIC ? 6 : 3;
+      for (let i = 0; i < numSparkles; i++) {
+        const ang = (frameCount * 0.03 + i * (Math.PI * 2 / numSparkles));
+        const dist = size * (1.5 + Math.sin(frameCount * 0.05 + i) * 0.3);
         const px = Math.cos(ang) * dist;
         const py = Math.sin(ang) * dist;
-        const s = 2 + Math.sin(frameCount * 0.1 + i) * 2;
+        const s = (rarity === Rarity.MYTHIC ? 3 : 2) + Math.sin(frameCount * 0.1 + i) * 2;
         
         ctx.fillStyle = 'white';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = color;
         ctx.beginPath();
         ctx.arc(px, py, s, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.restore();
     }
-    
-    ctx.restore();
   }
 };
 
@@ -108,11 +99,19 @@ export const drawFishByModel = (
     return Sharks.drawShark(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   }
   if (has('kiếm') || has('buồm')) return Sharks.drawSwordfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  if (has('mác') || has('marlin')) return Unique.drawMarlin(ctx, fish, frameCount, size, finalColor);
 
   // 3. UNIQUE & EXOTIC
   if (has('đuối')) return Unique.drawRay(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (has('mặt trăng')) return Unique.drawSunfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
-  if (has('ngựa')) return Unique.drawSeahorse(ctx, fish, frameCount, size, finalColor);
+  if (has('ngựa') || has('hải mã')) return Unique.drawSeahorse(ctx, fish, frameCount, size, finalColor);
+  if (has('rồng biển') || has('seadragon')) return Unique.drawSeadragon(ctx, fish, frameCount, size, finalColor);
+  if (has('vẹt') || has('parrotfish')) return Unique.drawParrotfish(ctx, fish, frameCount, size, finalColor);
+  if (has('mực khổng lồ')) return Unique.drawGiantSquid(ctx, fish, frameCount, size, finalColor);
+  if (has('goblin')) return Unique.drawGoblinShark(ctx, fish, frameCount, size, finalColor);
+  if (has('kính') || has('ghost fish')) return Unique.drawGlassfish(ctx, fish, frameCount, size, finalColor);
+  if (has('thần tiên') || has('mandarin')) return Unique.drawMandarinfish(ctx, fish, frameCount, size, finalColor);
+  if (has('phát sáng') || has('hatchet')) return Unique.drawHatchetfish(ctx, fish, frameCount, size, finalColor);
   if (has('rồng') || has('long') || has('leviathan') || has('tượng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor);
   if (has('phượng hoàng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor); 
   if (has('kraken')) return Unique.drawKraken(ctx, fish, frameCount, size, finalColor);
@@ -128,20 +127,22 @@ export const drawFishByModel = (
   if (has('cua khổng lồ')) return Unique.drawGiantCrab(ctx, fish, frameCount, size, finalColor);
   if (has('robot')) return Unique.drawRobotFish(ctx, fish, frameCount, size, finalColor);
   if (has('pha lê')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor);
-  if (has('linh hồn')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); // Soul fish uses crystal model
-  if (has('thiên hà')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); // Galaxy goldfish uses crystal model
+  if (has('linh hồn')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); 
+  if (has('thiên hà')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); 
   if (has('megalodon')) return Sharks.drawShark(ctx, fish, frameCount, size * 1.5, finalColor, wagFreq, wagAmp);
-  if (has('vampire') || has('ma cà rồng')) return Unique.drawAnglerFish(ctx, fish, frameCount, size, finalColor); // Vampire uses angler model
+  if (has('vampire') || has('ma cà rồng')) return Unique.drawAnglerFish(ctx, fish, frameCount, size, finalColor);
+  if (has('vua') || has('oarfish')) return Unique.drawOarfish(ctx, fish, frameCount, size, finalColor);
 
   // 4. ELONGATED (Cá thân dài)
-  // Ưu tiên Cá Lóc trước để tránh nhầm lẫn
   // Cá Chình/Lươn/Lăng dùng model Eel (thon trơn, không râu)
   if (has('chình') || has('lươn') || has('lăng')) {
     return Classic.drawEel(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   }
 
-  // Cá Vua (Oarfish) rất dài, dùng Snakehead model (không râu) phù hợp hơn Catfish
-  if (has('vua')) return Classic.drawSnakehead(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  // Cá Lóc dùng model Snakehead
+  if (has('lóc')) {
+    return Classic.drawSnakehead(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
 
   // Cá Trê dùng model Catfish (đặc trưng có râu)
   if (has('trê')) {

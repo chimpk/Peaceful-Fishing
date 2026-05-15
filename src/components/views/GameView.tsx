@@ -18,7 +18,7 @@ interface GameViewProps {
   ownedTackles: string[];
   location: LocationType;
   timeOfDay: TimeOfDay;
-  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' | 'meteor_shower' | 'rainbow' | 'aurora';
+  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' | 'meteor_shower' | 'rainbow' | 'aurora' | 'deep_sea_current' | 'crystal_resonance';
   streak: number;
   competitionMode: boolean;
   competitionTimeLeft: number;
@@ -114,25 +114,90 @@ const GameView: React.FC<GameViewProps> = ({
     <div className="absolute inset-0 text-white font-sans overflow-hidden pointer-events-none z-[9999]">
       {gameState === GameState.START ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 z-[10000] overflow-hidden pointer-events-auto">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1100px] h-[1100px] bg-blue-600/10 rounded-full blur-[150px] animate-pulse"></div>
-          <div className="relative mb-16 text-center animate-in fade-in zoom-in duration-1000">
-            <div className="text-[10px] text-blue-400 font-black tracking-[0.5em] uppercase opacity-60 mb-4 animate-float">BẢN THẦN THOẠI 2026</div>
-            <h1 className="text-8xl text-transparent bg-clip-text bg-gradient-to-b from-white via-blue-200 to-blue-500 font-black tracking-tighter italic drop-shadow-[0_10px_30px_rgba(59,130,246,0.5)] leading-tight">
-              PEACEFUL<br/>FISHING
-            </h1>
+          {/* Background Elements */}
+          <div className="absolute inset-0 opacity-40">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[1200px] bg-blue-600/20 rounded-full blur-[180px] animate-pulse-glow"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(2,6,23,0.8)_100%)]"></div>
           </div>
-          <div className="relative flex flex-col gap-6 w-full max-w-sm px-8 animate-in slide-in-from-bottom-10 duration-700 delay-300">
-            <button onClick={() => { soundManager.playClick(); startGame(); }} className="group relative bg-gradient-to-r from-blue-600 to-blue-400 text-white px-12 py-6 rounded-[2rem] font-black text-2xl tracking-tight transition-all active:scale-95 shadow-[0_20px_50px_rgba(37,99,235,0.3)]">
-               VÀO CÂU NGAY →
-            </button>
-            <button onClick={() => { soundManager.playClick(); startCompetition(); }} className="group relative bg-slate-900 border border-white/10 text-white px-12 py-5 rounded-[2rem] font-black text-xl transition-all active:scale-95 shadow-2xl hover:bg-slate-800">
-              <span className="bg-clip-text bg-gradient-to-r from-orange-400 to-amber-500 text-transparent">CHẾ ĐỘ THI ĐẤU</span>
-            </button>
-            <div className="flex gap-4">
-              <button onClick={() => { soundManager.playClick(); setShowTutorial(true); }} className="flex-1 bg-white/5 px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest border border-white/5">CÁCH CHƠI</button>
-              <button onClick={() => { soundManager.playClick(); setActiveView(UIView.LEADERBOARD); }} className="flex-1 bg-white/5 px-8 py-4 rounded-2xl font-bold text-xs uppercase tracking-widest border border-white/5">XẾP HẠNG</button>
+          
+          {/* Rotating Light Rays */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+            <div className="w-[150%] h-[150%] bg-[conic-gradient(from_0deg_at_50%_50%,_transparent_0%,_rgba(59,130,246,0.2)_10%,_transparent_20%,_rgba(59,130,246,0.2)_30%,_transparent_40%,_rgba(59,130,246,0.2)_50%,_transparent_60%,_rgba(59,130,246,0.2)_70%,_transparent_80%,_rgba(59,130,246,0.2)_90%,_transparent_100%)] animate-ray"></div>
+          </div>
+
+          {/* Floating Particles Decorations */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+             {[...Array(12)].map((_, i) => (
+               <div 
+                 key={i} 
+                 className="absolute bg-blue-400/20 rounded-full blur-sm animate-float"
+                 style={{
+                   width: Math.random() * 40 + 10,
+                   height: Math.random() * 40 + 10,
+                   left: `${Math.random() * 100}%`,
+                   top: `${Math.random() * 100}%`,
+                   animationDelay: `${Math.random() * 5}s`,
+                   animationDuration: `${Math.random() * 3 + 3}s`
+                 }}
+               />
+             ))}
+          </div>
+
+          {/* Content */}
+          <div className="relative mb-20 text-center z-10">
+            <div className="flex flex-col items-center">
+              <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full mb-6 animate-in fade-in zoom-in duration-700">
+                <div className="text-[10px] text-blue-400 font-black tracking-[0.4em] uppercase">BẢN THẦN THOẠI 2026</div>
+              </div>
+              
+              <div className="relative group cursor-default">
+                <h1 className="text-9xl text-transparent bg-clip-text bg-gradient-to-b from-white via-blue-100 to-blue-600 font-black tracking-tighter italic drop-shadow-2xl leading-[0.85] animate-in fade-in slide-in-from-top-10 duration-1000">
+                  PEACEFUL<br/>
+                  <span className="text-blue-500 text-shadow-premium">FISHING</span>
+                </h1>
+                {/* Subtle outer glow that follows the text */}
+                <div className="absolute inset-0 blur-3xl bg-blue-500/10 opacity-50 -z-10 group-hover:opacity-100 transition-opacity"></div>
+              </div>
             </div>
           </div>
+
+          <div className="relative flex flex-col gap-5 w-full max-w-sm px-10 z-20 animate-in slide-in-from-bottom-10 duration-700 delay-300">
+            <button 
+              onClick={() => { soundManager.playClick(); startGame(); }} 
+              className="group relative bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 text-white px-12 py-6 rounded-[2.5rem] font-black text-2xl tracking-tight transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_rgba(37,99,235,0.4)] animate-shimmer overflow-hidden"
+            >
+              <div className="relative z-10 flex items-center justify-center gap-3">
+                VÀO CÂU NGAY 
+                <span className="group-hover:translate-x-2 transition-transform">→</span>
+              </div>
+              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </button>
+
+            <button 
+              onClick={() => { soundManager.playClick(); startCompetition(); }} 
+              className="group relative bg-slate-900/80 backdrop-blur-xl border border-white/10 text-white px-12 py-5 rounded-[2.5rem] font-black text-xl transition-all hover:scale-105 active:scale-95 shadow-2xl hover:bg-slate-800 hover:border-orange-500/30"
+            >
+              <span className="bg-clip-text bg-gradient-to-r from-orange-400 via-amber-500 to-yellow-400 text-transparent group-hover:from-white group-hover:to-white transition-all">CHẾ ĐỘ THI ĐẤU</span>
+              {/* Competition Badge */}
+              <div className="absolute -top-2 -right-2 bg-red-600 text-[8px] px-2 py-0.5 rounded-full border border-red-400 animate-bounce">LIVE</div>
+            </button>
+
+            <div className="flex gap-4 mt-2">
+              <button 
+                onClick={() => { soundManager.playClick(); setShowTutorial(true); }} 
+                className="flex-1 bg-white/5 hover:bg-white/10 px-6 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-[0.15em] border border-white/5 transition-all hover:-translate-y-1"
+              >
+                CÁCH CHƠI
+              </button>
+              <button 
+                onClick={() => { soundManager.playClick(); setActiveView(UIView.LEADERBOARD); }} 
+                className="flex-1 bg-white/5 hover:bg-white/10 px-6 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-[0.15em] border border-white/5 transition-all hover:-translate-y-1"
+              >
+                XẾP HẠNG
+              </button>
+            </div>
+          </div>
+
         </div>
       ) : (
         <>
@@ -158,8 +223,20 @@ const GameView: React.FC<GameViewProps> = ({
                   <div className="bg-slate-950/60 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 shadow-2xl group relative">
                     <span className="text-xl animate-float">{timeOfDay === 'DAY' ? '☀️' : '🌙'}</span>
                     <div>
-                      <div className="text-[8px] text-blue-400 font-black uppercase opacity-60 leading-none">{weather === 'sunny' ? 'Nắng' : (weather === 'rainy' ? 'Mưa' : (weather === 'stormy' ? 'Bão' : 'Sương mù'))}</div>
-                      <div className="text-[10px] font-black uppercase text-white">{weather === 'sunny' ? '☀️' : weather === 'rainy' ? '🌧️' : weather === 'stormy' ? '⛈️' : '🌫️'}</div>
+                      <div className="text-[8px] text-blue-400 font-black uppercase opacity-60 leading-none">
+                        {weather === 'deep_sea_current' ? 'Hải Lưu' : 
+                         weather === 'crystal_resonance' ? 'Cộng Hưởng' :
+                         location === 'CAVE' ? (weather === 'sunny' ? 'Khô Ráo' : 'Hơi Nước') : 
+                         (timeOfDay === 'NIGHT' ? (weather === 'sunny' ? 'Trời Quang' : 'Mưa Đêm') : 
+                         (weather === 'sunny' ? 'Nắng' : (weather === 'rainy' ? 'Mưa' : (weather === 'stormy' ? 'Bão' : 'Sương mù'))))}
+                      </div>
+                      <div className="text-[10px] font-black uppercase text-white">
+                        {weather === 'deep_sea_current' ? '🌊' : 
+                         weather === 'crystal_resonance' ? '✨' :
+                         location === 'CAVE' ? (weather === 'sunny' ? '💎' : '🌫️') : 
+                         (timeOfDay === 'NIGHT' ? (weather === 'sunny' ? '🌙' : (weather === 'rainy' ? '🌧️' : '⛈️')) : 
+                         (weather === 'sunny' ? '☀️' : weather === 'rainy' ? '🌧️' : weather === 'stormy' ? '⛈️' : '🌫️'))}
+                      </div>
                     </div>
                     {/* Weather Info Tooltip */}
                     <div className="absolute top-full left-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[100]">

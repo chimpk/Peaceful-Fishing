@@ -44,6 +44,7 @@ export enum FishBehavior {
 
 export type LocationType = 'POND' | 'OCEAN' | 'CAVE';
 export type TimeOfDay = 'DAY' | 'SUNSET' | 'NIGHT';
+export type WeatherType = 'sunny' | 'rainy' | 'stormy' | 'foggy' | 'meteor_shower' | 'rainbow' | 'aurora' | 'deep_sea_current' | 'crystal_resonance';
 
 export interface FishType {
   name: string;

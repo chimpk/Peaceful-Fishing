@@ -20,4 +20,8 @@ export const MYTHIC_FISH: FishType[] = [
   { name: 'Cá Phượng Hoàng Lửa', rarity: Rarity.MYTHIC, value: 220000, tension: 99, color: '#ef4444', size: 60, weight: 0.04, allowedLocations: ['CAVE'], allowedTimes: ['SUNSET'], preferredBaits: ['bait_natural_2'], canBerserk: true },
   // Cá Cổ Đại Megalodon
   { name: 'Cá Cổ Đại Megalodon', rarity: Rarity.MYTHIC, value: 300000, tension: 99, color: '#475569', size: 180, weight: 0.01, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Rồng Nước Oarfish
+  { name: 'Cá Rồng Nước Oarfish', rarity: Rarity.MYTHIC, value: 160000, tension: 98, color: '#e2e8f0', size: 140, weight: 0.02, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Rồng Biển Lá
+  { name: 'Cá Rồng Biển Lá', rarity: Rarity.MYTHIC, value: 140000, tension: 95, color: '#bef264', size: 50, weight: 0.03, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'], canBerserk: false },
 ];

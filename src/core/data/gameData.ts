@@ -12,7 +12,9 @@ export const WEATHER_BONUSES = {
   foggy: { attraction: 1.6, rarity: 1.5, speed: 0.8, tension: 1.15, label: 'Sương Mù: ++Thu hút cá, +50% Độ hiếm, Cá bơi chậm nhưng khó kéo hơn!' },
   meteor_shower: { attraction: 1.2, rarity: 2.0, speed: 1.0, tension: 1.0, label: 'Mưa Sao Băng: x2 Độ hiếm, x2 Vàng nhận được. Điều ước sắp thành hiện thực!' },
   rainbow: { attraction: 2.0, rarity: 2.5, speed: 0.9, tension: 0.8, label: 'Cầu Vồng: ++Cá cắn câu, ++Độ hiếm, Giảm căng dây. May mắn ngập tràn!' },
-  aurora: { attraction: 1.5, rarity: 4.0, speed: 1.1, tension: 1.2, label: 'Cực Quang: x4 Độ hiếm. Vẻ đẹp huyền bí của đại dương!' }
+  aurora: { attraction: 1.5, rarity: 4.0, speed: 1.1, tension: 1.2, label: 'Cực Quang: x4 Độ hiếm. Vẻ đẹp huyền bí của đại dương!' },
+  deep_sea_current: { attraction: 0.8, rarity: 3.0, speed: 2.5, tension: 1.3, label: 'Dòng Hải Lưu: x3 Độ hiếm, Cá bơi cực nhanh (+150%), Giảm thu hút.' },
+  crystal_resonance: { attraction: 1.2, rarity: 4.5, speed: 1.0, tension: 1.1, label: 'Cộng Hưởng Tinh Thể: x4.5 Độ hiếm. Tinh thể phát sáng thu hút những loài cá thần bí!' }
 };
 
 export const CHEST_TYPES: FishType[] = [

@@ -22,4 +22,6 @@ export const EPIC_FISH: FishType[] = [
   { name: 'Cá Robot Hư Hỏng', rarity: Rarity.EPIC, value: 12000, tension: 85, color: '#64748b', size: 35, weight: 2.0, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'] },
   // Cá Linh Hồn
   { name: 'Cá Linh Hồn', rarity: Rarity.EPIC, value: 9000, tension: 70, color: '#99f6e4', size: 30, weight: 1.5, allowedLocations: ['POND'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_natural_3'] },
+  // Cá Thần Tiên Mandarin
+  { name: 'Cá Thần Tiên Mandarin', rarity: Rarity.EPIC, value: 8000, tension: 70, color: '#3b82f6', size: 25, weight: 1.8, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'] },
 ];

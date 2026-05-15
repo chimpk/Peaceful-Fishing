@@ -22,4 +22,6 @@ export const UNCOMMON_FISH: FishType[] = [
   { name: 'Bạch Tuộc Đốm', rarity: Rarity.UNCOMMON, value: 250, tension: 55, color: '#991b1b', size: 22, weight: 55, allowedLocations: ['CAVE'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_natural_4'] },
   // Lươn Hang Tối
   { name: 'Lươn Hang Tối', rarity: Rarity.UNCOMMON, value: 200, tension: 50, color: '#451a03', size: 35, weight: 60, allowedLocations: ['CAVE'], preferredBaits: ['bait_natural_4'] },
+  // Cá Vẹt Parrotfish
+  { name: 'Cá Vẹt Parrotfish', rarity: Rarity.UNCOMMON, value: 280, tension: 45, color: '#4ade80', size: 25, weight: 65, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'] },
 ];

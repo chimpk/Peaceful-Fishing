@@ -78,25 +78,59 @@ export const useGameEngine = (props: any) => {
 
   const update = useCallback((ctx: CanvasRenderingContext2D) => {
     frameCount.current++;
+    
+    // Clear whole canvas
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Simple update logic for now
+    // === LAYER 1: BACKGROUND ===
+    ctx.save();
     Graphics.drawWaterAndSky(ctx, frameCount.current, weather, location, timeOfDay, timeOfDay, 1);
-    
-    // Fish update
+    ctx.restore();
+
+    // Reset properties for safety
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // === LAYER 2: FISH ENTITIES ===
+    ctx.save();
     fishRef.current.forEach(f => {
       f.x += f.velocity.x;
       if (f.x > CANVAS_WIDTH + 200) f.x = -150;
       if (f.x < -200) f.x = CANVAS_WIDTH + 150;
-      Graphics.drawFishTexture(ctx, f.type, frameCount.current, false, { x: f.x, y: f.y, angle: f.angle, direction: f.direction });
+      
+      // Each fish is already isolated by drawFishTexture, but we add an extra layer here
+      Graphics.drawFishTexture(ctx, f.type, frameCount.current, false, { 
+        x: f.x, y: f.y, angle: f.angle, direction: f.direction 
+      });
     });
+    ctx.restore();
 
-    // Player/Rod/Line update
-    Graphics.drawPlayerEquipment(ctx, gameState, 80, 180, 200, 120, hookX.current, hookY.current, gameState === GameState.CASTING, lineHealth.current, 0, currentRod, chargePower.current, currentBait, frameCount.current, 0, location);
-    
+    // Hard reset after entities (most likely place for leaks)
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // === LAYER 3: PLAYER & EQUIPMENT ===
+    ctx.save();
+    Graphics.drawPlayerEquipment(
+      ctx, gameState, 80, 180, 200, 120, hookX.current, hookY.current, 
+      gameState === GameState.CASTING, lineHealth.current, 0, currentRod, 
+      chargePower.current, currentBait, frameCount.current, 0, location
+    );
+    ctx.restore();
+
+    // === LAYER 4: UI / INTERFACE ===
+    ctx.save();
     if (gameState === GameState.REELING) {
-      Graphics.drawReelingInterface(ctx, reelingProgress.current, lineHealth.current, tensionCursor.current, tensionZone.current, tensionZoneSize.current, true);
+      Graphics.drawReelingInterface(
+        ctx, reelingProgress.current, lineHealth.current, tensionCursor.current, 
+        tensionZone.current, tensionZoneSize.current, true
+      );
     }
+    ctx.restore();
+
   }, [gameState, weather, location, timeOfDay, currentRod, currentBait]);
 
   return {

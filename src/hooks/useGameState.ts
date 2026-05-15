@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, NotificationItem, NotificationType } from '../types';
 import { RODS, TACKLES, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from '../core/data/gameData';
 import { soundManager } from '../core/systems/soundManager';
@@ -31,11 +31,22 @@ export const useGameState = () => {
   });
   const [dailyMarketBoosts, setDailyMarketBoosts] = useState<string[]>([]);
 
+  const lastNotificationRef = useRef<{ message: string; timestamp: number } | null>(null);
+
   const addNotification = useCallback((message: string, type: NotificationType = 'info') => {
+    const now = Date.now();
+    // Prevent duplicate notifications within 500ms
+    if (lastNotificationRef.current && 
+        lastNotificationRef.current.message === message && 
+        now - lastNotificationRef.current.timestamp < 500) {
+      return;
+    }
+    lastNotificationRef.current = { message, timestamp: now };
+
     const id = Math.random().toString(36).substring(2, 9);
-    const newNote: NotificationItem = { id, message, type, timestamp: Date.now() };
+    const newNote: NotificationItem = { id, message, type, timestamp: now };
     setNotifications(prev => [...prev, newNote]);
-    // soundManager.playNotify(); // Removed to avoid double sounds, callers play their own sounds
+    
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 4000);

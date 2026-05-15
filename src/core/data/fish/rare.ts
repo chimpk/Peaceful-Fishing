@@ -1,4 +1,3 @@
-
 import { FishType, Rarity, FishBehavior } from '../../../types';
 
 export const RARE_FISH: FishType[] = [
@@ -16,4 +15,8 @@ export const RARE_FISH: FishType[] = [
   { name: 'Cá Chình Điện', rarity: Rarity.RARE, value: 950, tension: 75, color: '#4338ca', size: 40, weight: 10, allowedLocations: ['CAVE'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_natural_4'] },
   // Cá Mao Tiên
   { name: 'Cá Mao Tiên', rarity: Rarity.RARE, value: 750, tension: 62, color: '#ef4444', size: 30, weight: 12, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'] },
+  // Cá Kính Ghost Fish
+  { name: 'Cá Kính Ghost Fish', rarity: Rarity.RARE, value: 550, tension: 50, color: '#bae6fd', size: 20, weight: 15, allowedLocations: ['POND', 'CAVE'], preferredBaits: ['bait_natural_3'] },
+  // Cá Phát Sáng Hatchet
+  { name: 'Cá Phát Sáng Hatchet', rarity: Rarity.RARE, value: 850, tension: 65, color: '#94a3b8', size: 22, weight: 12, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_natural_4'] },
 ];

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, NotificationItem } from '../../types';
+import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, WeatherType, NotificationItem } from '../../types';
 
 // Views
 import GameView from '../views/GameView';
@@ -35,7 +35,7 @@ interface UIOverlayProps {
   upgradeCapacity: () => void;
   onResetData: () => void;
   claimQuest: (id: string) => void;
-  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy';
+  weather: WeatherType;
   sellFish: (timestamp: number) => void;
   epicCatch: { fish: { name: string; rarity: string; value: number }; isGolden: boolean } | null;
   unlockedFish: string[];

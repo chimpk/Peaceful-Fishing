@@ -1,24 +1,26 @@
 
-import { LocationType, TimeOfDay } from '../../types';
+import { LocationType, TimeOfDay, WeatherType } from '../../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../data/gameData';
 import { SKY_COLORS, WATER_COLORS, lerpColor, drawVignette } from './Utils';
 
 export const drawWaterAndSky = (
   ctx: CanvasRenderingContext2D, 
   frame: number, 
-  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' | 'meteor_shower' | 'rainbow' | 'aurora' = 'sunny', 
+  weather: WeatherType = 'sunny', 
   location: LocationType = 'POND', 
   timeOfDay: TimeOfDay = 'DAY',
   prevTimeOfDay: TimeOfDay = 'DAY',
-  transition: number = 1 // 0 to 1
+  transition: number = 1, // 0 to 1
+  scrollX: number = CANVAS_WIDTH / 2
 ) => {
+  const parallaxOffset = (scrollX - CANVAS_WIDTH / 2);
   const getSkyTarget = (t: TimeOfDay) => {
     if (location === 'CAVE') return SKY_COLORS.CAVE;
     if (t === 'NIGHT') return SKY_COLORS.NIGHT;
     if (t === 'SUNSET') return SKY_COLORS.SUNSET;
-    if (weather === 'sunny') return SKY_COLORS.DAY_SUNNY;
-    if (weather === 'rainy') return SKY_COLORS.DAY_RAINY;
-    if (weather === 'foggy') return ['#94a3b8', '#cbd5e1'];
+    if (weather === 'sunny' || weather === 'rainbow' || weather === 'aurora') return SKY_COLORS.DAY_SUNNY;
+    if (weather === 'rainy' || weather === 'deep_sea_current') return SKY_COLORS.DAY_RAINY;
+    if (weather === 'foggy' || weather === 'crystal_resonance') return ['#94a3b8', '#cbd5e1'];
     return SKY_COLORS.DAY_STORMY;
   };
 
@@ -42,16 +44,16 @@ export const drawWaterAndSky = (
 
   // Sun/Moon
   if (location !== 'CAVE') {
-    drawSunMoon(ctx, frame, timeOfDay, prevTimeOfDay, transition, weather);
+    drawSunMoon(ctx, frame, timeOfDay, prevTimeOfDay, transition, weather, parallaxOffset);
   }
 
   // --- Background Scenery ---
   ctx.save();
   if (location === 'POND') {
-    drawHills(ctx, frame, transition, timeOfDay, prevTimeOfDay);
+    drawHills(ctx, frame, transition, timeOfDay, prevTimeOfDay, parallaxOffset);
     drawWindParticles(ctx, frame, transition, 'POND');
   } else if (location === 'OCEAN') {
-    drawClouds(ctx, frame, transition, timeOfDay, prevTimeOfDay);
+    drawClouds(ctx, frame, transition, timeOfDay, prevTimeOfDay, parallaxOffset);
     drawDistantLighthouse(ctx, frame, transition, timeOfDay);
     drawWindParticles(ctx, frame, transition, 'OCEAN');
     if (weather === 'sunny') {
@@ -160,6 +162,16 @@ export const drawWaterAndSky = (
 const rainPool: { x: number; y: number; speed: number; len: number }[] = [];
 
 export const drawWeatherEffects = (ctx: CanvasRenderingContext2D, frame: number, weather: string, location: LocationType) => {
+  if (location === 'OCEAN' && weather === 'deep_sea_current') {
+    drawDeepSeaCurrent(ctx, frame);
+    return;
+  }
+
+  if (location === 'CAVE' && weather === 'crystal_resonance') {
+    drawCrystalResonance(ctx, frame);
+    return;
+  }
+
   if (weather === 'sunny' || location === 'CAVE') {
     if (rainPool.length > 0) rainPool.length = 0;
     return;
@@ -317,7 +329,66 @@ export const drawLightning = (ctx: CanvasRenderingContext2D, x: number, alpha: n
     ctx.restore();
 };
 
-export const drawHills = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
+export const drawDeepSeaCurrent = (ctx: CanvasRenderingContext2D, frame: number) => {
+    ctx.save();
+    // Fast moving current lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 20; i++) {
+        const speed = 15 + (i % 5) * 5;
+        const x = (frame * speed + i * 200) % (CANVAS_WIDTH + 400) - 200;
+        const y = 250 + (i * 20);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 100, y);
+        ctx.stroke();
+    }
+    // Faster bubbles
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    for (let i = 0; i < 30; i++) {
+        const x = (frame * 10 + i * 150) % (CANVAS_WIDTH + 200) - 100;
+        const y = 200 + (Math.sin(frame * 0.05 + i) * 150) + 150;
+        ctx.beginPath();
+        ctx.arc(x, y, 1 + (i % 3), 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.restore();
+};
+
+export const drawCrystalResonance = (ctx: CanvasRenderingContext2D, frame: number) => {
+    ctx.save();
+    // Pulsing background glow
+    const pulse = 0.1 + Math.sin(frame * 0.02) * 0.05;
+    ctx.fillStyle = `rgba(168, 85, 247, ${pulse})`;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Floating crystals
+    for (let i = 0; i < 15; i++) {
+        const x = (Math.sin(i * 123) * 1000 + frame * 0.5) % CANVAS_WIDTH;
+        const y = (Math.cos(i * 321) * 1000 + Math.sin(frame * 0.01 + i) * 50) % (CANVAS_HEIGHT - 200) + 200;
+        const size = 4 + Math.sin(frame * 0.05 + i) * 2;
+        const alpha = 0.4 + Math.sin(frame * 0.03 + i) * 0.2;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(frame * 0.02 + i);
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#a855f7';
+        ctx.fillStyle = `rgba(192, 132, 252, ${alpha})`;
+        
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 2);
+        ctx.lineTo(size, 0);
+        ctx.lineTo(0, size * 2);
+        ctx.lineTo(-size, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+    ctx.restore();
+};
+
+export const drawHills = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay, parallaxOffset: number = 0) => {
   const getHillColor = (t: TimeOfDay) => {
     if (t === 'DAY') return ['#166534', '#14532d'];
     if (t === 'SUNSET') return ['#7c2d12', '#451a03'];
@@ -330,9 +401,10 @@ export const drawHills = (ctx: CanvasRenderingContext2D, frame: number, transiti
   ctx.fillStyle = lerpColor(colorsPrev[1], colorsCurr[1], transition);
   ctx.beginPath();
   ctx.moveTo(0, 200);
-  for (let x = 0; x <= CANVAS_WIDTH; x += 50) {
-    const y = 140 + Math.sin(x * 0.005 + 1) * 30 + Math.cos(x * 0.01) * 10;
-    ctx.lineTo(x, y);
+  const p1 = parallaxOffset * 0.15;
+  for (let x = -100; x <= CANVAS_WIDTH + 100; x += 50) {
+    const y = 140 + Math.sin((x + p1) * 0.005 + 1) * 30 + Math.cos((x + p1) * 0.01) * 10;
+    ctx.lineTo(x - p1, y);
   }
   ctx.lineTo(CANVAS_WIDTH, 200);
   ctx.fill();
@@ -340,15 +412,16 @@ export const drawHills = (ctx: CanvasRenderingContext2D, frame: number, transiti
   ctx.fillStyle = lerpColor(colorsPrev[0], colorsCurr[0], transition);
   ctx.beginPath();
   ctx.moveTo(0, 200);
-  for (let x = 0; x <= CANVAS_WIDTH; x += 40) {
-    const y = 160 + Math.sin(x * 0.008 + 2) * 25 + Math.cos(x * 0.015) * 15;
-    ctx.lineTo(x, y);
+  const p2 = parallaxOffset * 0.25;
+  for (let x = -100; x <= CANVAS_WIDTH + 100; x += 40) {
+    const y = 160 + Math.sin((x + p2) * 0.008 + 2) * 25 + Math.cos((x + p2) * 0.015) * 15;
+    ctx.lineTo(x - p2, y);
   }
   ctx.lineTo(CANVAS_WIDTH, 200);
   ctx.fill();
 
   // Add trees to hills
-  drawTrees(ctx, frame, transition, time, prevTime);
+  drawTrees(ctx, frame, transition, time, prevTime, parallaxOffset);
   
   // Reeds in foreground
   drawReeds(ctx, frame, transition, time, prevTime);
@@ -386,7 +459,7 @@ export const drawReeds = (ctx: CanvasRenderingContext2D, frame: number, transiti
     ctx.restore();
 };
 
-export const drawTrees = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
+export const drawTrees = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay, parallaxOffset: number = 0) => {
     const getTreeColor = (t: TimeOfDay) => {
         if (t === 'DAY') return '#064e3b';
         if (t === 'SUNSET') return '#451a03';
@@ -397,33 +470,36 @@ export const drawTrees = (ctx: CanvasRenderingContext2D, frame: number, transiti
     ctx.globalAlpha = transition;
     ctx.fillStyle = lerpColor(getTreeColor(prevTime), getTreeColor(time), transition);
     
+    const p = parallaxOffset * 0.25;
     for (let i = 0; i < 15; i++) {
         const x = (i * 137) % CANVAS_WIDTH;
+        const drawX = x - p;
         const hillY = 160 + Math.sin(x * 0.008 + 2) * 25 + Math.cos(x * 0.015) * 15;
         const h = 20 + (i % 3) * 10;
         const w = 8 + (i % 2) * 4;
         
         // Tree trunk
-        ctx.fillRect(x - 2, hillY - 5, 4, 10);
+        ctx.fillRect(drawX - 2, hillY - 5, 4, 10);
         
         // Tree foliage (triangular)
         ctx.beginPath();
-        ctx.moveTo(x - w, hillY - 5);
-        ctx.lineTo(x, hillY - 5 - h);
-        ctx.lineTo(x + w, hillY - 5);
+        ctx.moveTo(drawX - w, hillY - 5);
+        ctx.lineTo(drawX, hillY - 5 - h);
+        ctx.lineTo(drawX + w, hillY - 5);
         ctx.fill();
     }
     ctx.restore();
 };
 
-export const drawSunMoon = (ctx: CanvasRenderingContext2D, frame: number, time: TimeOfDay, prevTime: TimeOfDay, transition: number, weather: string) => {
+export const drawSunMoon = (ctx: CanvasRenderingContext2D, frame: number, time: TimeOfDay, prevTime: TimeOfDay, transition: number, weather: string, parallaxOffset: number = 0) => {
     const isNight = time === 'NIGHT' || (prevTime === 'NIGHT' && transition < 0.5);
     const alpha = (weather === 'sunny' || weather === 'rainbow') ? 1 : 0.3;
     
     ctx.save();
     ctx.globalAlpha = alpha;
     
-    const x = CANVAS_WIDTH * 0.2 + (time === 'SUNSET' ? CANVAS_WIDTH * 0.6 * transition : 0);
+    const p = parallaxOffset * 0.05;
+    const x = (CANVAS_WIDTH * 0.2 + (time === 'SUNSET' ? CANVAS_WIDTH * 0.6 * transition : 0)) - p;
     const y = time === 'SUNSET' ? 120 + transition * 50 : 60;
     
     if (time === 'NIGHT' || (prevTime === 'NIGHT' && transition < 0.8)) {
@@ -433,15 +509,16 @@ export const drawSunMoon = (ctx: CanvasRenderingContext2D, frame: number, time: 
         ctx.shadowBlur = 20;
         ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
         ctx.fillStyle = '#f1f5f9';
+        const moonX = CANVAS_WIDTH * 0.8 - p;
         ctx.beginPath();
-        ctx.arc(CANVAS_WIDTH * 0.8, 50, 25, 0, Math.PI * 2);
+        ctx.arc(moonX, 50, 25, 0, Math.PI * 2);
         ctx.fill();
         
         // Moon crater effect
         ctx.globalAlpha = moonAlpha * 0.2;
         ctx.fillStyle = '#cbd5e1';
-        ctx.beginPath(); ctx.arc(CANVAS_WIDTH * 0.8 - 8, 45, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(CANVAS_WIDTH * 0.8 + 5, 55, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(moonX - 8, 45, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(moonX + 5, 55, 8, 0, Math.PI * 2); ctx.fill();
     } else {
         // Sun
         const sunAlpha = (prevTime === 'NIGHT' && transition < 1) ? transition : 1;
@@ -473,7 +550,7 @@ export const drawSunMoon = (ctx: CanvasRenderingContext2D, frame: number, time: 
     ctx.restore();
 };
 
-export const drawClouds = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay) => {
+export const drawClouds = (ctx: CanvasRenderingContext2D, frame: number, transition: number, time: TimeOfDay, prevTime: TimeOfDay, parallaxOffset: number = 0) => {
   const baseAlpha = time === 'NIGHT' ? (1 - transition) * 0.3 : (prevTime === 'NIGHT' ? transition * 0.3 : 0.6);
   if (baseAlpha <= 0) return;
   
@@ -481,8 +558,9 @@ export const drawClouds = (ctx: CanvasRenderingContext2D, frame: number, transit
     ctx.save();
     ctx.globalAlpha = baseAlpha * alphaMult;
     ctx.fillStyle = time === 'SUNSET' ? '#fed7aa' : 'white';
+    const p = parallaxOffset * speed * 2; // Cloud parallax
     for (let i = 0; i < count; i++) {
-      const x = ((i * (CANVAS_WIDTH/count*1.5) + frame * speed) % (CANVAS_WIDTH + 400)) - 200;
+      const x = ((i * (CANVAS_WIDTH/count*1.5) + frame * speed) % (CANVAS_WIDTH + 400)) - 200 - p;
       const y = yOffset + Math.sin(i + frame * 0.01) * 20;
       const size = (40 + (i % 3) * 20) * scale;
       ctx.beginPath();

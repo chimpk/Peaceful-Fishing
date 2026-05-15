@@ -2,7 +2,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { 
   GameState, FishType, RodType, TackleType, BaitType, Rarity, 
-  PlayerSkills, LocationType, TimeOfDay, NotificationType 
+  PlayerSkills, LocationType, TimeOfDay, WeatherType, NotificationType 
 } from '../types';
 import { 
   CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES, 
@@ -24,7 +24,7 @@ export interface GameEngineProps {
   baitCounts: Record<string, number>;
   ownedRods: string[];
   ownedTackles: string[];
-  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy';
+  weather: WeatherType;
   skills: PlayerSkills;
   location: LocationType;
   timeOfDay: TimeOfDay;
@@ -190,6 +190,7 @@ export const useGameEngine = (props: GameEngineProps) => {
   const torpedoProgress = useRef(0);
 
   const eventHandledRef = useRef<string | null>(null);
+  const lastSpawnedLocationRef = useRef<LocationType | null>(null);
 
   const resetEventState = useCallback(() => {
     eventHandledRef.current = null;
@@ -789,7 +790,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         }
     }
 
-    Graphics.drawWaterAndSky(ctx, frameCount.current, weather, location, timeOfDay, prevTimeOfDayRef.current, transitionProgressRef.current);
+    Graphics.drawWaterAndSky(ctx, frameCount.current, weather, location, timeOfDay, prevTimeOfDayRef.current, transitionProgressRef.current, cameraFocusX.current);
     Graphics.drawWeatherEffects(ctx, frameCount.current, weather, location);
 
     if (weather === 'stormy' && location !== 'CAVE') {
@@ -1036,9 +1037,42 @@ export const useGameEngine = (props: GameEngineProps) => {
       if (isBehaviorActive.current) { if (behaviorType.current === 'dive') finalGravity += 0.006; if (behaviorType.current === 'thrash') tensionCursor.current += (Math.random() - 0.5) * 0.035; }
       const isBerserk = activeFish.current.type.canBerserk && reelingProgress.current > 80;
       if (isBerserk) { finalGravity *= 1.45; shakeIntensity.current = Math.max(shakeIntensity.current, 10); if (frameCount.current % 15 < 7) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*40, y: hookY.current + (Math.random()-0.5)*40, size: 3, speed: 0.5, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, life: 20, opacity: 1, color: '#ef4444', type: 'circle' }); }
-      if (focusActive.current) { focusTimer.current--; if (focusTimer.current <= 0) focusActive.current = false; }
+      if (focusActive.current) { 
+        focusTimer.current--; 
+        if (focusTimer.current <= 0) focusActive.current = false;
+        
+        // Add Focus screen effect (pulsing blue vignette)
+        const pulse = 0.5 + 0.5 * Math.sin(frameCount.current * 0.1);
+        ctx.save();
+        const focusGrad = ctx.createRadialGradient(CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 200, CANVAS_WIDTH/2, CANVAS_HEIGHT/2, 600);
+        focusGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        focusGrad.addColorStop(1, `rgba(59, 130, 246, ${0.1 + pulse * 0.1})`);
+        ctx.fillStyle = focusGrad;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.restore();
+      }
       if (focusCooldown.current > 0) focusCooldown.current--;
-      if (powerReelActive.current) { powerReelTimer.current--; if (powerReelTimer.current <= 0) powerReelActive.current = false; }
+      
+      if (powerReelActive.current) { 
+        powerReelTimer.current--; 
+        if (powerReelTimer.current <= 0) powerReelActive.current = false;
+        
+        // Add Power Reel particles at the reel/rod position
+        if (frameCount.current % 3 === 0) {
+            vfxParticlesRef.current.push({
+                x: 100 + Math.random() * 20,
+                y: 160 + Math.random() * 20,
+                size: 2 + Math.random() * 3,
+                speed: 1,
+                vx: -2 - Math.random() * 4,
+                vy: -Math.random() * 4,
+                life: 30,
+                opacity: 1,
+                color: '#fb923c',
+                type: 'star'
+            });
+        }
+      }
       if (powerReelCooldown.current > 0) powerReelCooldown.current--;
       const focusMultiplier = focusActive.current ? 0.4 : 1; const powerReelLift = powerReelActive.current ? 1.8 : 1;
       let weatherTension = (skills.weatherExpert > 0 && (WEATHER_BONUSES[weather].tension || 1) > 1) ? 1 + (WEATHER_BONUSES[weather].tension - 1) * 0.5 : (WEATHER_BONUSES[weather].tension || 1);
@@ -1211,10 +1245,21 @@ export const useGameEngine = (props: GameEngineProps) => {
   }, [weather]);
 
   useEffect(() => {
-    spawnInitialFish();
-    const initialBubbles: Particle[] = [];
-    for (let i = 0; i < 20; i++) initialBubbles.push({ x: Math.random() * CANVAS_WIDTH, y: CANVAS_HEIGHT + Math.random() * 100, size: 1 + Math.random() * 3, speed: 0.2 + Math.random() * 0.5, opacity: 0.1 + Math.random() * 0.4 });
-    bubblesRef.current = initialBubbles;
+    if (location !== lastSpawnedLocationRef.current) {
+      lastSpawnedLocationRef.current = location;
+      spawnInitialFish();
+      const initialBubbles: Particle[] = [];
+      for (let i = 0; i < 20; i++) {
+        initialBubbles.push({ 
+          x: Math.random() * CANVAS_WIDTH, 
+          y: CANVAS_HEIGHT + Math.random() * 100, 
+          size: 1 + Math.random() * 3, 
+          speed: 0.2 + Math.random() * 0.5, 
+          opacity: 0.1 + Math.random() * 0.4 
+        });
+      }
+      bubblesRef.current = initialBubbles;
+    }
   }, [location, spawnInitialFish]);
 
   useEffect(() => {
@@ -1257,9 +1302,42 @@ export const useGameEngine = (props: GameEngineProps) => {
     render(); return () => window.cancelAnimationFrame(animId);
   }, [update]);
 
+  const triggerSkill = useCallback((skillId: 'focus' | 'powerReel') => {
+    if (gameState !== GameState.REELING) return;
+    
+    if (skillId === 'focus') {
+      if (skills.focus > 0) {
+        if (focusCooldown.current <= 0 && !focusActive.current) {
+          focusActive.current = true;
+          focusTimer.current = 180;
+          focusCooldown.current = 900;
+          addNotification('TẬP TRUNG! Tension chậm lại 3 giây.', 'info');
+        } else if (focusCooldown.current > 0) {
+          addNotification(`Tập Trung đang hồi chiêu (${Math.ceil(focusCooldown.current / 60)}s)`, 'warning');
+        }
+      } else {
+        addNotification('Kỹ năng Tập Trung chưa mở khóa (Cấp 15)', 'warning');
+      }
+    } else if (skillId === 'powerReel') {
+      if (skills.powerReel > 0) {
+        if (powerReelCooldown.current <= 0 && !powerReelActive.current) {
+          powerReelActive.current = true;
+          powerReelTimer.current = 120;
+          powerReelCooldown.current = 1200;
+          addNotification('KÉO MẠNH! Reeling tăng tốc 2 giây!', 'success');
+        } else if (powerReelCooldown.current > 0) {
+          addNotification(`Kéo Mạnh đang hồi chiêu (${Math.ceil(powerReelCooldown.current / 60)}s)`, 'warning');
+        }
+      } else {
+        addNotification('Kỹ năng Kéo Mạnh chưa mở khóa (Cấp 20)', 'warning');
+      }
+    }
+  }, [gameState, skills.focus, skills.powerReel, addNotification]);
+
   return {
     canvasRef,
     handlePressStart,
-    handlePressEnd
+    handlePressEnd,
+    triggerSkill
   };
 };
