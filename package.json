@@ -1,9 +1,9 @@
 {
-  "name": "fishing-frenzy-lite",
+  "name": "peaceful-fishing",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://chimpk.github.io/Fishing-Frenzy/",
+  "homepage": "https://chimpk.github.io/Peaceful-Fishing/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

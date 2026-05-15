@@ -35,7 +35,7 @@ export const useGameState = () => {
     const id = Math.random().toString(36).substring(2, 9);
     const newNote: NotificationItem = { id, message, type, timestamp: Date.now() };
     setNotifications(prev => [...prev, newNote]);
-    soundManager.playNotify();
+    // soundManager.playNotify(); // Removed to avoid double sounds, callers play their own sounds
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 4000);
@@ -158,7 +158,12 @@ export const useGameState = () => {
     const rewardBait = BAITS[Math.floor(Math.random() * BAITS.length)];
 
     setGold(g => g + rewardGold);
-    // Note: bait counts are handled outside this hook, we might need to return this reward
+    setStats(prev => ({
+      ...prev,
+      dailyStreak: currentStreak,
+      lastDailyRewardClaimed: now
+    }));
+    
     return { rewardGold, rewardBait, currentStreak };
   }, [stats.lastDailyRewardClaimed, stats.dailyStreak, addNotification]);
 

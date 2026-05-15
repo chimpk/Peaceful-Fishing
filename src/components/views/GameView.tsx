@@ -18,7 +18,7 @@ interface GameViewProps {
   ownedTackles: string[];
   location: LocationType;
   timeOfDay: TimeOfDay;
-  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy';
+  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' | 'meteor_shower' | 'rainbow' | 'aurora';
   streak: number;
   competitionMode: boolean;
   competitionTimeLeft: number;
@@ -116,9 +116,9 @@ const GameView: React.FC<GameViewProps> = ({
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 z-[10000] overflow-hidden pointer-events-auto">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1100px] h-[1100px] bg-blue-600/10 rounded-full blur-[150px] animate-pulse"></div>
           <div className="relative mb-16 text-center animate-in fade-in zoom-in duration-1000">
-            <div className="text-[10px] text-blue-400 font-black tracking-[0.5em] uppercase opacity-60 mb-4 animate-float">BẢN THẦN THOẠI 2025</div>
+            <div className="text-[10px] text-blue-400 font-black tracking-[0.5em] uppercase opacity-60 mb-4 animate-float">BẢN THẦN THOẠI 2026</div>
             <h1 className="text-8xl text-transparent bg-clip-text bg-gradient-to-b from-white via-blue-200 to-blue-500 font-black tracking-tighter italic drop-shadow-[0_10px_30px_rgba(59,130,246,0.5)] leading-tight">
-              FISHING<br/>FRENZY
+              PEACEFUL<br/>FISHING
             </h1>
           </div>
           <div className="relative flex flex-col gap-6 w-full max-w-sm px-8 animate-in slide-in-from-bottom-10 duration-700 delay-300">

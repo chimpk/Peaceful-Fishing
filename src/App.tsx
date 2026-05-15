@@ -77,7 +77,6 @@ const App: React.FC = () => {
 
     state.setInventory(prev => [{ fish, timestamp: Date.now(), isGolden }, ...prev]);
     
-    let finalValue = 0;
     setStreak(prev => {
       const newStreak = prev + 1;
       let comboMultiplier = 1;
@@ -86,16 +85,16 @@ const App: React.FC = () => {
       else if (newStreak >= 3) comboMultiplier = 1.5;
 
       const caveBonus = (env.currentLocation === 'CAVE' && state.skills.deepSeaDiver > 0) ? 1.25 : 1;
-      finalValue = Math.floor((isGolden ? fish.value * 3 : fish.value) * comboMultiplier * caveBonus);
+      const finalValue = Math.floor((isGolden ? fish.value * 3 : fish.value) * comboMultiplier * caveBonus);
+      
+      // Update competition score directly inside setStreak to ensure we use the correct finalValue
+      if (comp.competitionMode) {
+        comp.setCompetitionScore(score => score + finalValue);
+      }
+      
       return newStreak;
     });
     
-    setTimeout(() => {
-      if (comp.competitionMode) {
-        comp.setCompetitionScore(prev => prev + finalValue);
-      }
-    }, 0);
-
     const isEpic = fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC || isGolden;
     if (isEpic) {
         soundManager.playTrophyCatch();
@@ -109,12 +108,13 @@ const App: React.FC = () => {
     state.updateStatsAndQuests(fish, isGolden);
 
     // Rod breaking logic
-    if (finalValue > (settings.currentRod.maxValue ?? Infinity) && (settings.currentRod.durability || 0) > 0) {
+    const rodLimit = settings.currentRod.maxValue ?? Infinity;
+    if (fish.value > rodLimit && (settings.currentRod.durability || 0) > 0) {
       settings.setCurrentRod(prev => ({ ...prev, durability: 0 }));
       state.addNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy đi sửa chữa.", "warning");
     }
     
-    // Boss spawn logic
+    // Boss spawn logic - only increment if fish was successfully caught and added
     comp.setSessionFishCount(prev => {
       const newCount = prev + 1;
       if (newCount >= 20) {

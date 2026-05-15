@@ -1,21 +1,21 @@
 <div align="center">
-  <img src="./banner.png" width="100%" alt="Fishing Frenzy Lite Banner" />
+  <img src="./banner.png" width="100%" alt="Peaceful Fishing Banner" />
 
-  # 🎣 Fishing Frenzy Lite
+  # 🎣 Peaceful Fishing
   ### *The Ultimate Cinematic Fishing Experience*
 
-  [![GitHub release](https://img.shields.io/github/v/release/chimpk/Fishing-Frenzy?style=for-the-badge&color=blue)](https://github.com/chimpk/Fishing-Frenzy/releases)
+  [![Release: v2026](https://img.shields.io/badge/Release-v2026-blue?style=for-the-badge)](https://github.com/chimpk/Peaceful-Fishing/releases)
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
   [![Vite](https://img.shields.io/badge/Vite-6.2.0-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 
-  [**Play Now**](https://chimpk.github.io/Fishing-Frenzy/) • [**Report Bug**](https://github.com/chimpk/Fishing-Frenzy/issues) • [**Request Feature**](https://github.com/chimpk/Fishing-Frenzy/issues)
+  [**Play Now**](https://chimpk.github.io/Peaceful-Fishing/) • [**Report Bug**](https://github.com/chimpk/Peaceful-Fishing/issues) • [**Request Feature**](https://github.com/chimpk/Peaceful-Fishing/issues)
 </div>
 
 <hr />
 
 ## 🌟 Overview
 
-**Fishing Frenzy Lite** is not just another fishing game. It's a high-fidelity, skill-based simulation designed to immerse you in the tranquil yet thrilling world of professional angling. Featuring a state-of-the-art cinematic camera system, dynamic weather patterns, and a deep progression loop, every cast is a new adventure.
+**Peaceful Fishing** is not just another fishing game. It's a high-fidelity, skill-based simulation designed to immerse you in the tranquil yet thrilling world of professional angling. Featuring a state-of-the-art cinematic camera system, dynamic weather patterns, and a deep progression loop, every cast is a new adventure.
 
 ## ✨ Key Features
 
@@ -54,8 +54,8 @@
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/chimpk/Fishing-Frenzy.git
-   cd Fishing-Frenzy
+   git clone https://github.com/chimpk/Peaceful-Fishing.git
+   cd Peaceful-Fishing
    ```
 
 2. **Install dependencies:**

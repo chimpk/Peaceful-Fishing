@@ -27,7 +27,7 @@ const Header: React.FC<HeaderProps> = ({ title, showBack = true, gold, setActive
             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_#3b82f6]"></div>
             <h1 className="text-3xl font-black tracking-tighter text-white italic drop-shadow-2xl leading-none uppercase">{title}</h1>
           </div>
-          <p className="text-[9px] text-slate-500 font-bold tracking-[0.4em] uppercase mt-1.5 ml-5 opacity-60">Fishing Frenzy Elite System</p>
+          <p className="text-[9px] text-slate-500 font-bold tracking-[0.4em] uppercase mt-1.5 ml-5 opacity-60">Peaceful Fishing System</p>
         </div>
       </div>
       <div className="glass-card px-7 py-4 flex items-center gap-5 pointer-events-auto shadow-2xl group cursor-default">

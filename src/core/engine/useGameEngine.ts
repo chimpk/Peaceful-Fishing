@@ -92,7 +92,7 @@ export const useGameEngine = (props: any) => {
     });
 
     // Player/Rod/Line update
-    Graphics.drawPlayerEquipment(ctx, gameState, 80, 180, 200, 120, hookX.current, hookY.current, lineHealth.current, 0, currentRod, chargePower.current, currentBait, frameCount.current, 0, location);
+    Graphics.drawPlayerEquipment(ctx, gameState, 80, 180, 200, 120, hookX.current, hookY.current, gameState === GameState.CASTING, lineHealth.current, 0, currentRod, chargePower.current, currentBait, frameCount.current, 0, location);
     
     if (gameState === GameState.REELING) {
       Graphics.drawReelingInterface(ctx, reelingProgress.current, lineHealth.current, tensionCursor.current, tensionZone.current, tensionZoneSize.current, true);

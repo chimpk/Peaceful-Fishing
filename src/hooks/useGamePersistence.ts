@@ -63,11 +63,21 @@ export const useGamePersistence = (
 
       if (data.currentRodId) {
         const rod = RODS.find(r => r.id === data.currentRodId);
-        if (rod) settings.setCurrentRod(rod);
+        if (rod) {
+          settings.setCurrentRod({
+            ...rod,
+            durability: data.currentRodDurability !== undefined ? data.currentRodDurability : rod.maxDurability
+          });
+        }
       }
       if (data.currentTackleId) {
         const tackle = TACKLES.find(t => t.id === data.currentTackleId);
-        if (tackle) settings.setCurrentTackle(tackle);
+        if (tackle) {
+          settings.setCurrentTackle({
+            ...tackle,
+            durability: data.currentTackleDurability !== undefined ? data.currentTackleDurability : tackle.maxDurability
+          });
+        }
       }
       if (data.currentBaitId) {
         const bait = BAITS.find(b => b.id === data.currentBaitId);
@@ -106,7 +116,9 @@ export const useGamePersistence = (
       quests: state.quests,
       lastQuestReset: state.lastQuestReset,
       currentRodId: settings.currentRod.id,
+      currentRodDurability: settings.currentRod.durability,
       currentTackleId: settings.currentTackle.id,
+      currentTackleDurability: settings.currentTackle.durability,
       currentBaitId: settings.currentBait.id,
       unlockedFish: state.unlockedFish,
       skills: state.skills,

@@ -191,6 +191,13 @@ export const useGameEngine = (props: GameEngineProps) => {
 
   const eventHandledRef = useRef<string | null>(null);
 
+  const resetEventState = useCallback(() => {
+    eventHandledRef.current = null;
+    stunTimer.current = 0;
+    inkAlpha.current = 0;
+    torpedoActive.current = false;
+  }, []);
+
   const motionBlurAlpha = useRef(0);     
 
   const cameraZoom = useRef(1);          
@@ -278,9 +285,9 @@ export const useGameEngine = (props: GameEngineProps) => {
 
       let finalBoost = rarityBoost * frenzyBoost * castBoost;
       if (liveBait) {
-          if (f.rarity === Rarity.EPIC) finalBoost *= 3;
-          if (f.rarity === Rarity.LEGENDARY) finalBoost *= 8;
-          if (f.rarity === Rarity.MYTHIC) finalBoost *= 15;
+          if (f.rarity === Rarity.EPIC) finalBoost *= 2.5;
+          if (f.rarity === Rarity.LEGENDARY) finalBoost *= 5;
+          if (f.rarity === Rarity.MYTHIC) finalBoost *= 8;
       }
 
       if (f.rarity === Rarity.RARE) weight *= (finalBoost * 0.5 + 0.5) * weatherBonus;
@@ -386,14 +393,12 @@ export const useGameEngine = (props: GameEngineProps) => {
       return false;
     }
     if (inventoryCount >= inventoryCapacity) {
-      if (gameState === GameState.IDLE) {
-        addNotification('Túi đồ đã đầy! Hãy bán bớt cá hoặc nâng cấp túi.', 'warning');
-        soundManager.playError();
-      }
+      addNotification('Túi đồ đã đầy! Hãy bán bớt cá hoặc nâng cấp túi.', 'warning');
+      soundManager.playError();
       return false;
     }
     return true;
-  }, [baitCounts, currentBait.id, currentRod, currentTackle, ownedRods, addNotification, liveBait, inventoryCount, inventoryCapacity, gameState]);
+  }, [baitCounts, currentBait.id, currentRod, currentTackle, ownedRods, addNotification, liveBait, inventoryCount, inventoryCapacity]);
 
   const handleHookAction = useCallback(() => {
     if (gameState === GameState.NIBBLING && activeFish.current) {
@@ -495,6 +500,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         isSpacePressed.current = true;
         if (gameState === GameState.IDLE) {
           if (!canStartFishing()) return;
+          resetEventState();
           setGameState(GameState.CHARGING);
           chargePower.current = 0;
           chargeDirection.current = 1;
@@ -549,6 +555,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         onCast();
         soundManager.playCast();
         setGameState(GameState.CASTING);
+        resetEventState();
       }
     }
   }, [gameState, setGameState, onCast]);
@@ -742,7 +749,7 @@ export const useGameEngine = (props: GameEngineProps) => {
       frenzyTimer.current--;
       if (!frenzyNotified.current) {
         frenzyNotified.current = true;
-        addNotification('🔥 FISHING FRENZY! Cá hiếm xuất hiện nhiều hơn!', 'achievement');
+        addNotification('🔥 PEACEFUL FISHING! Cá hiếm xuất hiện nhiều hơn!', 'achievement');
       }
       if (frenzyTimer.current <= 0) {
         frenzyActive.current = false;
@@ -951,7 +958,12 @@ export const useGameEngine = (props: GameEngineProps) => {
     }
 
     if (gameState === GameState.CASTING) {
-      castProgress.current += 0.025; if (castProgress.current > 1.5) { setGameState(GameState.IDLE); return; }
+      castProgress.current += 0.025; 
+      if (castProgress.current > 1.5) { 
+        castProgress.current = 0;
+        setGameState(GameState.IDLE); 
+        return; 
+      }
       hookX.current = rodEndX + (targetHookX.current - rodEndX) * castProgress.current;
       const t = castProgress.current; hookY.current = (1 - t) * rodEndY + t * targetHookY.current + (-200 * 4 * t * (1 - t));
       if (frameCount.current % 1 === 0) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*10, y: hookY.current + (Math.random()-0.5)*10, size: 1 + Math.random()*2, speed: 0, opacity: 0.6, life: 10, color: 'rgba(255,255,255,0.4)', type: 'trail' });
@@ -1227,7 +1239,14 @@ export const useGameEngine = (props: GameEngineProps) => {
       bossX.current = CANVAS_WIDTH / 2; bossY.current = CANVAS_HEIGHT / 2;
     }
     const isResting = [GameState.IDLE, GameState.START, GameState.GAMEOVER, GameState.WAITING, GameState.CHARGING, GameState.CASTING].includes(gameState);
-    if (isResting) { motionBlurAlpha.current = 0; shakeIntensity.current = 0; activeFish.current = null; }
+    if (isResting) { 
+      motionBlurAlpha.current = 0; 
+      shakeIntensity.current = 0; 
+      if (gameState === GameState.IDLE) {
+        activeFish.current = null;
+        resetEventState();
+      }
+    }
   }, [gameState, playerLevel]);
 
   useEffect(() => {

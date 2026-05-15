@@ -114,6 +114,7 @@ export const drawFishByModel = (
   if (has('mặt trăng')) return Unique.drawSunfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   if (has('ngựa')) return Unique.drawSeahorse(ctx, fish, frameCount, size, finalColor);
   if (has('rồng') || has('long') || has('leviathan') || has('tượng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor);
+  if (has('phượng hoàng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor); 
   if (has('kraken')) return Unique.drawKraken(ctx, fish, frameCount, size, finalColor);
   if (has('bạch tuộc')) return Unique.drawOctopus(ctx, fish, frameCount, size, finalColor);
   if (has('sát thủ')) return Unique.drawOrca(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
@@ -129,7 +130,6 @@ export const drawFishByModel = (
   if (has('pha lê')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor);
   if (has('linh hồn')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); // Soul fish uses crystal model
   if (has('thiên hà')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); // Galaxy goldfish uses crystal model
-  if (has('phượng hoàng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor); // Phoenix uses dragon model
   if (has('megalodon')) return Sharks.drawShark(ctx, fish, frameCount, size * 1.5, finalColor, wagFreq, wagAmp);
   if (has('vampire') || has('ma cà rồng')) return Unique.drawAnglerFish(ctx, fish, frameCount, size, finalColor); // Vampire uses angler model
 
