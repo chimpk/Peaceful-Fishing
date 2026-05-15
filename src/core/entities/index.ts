@@ -99,7 +99,9 @@ export const drawFishByModel = (
     if (has('búa')) return Sharks.drawHammerhead(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
     return Sharks.drawShark(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   }
-  if (has('kiếm') || has('buồm')) return Sharks.drawSwordfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  if (has('kiếm')) return Sharks.drawSwordfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  if (has('buồm')) return Unique.drawSailfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+
   if (has('mác') || has('marlin')) return Unique.drawMarlin(ctx, fish, frameCount, size, finalColor);
 
   // 3. UNIQUE & EXOTIC
@@ -133,6 +135,10 @@ export const drawFishByModel = (
   if (has('megalodon')) return Sharks.drawShark(ctx, fish, frameCount, size * 1.5, finalColor, wagFreq, wagAmp);
   if (has('vampire') || has('ma cà rồng')) return Unique.drawAnglerFish(ctx, fish, frameCount, size, finalColor);
   if (has('vua') || has('oarfish')) return Unique.drawOarfish(ctx, fish, frameCount, size, finalColor);
+  if (has('heo')) return Unique.drawDolphin(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  if (has('voi xanh')) return Unique.drawBlueWhale(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+
+
 
   // 6. CLASSIC / REGULAR
   // Cá Chim (Pomfret/Butterflyfish)
@@ -147,6 +153,9 @@ export const drawFishByModel = (
   }
 
   // Cá Chình/Lươn dùng model Eel (thon trơn, không râu)
+  if (has('chình điện')) {
+    return Unique.drawElectricEel(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
   if (has('chình') || has('lươn')) {
     return Classic.drawEel(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   }

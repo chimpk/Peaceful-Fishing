@@ -9,9 +9,7 @@ export const EPIC_FISH: FishType[] = [
   // Cá Mặt Trăng
   { name: 'Cá Mặt Trăng', rarity: Rarity.EPIC, value: 3500, tension: 60, color: '#cbd5e1', size: 55, weight: 2.5, allowedLocations: ['OCEAN'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_sea_3'], canBerserk: true },
   // Cá Heo
-  { name: 'Cá Heo', rarity: Rarity.EPIC, value: 4500, tension: 65, color: '#38bdf8', size: 40, weight: 2, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
-  // Cá Rồng Huyết Long
-  { name: 'Cá Rồng Huyết Long', rarity: Rarity.EPIC, value: 6000, tension: 75, color: '#991b1b', size: 45, weight: 1.5, allowedLocations: ['POND'], allowedTimes: ['SUNSET'], preferredBaits: ['bait_natural_2'], canBerserk: true },
+  { name: 'Cá Heo', rarity: Rarity.EPIC, value: 4500, tension: 65, color: '#38bdf8', size: 40, weight: 2, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'], canBerserk: true },
   // Cá Buồm (Sailfish)
   { name: 'Cá Buồm (Sailfish)', rarity: Rarity.EPIC, value: 7500, tension: 85, color: '#1e3a8a', size: 55, weight: 1.2, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'], canBerserk: true },
   // Cá Sấu Mù

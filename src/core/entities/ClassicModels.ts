@@ -14,32 +14,44 @@ export const drawAnchovy = (
   
   // 1. CHROME BODY (Ultra-thin silver)
   const chromeGrad = ctx.createLinearGradient(0, -size * 0.4, 0, size * 0.4);
-  chromeGrad.addColorStop(0, '#e2e8f0');
-  chromeGrad.addColorStop(0.5, '#94a3b8');
+  chromeGrad.addColorStop(0, '#f1f5f9');
+  chromeGrad.addColorStop(0.5, color);
   chromeGrad.addColorStop(1, '#cbd5e1');
 
   ctx.fillStyle = chromeGrad;
   ctx.beginPath();
-  ctx.moveTo(size * 1.5, 0);
-  ctx.bezierCurveTo(size * 1.0, -size * 0.4, -size * 1.0, -size * 0.4, -size * 1.5, 0);
-  ctx.bezierCurveTo(-size * 1.0, size * 0.4, size * 1.0, size * 0.4, size * 1.5, 0);
+  ctx.moveTo(size * 1.8, 0);
+  ctx.bezierCurveTo(size * 1.2, -size * 0.5, -size * 1.2, -size * 0.5, -size * 1.8, 0);
+  ctx.bezierCurveTo(-size * 1.2, size * 0.5, size * 1.2, size * 0.5, size * 1.8, 0);
   ctx.fill();
 
-  // 2. SILVER SPARKLES (Schooling effect)
-  ctx.globalAlpha = 0.6;
-  for(let i=0; i<3; i++) {
-    const ox = Math.sin(time + i) * size * 0.8;
-    const oy = Math.cos(time * 0.8 + i) * size * 0.2;
+  // 2. SILVER LATERAL LINE (Iconic anchovy feature)
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(size * 1.5, 0);
+  ctx.lineTo(-size * 1.5, 0);
+  ctx.stroke();
+
+  // 3. DYNAMIC METALLIC SPARKLES
+  ctx.globalAlpha = 0.8;
+  for(let i=0; i<4; i++) {
+    const ox = Math.sin(time + i * 2) * size * 1.2;
+    const oy = (i - 1.5) * size * 0.15;
+    const s = 1 + Math.sin(time * 2 + i) * 1;
     ctx.fillStyle = 'white';
-    ctx.beginPath(); ctx.arc(ox, oy, 1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ox, oy, s, 0, Math.PI * 2); ctx.fill();
   }
   
-  // 3. TINY FORKED TAIL
+  // 4. ELEGANT FORKED TAIL
   ctx.save();
-  ctx.translate(-size * 1.5, 0);
-  ctx.rotate(Math.sin(time) * 0.5);
+  ctx.translate(-size * 1.8, 0);
+  ctx.rotate(Math.sin(time * 1.2) * 0.4);
+  ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(0,0); ctx.lineTo(-size * 0.6, -size * 0.4); ctx.lineTo(-size * 0.4, 0); ctx.lineTo(-size * 0.6, size * 0.4); ctx.closePath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(-size * 0.4, -size * 0.6, -size * 0.8, -size * 0.5, -size * 0.7, 0);
+  ctx.bezierCurveTo(-size * 0.8, size * 0.5, -size * 0.4, size * 0.6, 0, 0);
   ctx.fill();
   ctx.restore();
 
@@ -158,13 +170,21 @@ export const drawMackerel = (
   ctx.lineTo(size * 2.2, -size * 0.2);
   ctx.clip();
   
-  ctx.strokeStyle = 'rgba(15, 23, 42, 0.3)';
-  ctx.lineWidth = 1.5;
-  for (let i = -10; i < 10; i++) {
-    const x = i * size * 0.25;
+  ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
+  ctx.lineWidth = 1.2;
+  for (let i = -8; i < 8; i++) {
+    const x = i * size * 0.3;
+    // Irregular stripes: varying length and "wobble"
+    const lengthMult = 0.4 + Math.random() * 0.4;
+    const wobble = Math.sin(i * 2) * size * 0.1;
+    
     ctx.beginPath();
-    ctx.moveTo(x, -size);
-    ctx.bezierCurveTo(x + size * 0.2, -size * 0.5, x - size * 0.2, -size * 0.2, x, 0);
+    ctx.moveTo(x + wobble, -size * 0.8);
+    ctx.bezierCurveTo(
+      x + size * 0.1, -size * 0.5, 
+      x - size * 0.1, -size * 0.2, 
+      x + wobble * 0.5, -size * (0.8 - lengthMult)
+    );
     ctx.stroke();
   }
   ctx.restore();
@@ -225,18 +245,15 @@ export const drawBlackCarp = (
   ctx.beginPath();
   ctx.ellipse(0, 0, size * 1.8, size * 0.8, 0, 0, Math.PI * 2);
   ctx.clip();
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = 1;
-  const scaleSize = size * 0.5;
-  for (let x = -size * 2; x < size * 2; x += scaleSize) {
-      for (let y = -size; y < size; y += scaleSize) {
-          const shift = (Math.floor(x / scaleSize) % 2) * (scaleSize / 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 0.8;
+  const scaleSize = size * 0.4;
+  for (let x = -size * 2.2; x < size * 2.2; x += scaleSize * 0.6) {
+      for (let y = -size; y < size; y += scaleSize * 0.5) {
+          const shift = (Math.floor(x / (scaleSize * 0.6)) % 2) * (scaleSize * 0.3);
+          // Overlapping Arcs (Scutes)
           ctx.beginPath();
-          ctx.moveTo(x, y + shift);
-          ctx.lineTo(x + scaleSize / 2, y + shift - scaleSize / 2);
-          ctx.lineTo(x + scaleSize, y + shift);
-          ctx.lineTo(x + scaleSize / 2, y + shift + scaleSize / 2);
-          ctx.closePath();
+          ctx.arc(x, y + shift, scaleSize * 0.5, -Math.PI * 0.3, Math.PI * 0.3);
           ctx.stroke();
       }
   }
@@ -319,7 +336,7 @@ export const drawTilapia = (
   ctx.fill();
   ctx.restore();
 
-  // 2. ELEGANT SPINY DORSAL FIN (Clean Bezier spikes)
+  // 2. ELEGANT SPINY DORSAL FIN (Realistic Spikes)
   ctx.save();
   const finGrad = ctx.createLinearGradient(0, -size * 1.5, 0, -size * 0.5);
   finGrad.addColorStop(0, lerpColor(color, '#000000', 0.4));
@@ -328,18 +345,32 @@ export const drawTilapia = (
   ctx.fillStyle = finGrad;
   ctx.beginPath();
   ctx.moveTo(size * 0.8, -size * 0.7);
-  // Elegant high-profile spiny front
-  ctx.quadraticCurveTo(size * 0.2, -size * 1.6, -size * 0.4, -size * 1.6);
-  ctx.quadraticCurveTo(-size * 1.2, -size * 1.6, -size * 1.6, -size * 0.4);
-  ctx.lineTo(-size * 1.2, -size * 0.4);
+  
+  // Create realistic spikes
+  const numSpikes = 10;
+  for (let i = 0; i <= numSpikes; i++) {
+    const t = i / numSpikes;
+    const x = size * (0.8 - i * 0.25);
+    const spikeHeight = size * (0.8 + Math.sin(t * Math.PI) * 0.8);
+    ctx.lineTo(x, -size * 0.7 - spikeHeight);
+    if (i < numSpikes) {
+      ctx.lineTo(x - size * 0.1, -size * 0.7 - spikeHeight * 0.7); // The "dip" between spikes
+    }
+  }
+  ctx.lineTo(-size * 1.6, -size * 0.4);
+  ctx.closePath();
   ctx.fill();
 
-  // Subtle fin rays
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  ctx.lineWidth = 1;
-  for(let i=0; i<8; i++) {
-    const x = size * (0.6 - i * 0.25);
-    ctx.beginPath(); ctx.moveTo(x, -size * 0.7); ctx.lineTo(x - size * 0.2, -size * 1.5); ctx.stroke();
+  // High-contrast fin rays
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1.2;
+  for(let i=0; i<numSpikes; i++) {
+    const x = size * (0.8 - i * 0.25);
+    const spikeHeight = size * (0.8 + Math.sin((i/numSpikes) * Math.PI) * 0.8);
+    ctx.beginPath(); 
+    ctx.moveTo(x, -size * 0.7); 
+    ctx.lineTo(x, -size * 0.7 - spikeHeight); 
+    ctx.stroke();
   }
   ctx.restore();
 
@@ -663,15 +694,29 @@ export const drawGoby = (
 
   // 2. LARGE FAN-LIKE PECTORAL FINS (For bottom dwelling)
   ctx.save();
-  ctx.globalAlpha = 0.6;
   ctx.fillStyle = color;
+  ctx.globalAlpha = 0.7;
   for(let side = -1; side <=1; side +=2) {
     ctx.save();
     ctx.translate(size * 0.4, side * size * 0.4);
     ctx.rotate(side * (0.8 + wag));
+    
+    // Fan shape
     ctx.beginPath();
-    ctx.ellipse(0, 0, size * 1.0, size * 0.6, 0, 0, Math.PI * 2);
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(size * 0.8, side * size * 0.8, -size * 0.2, side * size * 1.5, -size * 0.8, side * size * 0.8);
     ctx.fill();
+    
+    // Fin rays
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    for(let i=0; i<5; i++) {
+        const fang = (i / 4) * Math.PI * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(fang) * size * 1.0, side * Math.sin(fang) * size * 1.2);
+        ctx.stroke();
+    }
     ctx.restore();
   }
   ctx.restore();
@@ -720,11 +765,12 @@ export const drawSalmon = (
   ctx.beginPath();
   ctx.ellipse(0, 0, size * 1.8, size * 0.6, 0, 0, Math.PI * 2);
   ctx.clip();
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
-  for (let i = 0; i < 15; i++) {
-    const rx = size * (1.5 - i * 0.2);
-    const ry = -size * (0.3 + Math.sin(i) * 0.2);
-    ctx.beginPath(); ctx.arc(rx, ry, size * 0.04, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.5)';
+  for (let i = 0; i < 40; i++) {
+    const rx = size * (1.8 - Math.random() * 3.5);
+    const ry = -size * (0.1 + Math.random() * 0.5);
+    const dotSize = size * (0.02 + Math.random() * 0.04);
+    ctx.beginPath(); ctx.arc(rx, ry, dotSize, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 
@@ -756,9 +802,28 @@ export const drawSalmon = (
   ctx.fill();
   ctx.restore();
 
-  // 5. HEAD & HOOKED JAW
+  // 5. HEAD & HOOKED JAW (The Kype)
+  ctx.save();
+  ctx.translate(size * 2.0, 0);
+  ctx.rotate(Math.sin(time * 0.5) * 0.05);
+  
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  // Lower jaw with hook (kype)
+  ctx.moveTo(0, size * 0.1);
+  ctx.quadraticCurveTo(size * 0.5, size * 0.3, size * 0.3, -size * 0.2); // The hook
+  ctx.lineTo(0, size * 0.1);
+  ctx.fill();
+  
+  // Upper snout
+  ctx.beginPath();
+  ctx.moveTo(0, -size * 0.1);
+  ctx.quadraticCurveTo(size * 0.4, -size * 0.2, 0, -size * 0.4);
+  ctx.fill();
+  ctx.restore();
+
   // Real Eye
-  const eyeX = size * 1.4, eyeY = -size * 0.2;
+  const eyeX = size * 1.5, eyeY = -size * 0.25;
   ctx.fillStyle = 'white';
   ctx.beginPath(); ctx.arc(eyeX, eyeY, size * 0.15, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#1e293b';
@@ -973,14 +1038,18 @@ export const drawCarpGeneric = (
   ctx.fillStyle = bodyGrad;
   ctx.fill();
 
-  // Scales (Golden/Silver reflection)
+  // Scales (Golden/Silver reflection - Staggered arcs)
   ctx.save();
   ctx.beginPath(); ctx.ellipse(0, 0, size * 1.6, size * 1.3, 0, 0, Math.PI * 2); ctx.clip();
   ctx.strokeStyle = 'rgba(255,215,0,0.15)';
   ctx.lineWidth = 1;
-  for(let x=-size*2; x<size*2; x+=size*0.4) {
-    for(let y=-size*1.5; y<size*1.5; y+=size*0.4) {
-        ctx.beginPath(); ctx.arc(x, y, size*0.3, 0, Math.PI); ctx.stroke();
+  const cScaleSize = size * 0.35;
+  for(let x = -size * 2; x < size * 2; x += cScaleSize * 0.7) {
+    for(let y = -size * 1.5; y < size * 1.5; y += cScaleSize) {
+      const stagger = (Math.floor(x / (cScaleSize * 0.7)) % 2) * (cScaleSize * 0.5);
+      ctx.beginPath();
+      ctx.arc(x, y + stagger, cScaleSize * 0.6, -Math.PI * 0.4, Math.PI * 0.4);
+      ctx.stroke();
     }
   }
   ctx.restore();
