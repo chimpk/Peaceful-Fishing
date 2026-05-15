@@ -191,9 +191,13 @@ const ShopView: React.FC<ShopViewProps> = ({
                        const textClass = rarityTextMap[item.fish.rarity] || 'text-slate-400';
                        return (
                          <div key={item.timestamp} className={`p-4 rounded-[2rem] border text-center flex flex-col gap-2 transition-all ${borderClass} ${isEquipped ? 'ring-2 ring-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.2)]' : ''}`}>
-                           <div className="text-2xl">{item.isGolden ? '⭐' : '🐟'}</div>
+                           <div className="text-2xl">{item.goldenCount > 0 ? '⭐' : '🐟'}</div>
                            <div className="font-black text-xs text-white leading-tight">{item.fish.name}</div>
                            <div className={`text-[9px] font-black uppercase ${textClass}`}>{item.fish.rarity}</div>
+                           <div className="text-slate-300 text-[9px]">Số lượng: {item.count}</div>
+                           {item.goldenCount > 0 && (
+                             <div className="text-amber-300 text-[9px]">Vàng: {item.goldenCount}</div>
+                           )}
                            <div className="text-[9px] text-yellow-400 font-bold">{item.fish.value.toLocaleString()} 💰</div>
                            <button 
                              onClick={() => { soundManager.playClick(); useFishAsBait?.(item.timestamp); }}

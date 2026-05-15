@@ -196,7 +196,10 @@ export const useGameState = () => {
   const sellAllFish = useCallback(() => {
     if (inventory.length === 0) return 0;
     const totalValue = inventory.reduce((sum, item) => {
-        let itemValue = item.isGolden ? item.fish.value * 2 : item.fish.value;
+        const normalCount = item.count - item.goldenCount;
+        const normalValue = normalCount * item.fish.value;
+        const goldenValue = item.goldenCount * item.fish.value * 2;
+        let itemValue = normalValue + goldenValue;
         if (dailyMarketBoosts.includes(item.fish.name)) itemValue *= 3;
         return sum + itemValue;
     }, 0);
@@ -215,12 +218,27 @@ export const useGameState = () => {
   const sellFish = useCallback((timestamp: number) => {
     const item = inventory.find(i => i.timestamp === timestamp);
     if (!item) return;
-    let value = item.isGolden ? item.fish.value * 2 : item.fish.value;
+
+    const hasNormal = item.count - item.goldenCount > 0;
+    const isSellingGolden = !hasNormal && item.goldenCount > 0;
+    let value = isSellingGolden ? item.fish.value * 2 : item.fish.value;
     if (dailyMarketBoosts.includes(item.fish.name)) value *= 3;
+
     setGold(prev => prev + value);
     setStats(prev => ({ ...prev, totalGoldEarned: prev.totalGoldEarned + value }));
     updateEarnGoldQuest(value);
-    setInventory(prev => prev.filter(i => i.timestamp !== timestamp));
+
+    setInventory(prev => prev.reduce<InventoryItem[]>((arr, i) => {
+      if (i.timestamp !== timestamp) return [...arr, i];
+
+      const nextCount = i.count - 1;
+      const nextGoldenCount = i.goldenCount - (isSellingGolden ? 1 : 0);
+      if (nextCount > 0) {
+        arr.push({ ...i, count: nextCount, goldenCount: nextGoldenCount });
+      }
+      return arr;
+    }, []));
+
     addNotification(`Đã bán ${item.fish.name}! +${value} vàng`, 'success');
     soundManager.playSell();
     return value;

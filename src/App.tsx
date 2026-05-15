@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, FishType, RodType, TackleType, BaitType, UIView, Rarity, PlayerSkills, LocationType, NotificationType } from './types';
+import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, Rarity, PlayerSkills, LocationType, NotificationType } from './types';
 import { RODS, TACKLES, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './core/data/gameData';
 import GameCanvas from './components/canvas/GameCanvas';
 import UIOverlay from './components/layout/UIOverlay';
@@ -71,13 +71,29 @@ const App: React.FC = () => {
   };
 
   const addFishToInventory = useCallback((fish: FishType, isGolden: boolean) => {
-    if (state.inventory.length >= state.inventoryCapacity) {
+    const hasSlot = state.inventory.some(item => item.fish.name === fish.name);
+    if (!hasSlot && state.inventory.length >= state.inventoryCapacity) {
       state.addNotification("Túi đồ đã đầy! Hãy bán bớt cá hoặc nâng cấp túi.", "warning");
       setGameState(GameState.IDLE);
       return;
     }
 
-    state.setInventory(prev => [{ fish, timestamp: Date.now(), isGolden }, ...prev]);
+    state.setInventory(prev => {
+      const existingIndex = prev.findIndex(item => item.fish.name === fish.name);
+      if (existingIndex !== -1) {
+        return prev.map((item, idx) => {
+          if (idx !== existingIndex) return item;
+          return {
+            ...item,
+            count: item.count + 1,
+            goldenCount: item.goldenCount + (isGolden ? 1 : 0),
+            timestamp: Date.now()
+          };
+        });
+      }
+
+      return [{ fish, count: 1, goldenCount: isGolden ? 1 : 0, timestamp: Date.now() }, ...prev];
+    });
     
     setStreak(prev => {
       const newStreak = prev + 1;
@@ -231,7 +247,13 @@ const App: React.FC = () => {
             const item = state.inventory.find(i => i.timestamp === ts);
             if (item) {
               settings.setLiveBait(item.fish);
-              state.setInventory(prev => prev.filter(i => i.timestamp !== ts));
+              state.setInventory(prev => prev.reduce<InventoryItem[]>((arr, i) => {
+                if (i.timestamp !== ts) return [...arr, i];
+                const nextCount = i.count - 1;
+                const nextGoldenCount = i.goldenCount > 0 ? i.goldenCount - 1 : 0;
+                if (nextCount > 0) arr.push({ ...i, count: nextCount, goldenCount: nextGoldenCount });
+                return arr;
+              }, []));
               state.addNotification(`Đã sử dụng ${item.fish.name} làm mồi sống!`, 'success');
             }
           }}
