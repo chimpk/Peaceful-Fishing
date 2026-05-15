@@ -216,119 +216,120 @@ export const drawSeahorse = (
   size: number,
   color: string
 ) => {
+  const time = frameCount * 0.05;
   ctx.save();
-  // Seahorse đứng thẳng, sau rotate +90° thì đầu hướng phải
+  
+  // Seahorse stands vertically, so we rotate it
   ctx.rotate(Math.PI / 2);
 
-  const pulse = Math.sin(frameCount * 0.4);
-  const finVib = Math.sin(frameCount * 0.5) * 0.25;
+  // 1. PREMIUM IRIDESCENT GRADIENT
+  const bodyGrad = ctx.createLinearGradient(-size * 0.6, -size * 1.5, size * 0.6, size * 3);
+  bodyGrad.addColorStop(0, '#fde68a'); // Golden top
+  bodyGrad.addColorStop(0.3, color);    // Base color
+  bodyGrad.addColorStop(0.7, '#8b5cf6'); // Purple iridescence
+  bodyGrad.addColorStop(1, '#4c1d95');   // Deep shadow
 
-  const bodyGrad = ctx.createLinearGradient(-size * 0.6, -size * 1.2, size * 0.6, size * 2.5);
-  bodyGrad.addColorStop(0, color);
-  bodyGrad.addColorStop(0.35, '#fcd34d');
-  bodyGrad.addColorStop(0.65, color);
-  bodyGrad.addColorStop(1, '#7c2d12');
+  ctx.shadowColor = 'rgba(251, 191, 36, 0.4)';
+  ctx.shadowBlur = size * 0.3;
 
-  // === THÂN (filled bezier, phình ở ngực, thon xuống) ===
+  // 2. SEGMENTED BODY (Bony plates)
   ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.moveTo(size * 0.55, -size * 0.45);    // cổ phải
-  ctx.bezierCurveTo(size * 0.85, size * 0.2, size * 0.72, size * 0.75, size * 0.35, size * 1.0);
-  ctx.quadraticCurveTo(size * 0.1, size * 1.15, -size * 0.05, size * 1.0);
-  ctx.bezierCurveTo(-size * 0.68, size * 0.75, -size * 0.82, size * 0.2, -size * 0.52, -size * 0.45);
-  ctx.quadraticCurveTo(0, -size * 0.65, size * 0.55, -size * 0.45);
+  // Main neck and belly curve
+  ctx.moveTo(size * 0.5, -size * 0.5);
+  ctx.bezierCurveTo(size * 1.0, size * 0.5, size * 0.8, size * 1.2, size * 0.2, size * 1.4);
+  ctx.quadraticCurveTo(-size * 0.1, size * 1.5, -size * 0.3, size * 1.4);
+  ctx.bezierCurveTo(-size * 0.9, size * 1.0, -size * 0.8, size * 0.2, -size * 0.5, -size * 0.5);
+  ctx.closePath();
   ctx.fill();
 
-  // === SEGMENTS (xương vòng cứng đặc trưng) ===
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-  ctx.lineWidth = size * 0.04;
-  for (let i = 0; i < 8; i++) {
-    const sy = -size * 0.35 + i * size * 0.175;
-    const halfW = size * (0.55 - i * 0.012);
+  // Bony ring detail
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 7; i++) {
+    const y = -size * 0.3 + i * size * 0.25;
+    const w = size * (0.6 - i * 0.05);
     ctx.beginPath();
-    ctx.ellipse(0, sy, halfW, size * 0.07, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, y, w, size * 0.1, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  // === ĐUÔI xoắn bezier có taper ===
-  // Vẽ filled shape bên phải rồi bên trái để tạo độ dày giảm dần
-  const tailSteps = 14;
-  for (let i = tailSteps; i >= 1; i--) {
-    const t = 1 - i / tailSteps;
-    const angle = t * Math.PI * 1.7; // xoắn 306°
-    const r = size * (1.0 - t * 0.82); // bán kính giảm
-    const cx2 = size * 0.18;
-    const cy2 = size * 1.05;
-    const px = cx2 + Math.cos(Math.PI * 0.5 + angle) * r * 0.55;
-    const py = cy2 + Math.sin(Math.PI * 0.5 + angle) * r * 0.6;
-    const pw = size * (0.38 - t * 0.35); // độ dày taper
-    ctx.strokeStyle = bodyGrad;
-    ctx.lineWidth = pw;
-    ctx.lineCap = 'round';
-    if (i === tailSteps) {
-      ctx.beginPath();
-      ctx.moveTo(cx2, cy2);
-    }
-    ctx.beginPath();
-    ctx.moveTo(
-      cx2 + Math.cos(Math.PI * 0.5 + (t - 1/tailSteps) * Math.PI * 1.7) * size * (1 - (t - 1/tailSteps) * 0.82) * 0.55,
-      cy2 + Math.sin(Math.PI * 0.5 + (t - 1/tailSteps) * Math.PI * 1.7) * size * (1 - (t - 1/tailSteps) * 0.82) * 0.6
-    );
-    ctx.lineTo(px, py);
-    ctx.stroke();
-  }
-
-  // === ĐẦU ===
-  ctx.fillStyle = bodyGrad;
-  ctx.beginPath();
-  ctx.ellipse(0, -size * 0.85, size * 0.48, size * 0.45, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // === CORONET (vương miện gai) ===
-  ctx.strokeStyle = '#fcd34d';
-  ctx.lineWidth = size * 0.09;
+  // 3. SPIRAL TAIL (Prehensile)
+  ctx.save();
+  ctx.translate(0, size * 1.4);
+  const tailWag = Math.sin(time) * 0.1;
+  ctx.rotate(tailWag);
+  ctx.strokeStyle = bodyGrad;
   ctx.lineCap = 'round';
-  for (let i = 0; i < 5; i++) {
-    const ang = -Math.PI * 0.75 + (i / 4) * Math.PI * 0.5;
-    const bx = Math.cos(ang) * size * 0.42;
-    const by = -size * 0.85 + Math.sin(ang) * size * 0.42;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  for (let i = 0; i < 20; i++) {
+    const t = i / 19;
+    const angle = t * Math.PI * 1.8;
+    const r = size * (1.2 - t * 1.1) * 0.5;
+    const px = Math.sin(angle) * r;
+    const py = (1 - Math.cos(angle)) * r;
+    ctx.lineWidth = size * (0.4 - t * 0.35);
+    ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // 4. ELEGANT HEAD & SNOUT
+  ctx.save();
+  ctx.translate(0, -size * 0.9);
+  // Head bulb
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath(); ctx.ellipse(0, 0, size * 0.5, size * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+  
+  // Snout (Tubular)
+  ctx.beginPath();
+  ctx.moveTo(size * 0.3, size * 0.2);
+  ctx.lineTo(size * 1.2, size * 0.3);
+  ctx.lineTo(size * 1.2, size * 0.45);
+  ctx.lineTo(size * 0.2, size * 0.5);
+  ctx.fill();
+
+  // Coronet (Crown)
+  ctx.strokeStyle = '#fcd34d';
+  ctx.lineWidth = 2;
+  for(let i=0; i<3; i++) {
+    const ang = -Math.PI * 0.6 + i * 0.2;
     ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.lineTo(bx + Math.cos(ang) * size * 0.28, by + Math.sin(ang) * size * 0.28);
+    ctx.moveTo(Math.cos(ang) * size * 0.4, Math.sin(ang) * size * 0.4);
+    ctx.lineTo(Math.cos(ang) * size * 0.7, Math.sin(ang) * size * 0.7);
     ctx.stroke();
   }
 
-  // === MÕM ỐNG ===
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(size * 0.3, -size * 0.72);
-  ctx.bezierCurveTo(size * 0.85, -size * 1.1, size * 0.9, -size * 1.55, size * 0.55, -size * 1.72);
-  ctx.bezierCurveTo(size * 0.3, -size * 1.58, size * 0.28, -size * 1.15, size * 0.3, -size * 0.72);
-  ctx.fill();
-
-  // === VÂY LƯNG rung ===
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.72;
-  ctx.beginPath();
-  ctx.moveTo(-size * 0.38, size * 0.15);
-  ctx.quadraticCurveTo(-size * (0.85 + finVib * 0.3), -size * 0.2, -size * 0.38, -size * 0.45);
-  ctx.quadraticCurveTo(-size * 0.5, -size * 0.15, -size * 0.38, size * 0.15);
-  ctx.fill();
-  ctx.globalAlpha = 1.0;
-
-  // === MẮT (scale theo size) ===
-  ctx.fillStyle = '#fbbf24';
-  ctx.beginPath();
-  ctx.arc(size * 0.26, -size * 1.02, size * 0.14, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#0f172a';
-  ctx.beginPath();
-  ctx.arc(size * 0.3, -size * 1.02, size * 0.08, 0, Math.PI * 2);
-  ctx.fill();
+  // Eye
   ctx.fillStyle = 'white';
+  ctx.beginPath(); ctx.arc(size * 0.25, -size * 0.1, size * 0.12, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1e1b4b';
+  ctx.beginPath(); ctx.arc(size * 0.3, -size * 0.1, size * 0.06, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // 5. TRANSLUCENT FINS
+  const vib = Math.sin(time * 5) * 0.1;
+  // Dorsal fin
+  ctx.save();
+  ctx.translate(-size * 0.6, size * 0.3);
+  ctx.rotate(vib);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.beginPath();
-  ctx.arc(size * 0.34, -size * 1.05, size * 0.03, 0, Math.PI * 2);
+  ctx.moveTo(0,0);
+  ctx.quadraticCurveTo(-size * 0.8, -size * 0.4, -size * 0.2, -size * 0.8);
+  ctx.lineTo(0, -size * 0.5);
   ctx.fill();
+  ctx.restore();
+
+  // 6. FLOATING BUBBLES (Tiny particles)
+  ctx.globalAlpha = 0.6;
+  for(let i=0; i<3; i++) {
+    const bx = Math.sin(time + i) * size * 1.2;
+    const by = Math.cos(time * 0.8 + i) * size * 1.2;
+    ctx.fillStyle = 'white';
+    ctx.beginPath(); ctx.arc(bx, by, size * 0.05, 0, Math.PI * 2); ctx.fill();
+  }
 
   ctx.restore();
 };
@@ -941,7 +942,7 @@ export const drawFlyingFish = (
   ctx.fillStyle = '#0f172a';
   ctx.beginPath(); ctx.arc(size * 1.55, -size * 0.1, size * 0.07, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'white';
-  ctx.beginPath(); ctx.arc(size * 1.59, -size * 0.13, size * 0.025, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(size * 1.59, -size * 0.13, size * 0.04, 0, Math.PI * 2); ctx.fill();
 
   ctx.restore();
 };
@@ -954,43 +955,98 @@ export const drawPufferFish = (
   color: string,
   isStruggling: boolean
 ) => {
-  const puff = isStruggling ? 1.9 : (1.0 + Math.sin(frameCount * 0.06) * 0.12);
+  const time = frameCount * 0.05;
+  // Puff logic: 1.0 is normal, 1.8 is fully puffed
+  const puff = isStruggling ? 1.8 : (1.0 + Math.sin(time * 0.5) * 0.05);
   
   ctx.save();
   ctx.scale(puff, puff);
   
-  // Gradient body
-  const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
-  bodyGrad.addColorStop(0, '#fef3c7');
-  bodyGrad.addColorStop(0.6, color);
-  bodyGrad.addColorStop(1, '#92400e');
-  
+  // 1. TIGER PUFFER BODY (Takifugu shape)
+  // Top: Dark/Tiger color, Bottom: White
+  const bodyGrad = ctx.createLinearGradient(0, -size, 0, size);
+  bodyGrad.addColorStop(0, color); // Dark brown/tiger base
+  bodyGrad.addColorStop(0.5, '#ffffff'); // Simplified lerp logic
+  bodyGrad.addColorStop(0.7, '#f8fafc'); // White belly
+  bodyGrad.addColorStop(1, '#f1f5f9');
+
   ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  if (isStruggling) {
+      // Puffed up: Nearly spherical but still has a snout
+      ctx.arc(0, 0, size, 0, Math.PI * 2);
+  } else {
+      // Normal: Blunt snout, slightly elongated
+      ctx.moveTo(size * 1.2, -size * 0.2); // Snout
+      ctx.bezierCurveTo(size * 0.8, -size * 1.1, -size * 0.5, -size * 1.0, -size * 1.4, 0); // Back
+      ctx.bezierCurveTo(-size * 0.5, size * 1.0, size * 0.8, size * 1.1, size * 1.2, size * 0.2); // Belly
+      ctx.closePath();
+  }
   ctx.fill();
-  
-  // Sharp Spikes
-  // Dùng Math.sin() thay Math.random() — spike ổn định, không nhấp nháy
+
+  // 2. TIGER SPOTS (The "Hổ" part)
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = '#1e1b4b'; // Deep dark spot color
+  ctx.globalAlpha = 0.8;
+  // Large iconic spot behind the eye
+  ctx.beginPath(); ctx.ellipse(size * 0.3, -size * 0.3, size * 0.35, size * 0.25, 0.4, 0, Math.PI * 2); ctx.fill();
+  // Scattered spots on back
+  for (let i = 0; i < 8; i++) {
+      const sx = size * (0.8 - i * 0.35);
+      const sy = -size * (0.4 + Math.sin(i) * 0.2);
+      const rs = size * (0.1 + Math.cos(i) * 0.05);
+      ctx.beginPath(); ctx.arc(sx, sy, rs, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
+  // 3. PECTORAL FINS (Animated)
+  const finWag = Math.sin(time * 3) * 0.3;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.translate(size * 0.4, size * 0.2);
+  ctx.rotate(finWag);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, size * 0.4, size * 0.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 4. SHARP 3D SPIKES (Only when puffed/struggling)
   if (isStruggling) {
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 20; i++) {
-      const angle = (i / 20) * Math.PI * 2;
-      // Chiều dài spike dao động theo sin() với phase riêng mỗi gai — không random
-      const len = 6 + Math.sin(frameCount * 0.4 + i * 0.8) * 3;
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 24; i++) {
+      const angle = (i / 24) * Math.PI * 2;
+      const len = size * 0.25 + Math.sin(time * 10 + i) * size * 0.05;
+      const startX = Math.cos(angle) * size;
+      const startY = Math.sin(angle) * size;
+      const endX = Math.cos(angle) * (size + len);
+      const endY = Math.sin(angle) * (size + len);
+      
+      // Spike base glow
       ctx.beginPath();
-      ctx.moveTo(Math.cos(angle) * size, Math.sin(angle) * size);
-      ctx.lineTo(Math.cos(angle) * (size + len), Math.sin(angle) * (size + len));
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
       ctx.stroke();
     }
   }
-  
-  // Face (Large cute eyes)
+
+  // 5. CUTE BUT INTELLIGENT FACE
+  // Large eyes
+  ctx.save();
+  ctx.translate(size * 0.8, -size * 0.35);
   ctx.fillStyle = 'white';
-  ctx.beginPath(); ctx.arc(size * 0.65, -size * 0.25, size * 0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'black';
-  ctx.beginPath(); ctx.arc(size * 0.75, -size * 0.25, size * 0.15, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 0, size * 0.22, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath(); ctx.arc(size * 0.05, 0, size * 0.12, 0, Math.PI * 2); ctx.fill();
+  // Reflection
+  ctx.fillStyle = 'white';
+  ctx.beginPath(); ctx.arc(-size * 0.05, -size * 0.05, size * 0.04, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  // Small mouth (Beak-like)
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.moveTo(size * 1.1, 0); ctx.lineTo(size * 1.3, 0); ctx.stroke();
   
   ctx.restore();
 };
@@ -1143,79 +1199,83 @@ export const drawTadpole = (
   size: number,
   color: string
 ) => {
+  const time = frameCount * 0.05;
   ctx.save();
   
-  // 1. Head: Large round head (~60% of total length)
+  // 1. MUTANT HEAD (Irregular shape)
   const headX = size * 0.3;
-  const headR = size * 1.0;
+  const headR = size * 1.1;
+  const pulse = Math.sin(time * 2) * 0.05;
   
-  const headGrad = ctx.createRadialGradient(headX - size * 0.2, -size * 0.2, 0, headX, 0, headR);
-  headGrad.addColorStop(0, '#94a3b8'); // Pale green/grey center
-  headGrad.addColorStop(1, color);    // Darker edge matching color
+  const headGrad = ctx.createRadialGradient(headX - size * 0.3, -size * 0.3, 0, headX, 0, headR * (1 + pulse));
+  headGrad.addColorStop(0, '#f1f5f9'); 
+  headGrad.addColorStop(0.4, color);    
+  headGrad.addColorStop(1, '#0f172a');
   
   ctx.fillStyle = headGrad;
   ctx.beginPath();
-  ctx.arc(headX, 0, headR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 2. Translucent belly: showing gut/internal structure
-  ctx.save();
-  ctx.globalAlpha = 0.3;
-  ctx.fillStyle = 'white';
-  ctx.beginPath();
-  ctx.ellipse(headX, size * 0.2, size * 0.5, size * 0.4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  // 3. Tail: Flat, ribbon-like, filled bezier shape (wiggles in sine wave)
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.8;
-  ctx.beginPath();
-  
-  const tailBaseX = -size * 0.5;
-  const tailTipX = -size * 3.0;
-  
-  ctx.moveTo(tailBaseX, -size * 0.2);
-  
-  // Top edge of tail
-  for (let x = tailBaseX; x >= tailTipX; x -= size * 0.2) {
-    const t = (x - tailBaseX) / (tailTipX - tailBaseX);
-    const yWave = Math.sin(frameCount * 0.3 - x * 0.5) * size * 0.5 * t;
-    const thickness = size * 0.3 * (1 - t);
-    ctx.lineTo(x, yWave - thickness);
-  }
-  
-  // Bottom edge of tail
-  for (let x = tailTipX; x <= tailBaseX; x += size * 0.2) {
-    const t = (x - tailBaseX) / (tailTipX - tailBaseX);
-    const yWave = Math.sin(frameCount * 0.3 - x * 0.5) * size * 0.5 * t;
-    const thickness = size * 0.3 * (1 - t);
-    ctx.lineTo(x, yWave + thickness);
+  // Slightly irregular circle for mutant feel
+  for(let i=0; i<Math.PI*2; i+=0.4) {
+    const r = headR * (1 + Math.sin(i * 3 + time) * 0.08);
+    const px = headX + Math.cos(i) * r;
+    const py = Math.sin(i) * r;
+    if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.closePath();
   ctx.fill();
 
-  // 4. Eyes: 2 small black dots on the sides
-  ctx.globalAlpha = 1.0;
-  const drawEye = (side: number) => {
-    const ex = size * 0.8;
-    const ey = side * size * 0.5;
-    ctx.fillStyle = 'black';
-    ctx.beginPath(); ctx.arc(ex, ey, size * 0.12, 0, Math.PI * 2); ctx.fill();
-    // Catchlight
-    ctx.fillStyle = 'white';
-    ctx.beginPath(); ctx.arc(ex + size * 0.04, ey - size * 0.04, size * 0.03, 0, Math.PI * 2); ctx.fill();
-  };
-  drawEye(-1);
-  drawEye(1);
-  
-  // 5. Tiny mouth at front
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(size * 1.3, 0, size * 0.08, 0, Math.PI);
-  ctx.stroke();
+  // 2. BIOLUMINESCENT SPOTS (Mutant feature)
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = '#4ade80';
+  ctx.fillStyle = 'rgba(74, 222, 128, 0.6)';
+  for(let i=0; i<5; i++) {
+    const sx = headX + Math.cos(i * 2 + time) * size * 0.6;
+    const sy = Math.sin(i * 2 + time) * size * 0.6;
+    ctx.beginPath(); ctx.arc(sx, sy, size * 0.1, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
 
+  // 3. WHISPY MUTANT TAIL
+  ctx.save();
+  ctx.beginPath();
+  const tailBaseX = -size * 0.5;
+  const tailTipX = -size * 4.0;
+  
+  const tailGrad = ctx.createLinearGradient(tailBaseX, 0, tailTipX, 0);
+  tailGrad.addColorStop(0, color);
+  tailGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = tailGrad;
+  
+  ctx.moveTo(tailBaseX, -size * 0.3);
+  for (let x = tailBaseX; x >= tailTipX; x -= size * 0.2) {
+    const t = (x - tailBaseX) / (tailTipX - tailBaseX);
+    const yWave = Math.sin(time * 6 - x * 0.4) * size * 0.8 * t;
+    const thickness = size * 0.4 * (1 - t);
+    ctx.lineTo(x, yWave - thickness);
+  }
+  for (let x = tailTipX; x <= tailBaseX; x += size * 0.2) {
+    const t = (x - tailBaseX) / (tailTipX - tailBaseX);
+    const yWave = Math.sin(time * 6 - x * 0.4) * size * 0.8 * t;
+    const thickness = size * 0.4 * (1 - t);
+    ctx.lineTo(x, yWave + thickness);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // 4. MULTIPLE CREEPY EYES
+  const drawMutantEye = (ex: number, ey: number, s: number) => {
+    ctx.fillStyle = '#ef4444';
+    ctx.shadowBlur = 5; ctx.shadowColor = 'red';
+    ctx.beginPath(); ctx.arc(ex, ey, s, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'black';
+    ctx.beginPath(); ctx.arc(ex + s*0.2, ey, s*0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  };
+  drawMutantEye(headX + size * 0.7, -size * 0.4, size * 0.15); // Right
+  drawMutantEye(headX + size * 0.7, size * 0.4, size * 0.15);  // Left
+  drawMutantEye(headX + size * 0.9, 0, size * 0.1);           // Center small
+  
   ctx.restore();
 };
 
@@ -1229,19 +1289,16 @@ export const drawBlindFish = (
   wagAmp: number
 ) => {
   const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
+  const time = frameCount * 0.05;
   ctx.save();
   
-  // 1. Shadow for depth
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-  ctx.shadowBlur = size * 0.4;
-  ctx.shadowOffsetY = size * 0.2;
-
-  // Ghostly translucent skin
-  ctx.globalAlpha = 0.85;     
+  // 1. Translucent Deep-Sea skin
   const bodyGrad = ctx.createLinearGradient(-size, -size, size, size);
-  bodyGrad.addColorStop(0, '#ffffff'); // Pale white
-  bodyGrad.addColorStop(0.4, color); // Pale grey/slate
-  bodyGrad.addColorStop(1, '#fbcfe8'); // Pale pinkish underbelly
+  bodyGrad.addColorStop(0, '#f8fafc'); 
+  bodyGrad.addColorStop(0.4, color); 
+  bodyGrad.addColorStop(1, '#fda4af'); // Fleshy pink underbelly
+  
+  ctx.globalAlpha = 0.7; // High translucency
 
   // Draw Tail
   ctx.save();
@@ -1249,78 +1306,66 @@ export const drawBlindFish = (
   ctx.rotate(tailWag * 1.5);
   ctx.beginPath();
   ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(-size * 0.8, -size * 0.8, -size * 1.2, -size * 0.4);
-  ctx.quadraticCurveTo(-size * 0.5, 0, -size * 0.8, 0);
-  ctx.quadraticCurveTo(-size * 0.5, 0, -size * 1.2, size * 0.4);
-  ctx.quadraticCurveTo(-size * 0.8, size * 0.8, 0, 0);
-  ctx.fillStyle = 'rgba(241, 245, 249, 0.7)'; // Translucent tail
+  ctx.bezierCurveTo(-size * 1.5, -size * 1.5, -size * 3.5, -size * 0.8, -size * 3.0, 0);
+  ctx.bezierCurveTo(-size * 3.5, size * 0.8, -size * 1.5, size * 1.5, 0, 0);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
   ctx.fill();
-  
-  // Tail ribs
-  ctx.strokeStyle = 'rgba(244, 114, 182, 0.4)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-size * 1.0, -size * 0.3); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-size * 1.0, size * 0.3); ctx.stroke();
   ctx.restore();
 
-  // Draw Body (Sleek and curved)
+  // Draw Body
   ctx.beginPath();
-  ctx.moveTo(size * 1.4, 0); // Snout
-  ctx.bezierCurveTo(size * 1.0, -size * 0.9, -size * 0.4, -size * 0.8, -size * 1.2, 0); // Top curve
-  ctx.bezierCurveTo(-size * 0.4, size * 0.9, size * 0.8, size * 1.0, size * 1.4, 0); // Bottom curve
+  ctx.moveTo(size * 1.8, 0);
+  ctx.bezierCurveTo(size * 1.2, -size * 1.2, -size * 0.8, -size * 1.0, -size * 1.5, 0);
+  ctx.bezierCurveTo(-size * 0.8, size * 1.0, size * 1.2, size * 1.2, size * 1.8, 0);
   ctx.fillStyle = bodyGrad;
   ctx.fill();
 
-  // Remove shadow for internal details
-  ctx.shadowColor = 'transparent';
-
-  // Creepy exposed internal anatomy (Soft ribcage)
-  ctx.strokeStyle = 'rgba(244, 114, 182, 0.3)'; // Soft pink/red
-  ctx.lineWidth = size * 0.15;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(size * 0.8, 0);
-  ctx.lineTo(-size * 0.8, 0); // Spine
-  for(let i = 0; i < 6; i++) {
-    const vx = size * 0.5 - i * size * 0.25;
-    ctx.moveTo(vx, 0);
-    ctx.quadraticCurveTo(vx - size * 0.1, -size * 0.5, vx - size * 0.3, -size * 0.6);
-    ctx.moveTo(vx, 0);
-    ctx.quadraticCurveTo(vx - size * 0.1, size * 0.5, vx - size * 0.3, size * 0.6);
-  }
-  ctx.stroke();
-
-  // Bioluminescent lateral line
-  ctx.strokeStyle = '#38bdf8'; // Glowing cyan
-  ctx.shadowColor = '#38bdf8';
-  ctx.shadowBlur = 10;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(size * 1.0, size * 0.1);
-  ctx.quadraticCurveTo(0, size * 0.3, -size * 1.0, size * 0.1);
-  ctx.stroke();
-
-  // Sensory Barbels (Whiskers) since it has no eyes
-  ctx.strokeStyle = '#e2e8f0';
+  // 2. DETAILED INTERNAL ANATOMY
+  ctx.save();
   ctx.lineWidth = 1.5;
-  ctx.shadowColor = 'transparent';
-  for(let i = -1; i <= 1; i += 2) {
-    ctx.beginPath();
-    ctx.moveTo(size * 1.4, 0);
-    const whiskerWag = Math.sin(frameCount * 0.08 + i) * size * 0.3;
-    ctx.quadraticCurveTo(size * 1.8, i * size * 0.5 + whiskerWag, size * 2.2, i * size * 0.8 + whiskerWag);
+  ctx.strokeStyle = 'rgba(157, 23, 77, 0.2)'; // Deep pink/red veins
+  // Spine
+  ctx.beginPath();
+  ctx.moveTo(size * 1.2, 0);
+  ctx.lineTo(-size * 1.4, 0);
+  ctx.stroke();
+  // Ribs (Finer and more numerous)
+  for(let i=0; i<10; i++) {
+    const rx = size * 1.0 - i * size * 0.25;
+    ctx.beginPath(); 
+    ctx.moveTo(rx, 0); 
+    ctx.quadraticCurveTo(rx - size * 0.1, size * 0.6, rx - size * 0.3, size * 0.7);
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(size * 1.3, i * size * 0.2);
-    ctx.quadraticCurveTo(size * 1.6, i * size * 0.8 + whiskerWag, size * 1.8, i * size * 1.2 + whiskerWag);
+    ctx.beginPath(); 
+    ctx.moveTo(rx, 0); 
+    ctx.quadraticCurveTo(rx - size * 0.1, -size * 0.6, rx - size * 0.3, -size * 0.7);
     ctx.stroke();
   }
+  // Heart (Pulsing)
+  const heartPulse = (Math.sin(time * 3) + 1) / 2;
+  ctx.fillStyle = 'rgba(225, 29, 72, 0.5)';
+  ctx.beginPath(); ctx.arc(size * 0.8, size * 0.1, size * (0.12 + heartPulse * 0.05), 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 
-  // Smooth blind socket (where eyes would be)
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.beginPath();
-  ctx.ellipse(size * 0.9, -size * 0.2, size * 0.2, size * 0.1, 0.2, 0, Math.PI * 2);
-  ctx.fill();
+  // 3. SENSORY BARBELS (Complex array)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.lineWidth = 1;
+  const whiskWave = Math.sin(time * 1.5);
+  for(let i=-1; i<=1; i+=2) {
+    // 3 barbels per side
+    for(let b=0; b<3; b++) {
+      ctx.beginPath();
+      ctx.moveTo(size * 1.6, i * size * 0.1);
+      const bx = size * (2.2 + b * 0.4);
+      const by = i * size * (0.8 + b * 0.5) + whiskWave * size * 0.3;
+      ctx.quadraticCurveTo(size * 1.8, by * 0.5, bx, by);
+      ctx.stroke();
+    }
+  }
+
+  // 4. BLIND SOCKETS (Milky/Empty)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.beginPath(); ctx.ellipse(size * 1.2, -size * 0.3, size * 0.25, size * 0.15, 0.2, 0, Math.PI * 2); ctx.fill();
 
   ctx.restore();
 };
@@ -1746,83 +1791,50 @@ export const drawRobotFish = (
     ctx.fillStyle = metalGrad;
     ctx.fill();
     
-    // 3. Panel Seams & Rivets
+    // 2. SCANNING LASER (Digital scanning effect)
+    const scanPos = (Math.sin(time * 0.5) + 1) / 2; // 0 to 1
+    const scanX = -size * 1.5 + (size * 3.1) * scanPos;
     ctx.save();
-    // Clip to body shape
+    // Clip to body
     ctx.beginPath();
     ctx.moveTo(size * 1.6, 0);
     ctx.bezierCurveTo(size * 1.0, -size * 1.0, -size * 0.5, -size * 0.9, -size * 1.5, 0);
     ctx.bezierCurveTo(-size * 0.5, size * 0.9, size * 1.0, size * 1.0, size * 1.6, 0);
     ctx.clip();
-    
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 1.5;
-    // Horizontal panel line
-    ctx.beginPath(); ctx.moveTo(-size * 1.5, 0); ctx.lineTo(size * 1.6, 0); ctx.stroke();
-    // Vertical segmentation lines
-    for (let i = -1; i <= 1; i++) {
-        const px = i * size * 0.7;
-        ctx.beginPath(); ctx.moveTo(px, -size); ctx.lineTo(px, size); ctx.stroke();
-        
-        // Rivets (small circular bolts along seams)
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        for (let j = -2; j <= 2; j++) {
-            if (j === 0) continue;
-            ctx.beginPath(); ctx.arc(px + size * 0.05, j * size * 0.35, 1.5, 0, Math.PI * 2); ctx.fill();
-        }
-    }
+
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 10; ctx.shadowColor = '#22d3ee';
+    ctx.beginPath(); ctx.moveTo(scanX, -size); ctx.lineTo(scanX, size); ctx.stroke();
     ctx.restore();
-    
-    // 4. Sharp Triangular Dorsal Fin
-    ctx.fillStyle = '#334155';
-    ctx.beginPath();
-    ctx.moveTo(-size * 0.1, -size * 0.75);
-    ctx.lineTo(size * 0.4, -size * 1.3);
-    ctx.lineTo(size * 0.7, -size * 0.65);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.stroke();
 
-    // 5. Thruster Glow at tail base (Radial flame)
-    const thrusterGlow = ctx.createRadialGradient(-size * 1.5, 0, 0, -size * 1.5, 0, size * 0.8);
-    thrusterGlow.addColorStop(0, 'rgba(255, 120, 0, 0.8)'); // Inner orange
-    thrusterGlow.addColorStop(0.5, 'rgba(0, 150, 255, 0.4)'); // Outer blue
-    thrusterGlow.addColorStop(1, 'transparent');
-    ctx.fillStyle = thrusterGlow;
-    ctx.beginPath();
-    ctx.arc(-size * 1.5, 0, size * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 6. Rotating Fin-Blades (3 rigid triangular blades)
-    ctx.save();
-    ctx.translate(-size * 1.5, 0);
-    ctx.rotate(frameCount * 0.05); // Slow rotation
-    for (let i = 0; i < 3; i++) {
-        ctx.save();
-        ctx.rotate((i * Math.PI * 2) / 3);
-        ctx.fillStyle = '#475569';
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(size * 0.8, -size * 0.35);
-        ctx.lineTo(size * 0.8, size * 0.35);
-        ctx.closePath();
-        ctx.fill();
-        // Blade edge highlight
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    // 3. ELECTRIC ARCS
+    if(Math.random() > 0.95) {
+        ctx.strokeStyle = '#67e8f9';
         ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(size * 0.5, 0);
+        ctx.lineTo(size * 0.8, -size * 0.5);
+        ctx.lineTo(size * 1.1, -size * 0.2);
         ctx.stroke();
-        ctx.restore();
     }
-    ctx.restore();
-    
-    // 7. Glowing LED Eye (Head position)
-    const ledColor = Math.sin(time * 2.5) > 0 ? '#ef4444' : '#3b82f6';
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = ledColor;
-    ctx.fillStyle = ledColor;
-    ctx.fillRect(size * 0.85, -size * 0.25, size * 0.35, size * 0.15);
-    
+
+    // 4. THRUSTER EXHAUST (Multi-layered fire)
+    const thrusterX = -size * 1.5;
+    const fireSize = size * (0.8 + Math.sin(time * 5) * 0.2);
+    const fireGrad = ctx.createRadialGradient(thrusterX, 0, 0, thrusterX, 0, fireSize);
+    fireGrad.addColorStop(0, '#ffffff');
+    fireGrad.addColorStop(0.3, '#3b82f6');
+    fireGrad.addColorStop(0.7, 'rgba(30, 58, 138, 0.4)');
+    fireGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = fireGrad;
+    ctx.beginPath(); ctx.arc(thrusterX, 0, fireSize, 0, Math.PI * 2); ctx.fill();
+
+    // 5. LED CORE
+    ctx.fillStyle = Math.sin(time * 2) > 0 ? '#ef4444' : '#0ea5e9';
+    ctx.beginPath(); ctx.arc(size * 0.2, 0, size * 0.25, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'white'; ctx.lineWidth = 1; ctx.stroke();
+
     ctx.restore();
 };
 
@@ -1833,35 +1845,43 @@ export const drawCrystalFish = (
     size: number,
     color: string
 ) => {
-    const pulse = (Math.sin(frameCount * 0.05) + 1) / 2;
+    const time = frameCount * 0.05;
+    const pulse = (Math.sin(time) + 1) / 2;
     
     ctx.save();
-    ctx.globalAlpha = 0.75; // Translucent crystal effect
     
-    // 1. Crystal Body Silhouette (Bezier fish shape)
+    // 1. REFRACTIVE BODY (Rainbow streaks inside)
     ctx.beginPath();
-    ctx.moveTo(size * 1.5, 0); // Snout
-    ctx.bezierCurveTo(size * 1.0, -size * 1.0, -size * 0.5, -size * 0.9, -size * 1.2, 0);
+    ctx.moveTo(size * 1.5, 0);
+    ctx.bezierCurveTo(size * 1.0, -size * 1.0, -size * 0.5, -size * 0.9, -size * 1.5, 0);
     ctx.bezierCurveTo(-size * 0.5, size * 0.9, size * 1.0, size * 1.0, size * 1.5, 0);
     
-    const bodyGrad = ctx.createLinearGradient(-size, -size, size, size);
-    bodyGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)'); // White highlights
-    bodyGrad.addColorStop(0.5, color);                   // Crystal core color
-    bodyGrad.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+    const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 2);
+    bodyGrad.addColorStop(0, `rgba(255,255,255,${0.3 + pulse * 0.2})`);
+    bodyGrad.addColorStop(0.5, color);
+    bodyGrad.addColorStop(1, 'rgba(0,0,0,0.3)');
     
     ctx.fillStyle = bodyGrad;
     ctx.fill();
 
-    // 2. Internal Refraction Facets (Angular lines fanning out)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 1.5;
-    for (let i = 0; i < 6; i++) {
-        const angle = (i - 2.5) * 0.35;
-        ctx.beginPath();
-        ctx.moveTo(size * 1.4, 0);
-        ctx.lineTo(size * 1.4 - Math.cos(angle) * size * 2.5, Math.sin(angle) * size * 1.2);
-        ctx.stroke();
+    // 2. PRISM REFRACTION (Rainbow lines)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(size * 1.5, 0);
+    ctx.bezierCurveTo(size * 1.0, -size * 1.0, -size * 0.5, -size * 0.9, -size * 1.5, 0);
+    ctx.bezierCurveTo(-size * 0.5, size * 0.9, size * 1.0, size * 1.0, size * 1.5, 0);
+    ctx.clip();
+    
+    for(let i=0; i<5; i++) {
+        const x = -size * 1.5 + i * size * 0.7 + Math.sin(time + i) * size * 0.3;
+        const rainbowGrad = ctx.createLinearGradient(x, -size, x + size * 0.2, size);
+        rainbowGrad.addColorStop(0, 'rgba(255,0,0,0.1)');
+        rainbowGrad.addColorStop(0.5, 'rgba(0,255,0,0.1)');
+        rainbowGrad.addColorStop(1, 'rgba(0,0,255,0.1)');
+        ctx.fillStyle = rainbowGrad;
+        ctx.fillRect(x, -size, size * 0.3, size * 2);
     }
+    ctx.restore();
 
     // 3. Sharp Triangular Dorsal Fin
     ctx.beginPath();
@@ -1980,57 +2000,102 @@ export const drawParrotfish = (
   size: number,
   color: string
 ) => {
+  const time = frameCount * 0.05;
   ctx.save();
   
-  // Body: deep and oval
-  const bodyGrad = ctx.createLinearGradient(-size, -size, size, size);
-  bodyGrad.addColorStop(0, '#4ade80');
-  bodyGrad.addColorStop(0.4, color);
-  bodyGrad.addColorStop(0.7, '#818cf8');
-  bodyGrad.addColorStop(1, '#f472b6');
-  
+  // 1. VIBRANT MULTICOLORED BODY
+  const bodyGrad = ctx.createRadialGradient(-size * 0.5, -size * 0.5, size * 0.2, 0, 0, size * 2.2);
+  bodyGrad.addColorStop(0, '#6ee7b7'); // Aqua highlight
+  bodyGrad.addColorStop(0.3, color);    // Base color
+  bodyGrad.addColorStop(0.7, '#818cf8'); // Purple-ish mid
+  bodyGrad.addColorStop(1, '#ec4899');   // Pink-ish tail-end
+
   ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.ellipse(0, 0, size * 1.8, size * 1.1, 0, 0, Math.PI * 2);
+  // Deep, chunky body typical of Parrotfish
+  ctx.moveTo(size * 1.8, 0);
+  ctx.bezierCurveTo(size * 1.5, -size * 1.4, -size * 1.0, -size * 1.3, -size * 1.8, 0);
+  ctx.bezierCurveTo(-size * 1.0, size * 1.3, size * 1.5, size * 1.4, size * 1.8, 0);
   ctx.fill();
 
-  // Scales grid (clipped)
+  // 2. ORGANIC OVERLAPPING SCALES
   ctx.save();
-  ctx.beginPath(); ctx.ellipse(0, 0, size * 1.8, size * 1.1, 0, 0, Math.PI * 2); ctx.clip();
-  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.beginPath();
+  ctx.moveTo(size * 1.8, 0);
+  ctx.bezierCurveTo(size * 1.5, -size * 1.4, -size * 1.0, -size * 1.3, -size * 1.8, 0);
+  ctx.bezierCurveTo(-size * 1.0, size * 1.3, size * 1.5, size * 1.4, size * 1.8, 0);
+  ctx.clip();
+  
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = 1;
-  for(let x = -size * 2; x < size * 2; x += size * 0.4) {
-    for(let y = -size * 1.5; y < size * 1.5; y += size * 0.4) {
-      ctx.beginPath(); ctx.arc(x, y, size * 0.25, 0, Math.PI); ctx.stroke();
-    }
+  for (let x = -size * 1.5; x < size * 1.5; x += size * 0.45) {
+      for (let y = -size * 1.2; y < size * 1.2; y += size * 0.45) {
+          const shift = (Math.floor(x / (size * 0.45)) % 2) * size * 0.22;
+          ctx.beginPath();
+          ctx.arc(x, y + shift, size * 0.3, -Math.PI * 0.2, Math.PI * 1.2);
+          ctx.stroke();
+      }
   }
   ctx.restore();
 
-  // Beak
-  ctx.fillStyle = '#f8fafc';
+  // 3. HARD PARROT BEAK (Beak-like mouth)
+  const mouthOpen = Math.sin(time * 2) * 0.05;
+  ctx.fillStyle = '#f8fafc'; // Hard white beak
+  ctx.save();
+  ctx.translate(size * 1.6, 0);
+  // Upper beak
   ctx.beginPath();
-  ctx.moveTo(size * 1.5, -size * 0.2);
-  ctx.lineTo(size * 2.0, 0);
-  ctx.lineTo(size * 1.5, size * 0.2);
-  ctx.closePath();
+  ctx.moveTo(0, -size * 0.2);
+  ctx.quadraticCurveTo(size * 0.5, -size * 0.2, size * 0.4, 0 - mouthOpen);
+  ctx.lineTo(0, 0);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.moveTo(size * 1.5, 0); ctx.lineTo(size * 2.0, 0); ctx.stroke();
+  // Lower beak
+  ctx.beginPath();
+  ctx.moveTo(0, size * 0.2);
+  ctx.quadraticCurveTo(size * 0.5, size * 0.2, size * 0.4, 0 + mouthOpen);
+  ctx.lineTo(0, 0);
+  ctx.fill();
+  ctx.restore();
 
-  // Tail: lunate
+  // 4. ANIMATED PECTORAL FINS (Parrotfish "fly" with these)
+  const finWag = Math.sin(time * 4) * 0.4;
+  ctx.save();
+  ctx.translate(size * 0.3, size * 0.2);
+  ctx.rotate(finWag);
+  const finGrad = ctx.createLinearGradient(0, 0, size * 0.8, 0);
+  finGrad.addColorStop(0, color);
+  finGrad.addColorStop(1, 'rgba(255,255,255,0.4)');
+  ctx.fillStyle = finGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, size * 0.7, size * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 5. LUNATE TAIL (High performance)
+  const tailWag = Math.sin(time * 2) * 0.15;
+  ctx.save();
+  ctx.translate(-size * 1.8, 0);
+  ctx.rotate(tailWag);
   ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.moveTo(-size * 1.6, 0);
-  ctx.quadraticCurveTo(-size * 2.5, -size * 1.5, -size * 3.0, -size * 1.2);
-  ctx.quadraticCurveTo(-size * 2.2, 0, -size * 3.0, size * 1.2);
-  ctx.quadraticCurveTo(-size * 2.5, size * 1.5, -size * 1.6, 0);
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(-size * 0.8, -size * 1.2, -size * 1.5, -size * 1.6, -size * 1.5, -size * 1.4);
+  ctx.lineTo(-size * 1.1, 0);
+  ctx.lineTo(-size * 1.5, size * 1.4);
+  ctx.bezierCurveTo(-size * 1.5, size * 1.6, -size * 0.8, size * 1.2, 0, 0);
   ctx.fill();
+  ctx.restore();
 
-  // Eye
-  ctx.fillStyle = '#fbbf24';
-  ctx.beginPath(); ctx.arc(size * 1.2, -size * 0.4, size * 0.18, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'black';
-  ctx.beginPath(); ctx.arc(size * 1.25, -size * 0.4, size * 0.08, 0, Math.PI * 2); ctx.fill();
+  // 6. EXPRESSIVE EYE
+  ctx.save();
+  ctx.translate(size * 1.2, -size * 0.4);
+  ctx.fillStyle = '#fbbf24'; // Yellow ring
+  ctx.beginPath(); ctx.arc(0, 0, size * 0.22, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0f172a'; // Deep pupil
+  ctx.beginPath(); ctx.arc(size * 0.04, 0, size * 0.11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'white'; // Glint
+  ctx.beginPath(); ctx.arc(-size * 0.05, -size * 0.05, size * 0.04, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 
   ctx.restore();
 };
@@ -2114,59 +2179,88 @@ export const drawGoblinShark = (
   size: number,
   color: string
 ) => {
+  const time = frameCount * 0.05;
+  const mouthOpen = Math.sin(time * 0.5) * 0.2;
+  
   ctx.save();
   
+  // 1. GHOSTLY PINK TRANSLUCENT SKIN
   const bodyGrad = ctx.createLinearGradient(0, -size, 0, size);
-  bodyGrad.addColorStop(0, '#fda4af');
-  bodyGrad.addColorStop(0.5, '#fff1f2');
-  bodyGrad.addColorStop(1, '#ffffff');
+  bodyGrad.addColorStop(0, '#fecaca');    // Soft pink top
+  bodyGrad.addColorStop(0.4, '#fda4af');  // Deep pink side
+  bodyGrad.addColorStop(0.7, '#fff1f2');  // Paler belly
+  bodyGrad.addColorStop(1, '#e2e8f0');    // Greyish shadow
   
-  // Body
+  // 2. FLABBY ORGANIC BODY
+  ctx.beginPath();
+  ctx.moveTo(size * 1.5, 0);
+  ctx.bezierCurveTo(size * 0.8, -size * 1.0, -size * 1.5, -size * 1.2, -size * 2.5, 0);
+  ctx.bezierCurveTo(-size * 1.5, size * 1.0, size * 0.8, size * 1.1, size * 1.5, 0);
   ctx.fillStyle = bodyGrad;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, size * 2.2, size * 0.8, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Blade snout
+  // 3. ICONIC ROSTRUM (Mũi hình lưỡi dao dài)
+  ctx.save();
+  ctx.fillStyle = '#fda4af';
   ctx.beginPath();
-  ctx.moveTo(size * 1.5, -size * 0.4);
-  ctx.lineTo(size * 3.5, -size * 0.1);
-  ctx.lineTo(size * 3.5, size * 0.1);
-  ctx.lineTo(size * 1.5, size * 0.4);
+  ctx.moveTo(size * 1.2, -size * 0.3);
+  ctx.bezierCurveTo(size * 2.5, -size * 0.6, size * 4.5, -size * 0.4, size * 4.2, 0);
+  ctx.bezierCurveTo(size * 3.5, size * 0.1, size * 2.0, size * 0.1, size * 1.2, 0);
   ctx.fill();
+  ctx.restore();
 
-  // Protruding Jaws
+  // 4. PROTRUSIBLE JAWS
+  ctx.save();
+  ctx.translate(size * 1.2, size * 0.2 + mouthOpen * size);
+  ctx.rotate(0.2 + mouthOpen);
+  ctx.fillStyle = '#fee2e2';
+  ctx.beginPath();
+  ctx.ellipse(size * 0.4, size * 0.2, size * 0.8, size * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Needle Teeth
   ctx.strokeStyle = '#f8fafc';
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(size * 1.6, size * 0.2);
-  ctx.quadraticCurveTo(size * 2.2, size * 0.8, size * 2.8, size * 0.4);
-  ctx.stroke();
-  // Teeth
   for(let i=0; i<8; i++) {
+    const tx = i * size * 0.12;
     ctx.beginPath();
-    ctx.moveTo(size * 1.8 + i * size * 0.1, size * 0.4);
-    ctx.lineTo(size * 1.8 + i * size * 0.1, size * 0.6);
+    ctx.moveTo(tx, size * 0.3);
+    ctx.lineTo(tx + size * 0.05, size * 0.7);
     ctx.stroke();
   }
+  ctx.restore();
 
-  // Eye
-  ctx.fillStyle = '#166534';
-  ctx.beginPath(); ctx.arc(size * 1.2, -size * 0.2, size * 0.1, 0, Math.PI * 2); ctx.fill();
+  // 5. SMALL DEEP-SEA EYES
+  const eyeX = size * 1.0, eyeY = -size * 0.25;
+  ctx.fillStyle = '#14532d';
+  ctx.beginPath(); ctx.arc(eyeX, eyeY, size * 0.12, 0, Math.PI * 2); ctx.fill();
 
-  // Fins
+  // 6. FINS
+  const drawSmallFin = (x: number, y: number, side: number, rot: number) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(size * 0.2, side * size * 1.2, -size * 1.0, side * size * 0.8, -size * 0.5, 0);
+    ctx.fill();
+    ctx.restore();
+  };
+  drawSmallFin(-size * 0.2, -size * 0.8, -1, 0.2);
+  drawSmallFin(size * 0.2, size * 0.6, 1, 0.5);
+
+  // 7. TAIL
+  ctx.save();
+  ctx.translate(-size * 2.5, 0);
+  ctx.rotate(Math.sin(time * 0.4) * 0.1);
+  ctx.fillStyle = bodyGrad;
   ctx.beginPath();
-  ctx.moveTo(-size * 0.5, -size * 0.7); ctx.lineTo(-size * 1.2, -size * 1.2); ctx.lineTo(-size * 1.0, -size * 0.6);
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(-size * 1.2, -size * 1.5, -size * 2.5, -size * 1.2, -size * 2.2, -size * 0.2);
+  ctx.bezierCurveTo(-size * 2.0, size * 0.8, -size * 1.0, size * 0.2, 0, 0);
   ctx.fill();
-
-  // Tail
-  ctx.beginPath();
-  ctx.moveTo(-size * 2.0, 0);
-  ctx.lineTo(-size * 3.5, -size * 1.2); // Upper long
-  ctx.lineTo(-size * 2.8, 0);
-  ctx.lineTo(-size * 3.2, size * 0.6); // Lower short
-  ctx.closePath();
-  ctx.fill();
+  ctx.restore();
 
   ctx.restore();
 };
@@ -2478,3 +2572,439 @@ export const drawOarfish = (
   ctx.restore();
 };
 
+
+export const drawGalaxyFish = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string
+) => {
+    const time = frameCount * 0.05;
+    ctx.save();
+    
+    // 1. NEBULA BODY
+    ctx.beginPath();
+    ctx.moveTo(size * 1.6, 0);
+    ctx.bezierCurveTo(size * 1.0, -size * 1.1, -size * 0.6, -size * 1.0, -size * 1.6, 0);
+    ctx.bezierCurveTo(-size * 0.6, size * 1.0, size * 1.0, size * 1.1, size * 1.6, 0);
+    
+    const nebulaGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.8);
+    nebulaGrad.addColorStop(0, '#c084fc');
+    nebulaGrad.addColorStop(0.6, '#4c1d95');
+    nebulaGrad.addColorStop(1, '#020617');
+    
+    ctx.fillStyle = nebulaGrad;
+    ctx.fill();
+
+    // 2. MOVING STARFIELD
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(size * 1.6, 0);
+    ctx.bezierCurveTo(size * 1.0, -size * 1.1, -size * 0.6, -size * 1.0, -size * 1.6, 0);
+    ctx.bezierCurveTo(-size * 0.6, size * 1.0, size * 1.0, size * 1.1, size * 1.6, 0);
+    ctx.clip();
+
+    for(let i=0; i<30; i++) {
+        const sx = ((Math.sin(i * 123) + 1) / 2 * size * 4 - size * 2 + time * 20) % (size * 4) - size * 2;
+        const sy = (Math.cos(i * 456) * size * 1.0);
+        const sSize = Math.random() * 1.5;
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.arc(sx, sy, sSize, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+
+    // 3. GALACTIC RING
+    ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 2.5, size * 0.6, time * 0.2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+};
+
+export const drawSoulFish = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string
+) => {
+    const time = frameCount * 0.05;
+    ctx.save();
+    
+    // 1. ECTOPLASMIC BODY
+    ctx.globalAlpha = 0.4 + Math.sin(time * 2) * 0.2;
+    
+    const soulGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.5);
+    soulGrad.addColorStop(0, '#ccfbf1');
+    soulGrad.addColorStop(0.5, color);
+    soulGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    
+    ctx.fillStyle = soulGrad;
+    ctx.beginPath();
+    ctx.moveTo(size * 1.5, 0);
+    ctx.bezierCurveTo(size * 1.0, -size * 0.8, -size * 0.5, -size * 0.8, -size * 1.8, 0);
+    ctx.bezierCurveTo(-size * 0.5, size * 0.8, size * 1.0, size * 0.8, size * 1.5, 0);
+    ctx.fill();
+
+    // 2. SPIRAL CORE
+    ctx.save();
+    ctx.rotate(time * 3);
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let i=0; i<Math.PI*2; i+=0.1) {
+        const r = (i / (Math.PI*2)) * size * 0.5;
+        ctx.lineTo(Math.cos(i) * r, Math.sin(i) * r);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // 3. TRAILING WISPS
+    for(let i=0; i<5; i++) {
+        const ox = -size * 1.5 - i * size * 0.4;
+        const oy = Math.sin(time * 3 + i) * size * 0.5;
+        ctx.fillStyle = color;
+        ctx.globalAlpha = (1 - i/5) * 0.3;
+        ctx.beginPath(); ctx.arc(ox, oy, size * 0.3 * (1 - i/5), 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.restore();
+};
+
+export const drawButterflyfish = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string
+) => {
+    const time = frameCount * 0.05;
+    ctx.save();
+    
+    // 1. VIBRANT DISK BODY (Butterflyfish iconic silhouette)
+    const bodyGrad = ctx.createRadialGradient(size * 0.3, -size * 0.3, size * 0.2, 0, 0, size * 1.8);
+    bodyGrad.addColorStop(0, '#fef08a'); // Bright yellow highlight
+    bodyGrad.addColorStop(0.5, color);    // Base color
+    bodyGrad.addColorStop(1, '#ca8a04');   // Golden shadow
+    
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 1.3, size * 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. SIGNATURE PATTERNS (Clipped to body)
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, 0, size * 1.3, size * 1.5, 0, 0, Math.PI * 2); ctx.clip();
+    
+    // Vertical Black Band (through eye)
+    ctx.fillStyle = '#0f172a';
+    ctx.save();
+    ctx.translate(size * 0.8, 0);
+    ctx.rotate(0.1);
+    ctx.fillRect(-size * 0.2, -size * 2, size * 0.4, size * 4);
+    ctx.restore();
+    
+    // Fake Eye Spot near tail (To confuse predators)
+    ctx.save();
+    ctx.translate(-size * 0.8, -size * 0.8);
+    ctx.fillStyle = 'black';
+    ctx.beginPath(); ctx.arc(0, 0, size * 0.28, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = 'white';
+    ctx.beginPath(); ctx.arc(size * 0.05, -size * 0.05, size * 0.05, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Subtle horizontal stripes
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+    ctx.lineWidth = 1;
+    for(let i=-5; i<5; i++) {
+        ctx.beginPath(); ctx.moveTo(-size * 1.5, i * size * 0.3); ctx.lineTo(size * 1.5, i * size * 0.3); ctx.stroke();
+    }
+    ctx.restore();
+
+    // 3. FLOWING FINS (High dorsal and anal)
+    ctx.fillStyle = bodyGrad;
+    
+    // Dorsal Fin (Top)
+    ctx.beginPath();
+    ctx.moveTo(size * 0.2, -size * 1.45);
+    ctx.bezierCurveTo(-size * 0.5, -size * 2.2, -size * 2.2, -size * 2.0, -size * 1.2, -size * 0.6);
+    ctx.fill();
+    
+    // Anal Fin (Bottom)
+    ctx.beginPath();
+    ctx.moveTo(size * 0.2, size * 1.45);
+    ctx.bezierCurveTo(-size * 0.5, size * 2.2, -size * 2.2, size * 2.0, -size * 1.2, size * 0.6);
+    ctx.fill();
+
+    // 4. ANIMATED PECTORAL FIN
+    ctx.save();
+    ctx.translate(size * 0.3, size * 0.1);
+    ctx.rotate(Math.sin(time * 3) * 0.4);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size * 0.6, size * 0.3, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 5. TAIL (Small and delicate)
+    ctx.save();
+    ctx.translate(-size * 1.3, 0);
+    ctx.rotate(Math.sin(time * 2) * 0.15);
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.quadraticCurveTo(-size * 0.8, -size * 0.8, -size * 1.0, -size * 0.7);
+    ctx.lineTo(-size * 1.0, size * 0.7);
+    ctx.quadraticCurveTo(-size * 0.8, size * 0.8, 0, 0);
+    ctx.fill();
+    ctx.restore();
+
+    // 6. PROTRUDING SNOUT & EYE
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.moveTo(size * 1.1, 0);
+    ctx.quadraticCurveTo(size * 1.8, -size * 0.1, size * 1.8, size * 0.15);
+    ctx.lineTo(size * 1.2, size * 0.3);
+    ctx.fill();
+    
+    const eyeX = size * 0.85, eyeY = -size * 0.4;
+    ctx.fillStyle = 'white';
+    ctx.beginPath(); ctx.arc(eyeX, eyeY, size * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'black';
+    ctx.beginPath(); ctx.arc(eyeX + size * 0.04, eyeY, size * 0.08, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+};
+
+export const drawKoi = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string,
+    wagFreq: number,
+    wagAmp: number
+) => {
+    const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
+    const time = frameCount * 0.05;
+    ctx.save();
+    
+    // 1. ELEGANT CARP BODY
+    const bodyGrad = ctx.createLinearGradient(0, -size, 0, size);
+    bodyGrad.addColorStop(0, '#f8fafc');
+    bodyGrad.addColorStop(1, '#e2e8f0');
+
+    // Tail
+    ctx.save();
+    ctx.translate(-size * 1.2, 0);
+    ctx.rotate(tailWag);
+    ctx.fillStyle = 'white';
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.bezierCurveTo(-size * 1.8, -size * 1.4, -size * 1.8, size * 1.4, 0, 0); ctx.fill();
+    ctx.restore();
+
+    // Body
+    ctx.beginPath();
+    ctx.moveTo(size * 2.0, 0);
+    ctx.bezierCurveTo(size * 1.2, -size * 1.2, -size * 0.8, -size * 1.1, -size * 1.5, 0);
+    ctx.bezierCurveTo(-size * 0.8, size * 1.1, size * 1.2, size * 1.2, size * 2.0, 0);
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // 2. KOHAKU PATTERNS (Red spots)
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, 0, size * 1.8, size * 1.2, 0, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#ef4444';
+    // Head spot
+    ctx.beginPath(); ctx.arc(size * 1.3, -size * 0.2, size * 0.6, 0, Math.PI * 2); ctx.fill();
+    // Body spots
+    for(let i=0; i<3; i++) {
+        ctx.beginPath(); 
+        ctx.ellipse(-size * 0.5 + i * size * 0.8, Math.sin(i) * size * 0.3, size * 0.7, size * 0.4, i, 0, Math.PI * 2); 
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // 3. FLOWING FINS (Silk-like)
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = 'white';
+    const drawSilkFin = (x: number, y: number, rot: number) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rot + Math.sin(time) * 0.2);
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.bezierCurveTo(size, size, -size * 0.5, size * 1.5, -size * 0.2, 0); ctx.fill();
+        ctx.restore();
+    };
+    drawSilkFin(size * 0.2, size * 0.4, 0.5);
+    drawSilkFin(size * 0.2, -size * 0.4, -0.5);
+    ctx.restore();
+
+    ctx.restore();
+};
+
+export const drawTuna = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string,
+    wagFreq: number,
+    wagAmp: number
+) => {
+    const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
+    ctx.save();
+    
+    // 1. STREAMLINED TORPEDO BODY (Metallic)
+    const bodyGrad = ctx.createLinearGradient(0, -size * 1.2, 0, size * 1.2);
+    bodyGrad.addColorStop(0, '#1e3a8a'); // Dark blue top
+    bodyGrad.addColorStop(0.4, color);   // Metallic blue
+    bodyGrad.addColorStop(0.7, '#94a3b8'); // Silver side
+    bodyGrad.addColorStop(1, 'white');    // White belly
+
+    ctx.beginPath();
+    ctx.moveTo(size * 2.5, 0);
+    ctx.bezierCurveTo(size * 1.5, -size * 1.4, -size * 1.0, -size * 1.2, -size * 2.2, 0);
+    ctx.bezierCurveTo(-size * 1.0, size * 1.2, size * 1.5, size * 1.4, size * 2.5, 0);
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // 2. FINLETS (Small yellow fins near tail)
+    ctx.fillStyle = '#facc15';
+    for(let i=0; i<4; i++) {
+        const fx = -size * 1.2 - i * size * 0.3;
+        ctx.beginPath(); ctx.moveTo(fx, -size * 0.6); ctx.lineTo(fx - size * 0.1, -size * 0.9); ctx.lineTo(fx - size * 0.2, -size * 0.6); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(fx, size * 0.6); ctx.lineTo(fx - size * 0.1, size * 0.9); ctx.lineTo(fx - size * 0.2, size * 0.6); ctx.fill();
+    }
+
+    // 3. POWERFUL CRESCENT TAIL
+    ctx.save();
+    ctx.translate(-size * 2.2, 0);
+    ctx.rotate(tailWag * 1.5);
+    ctx.fillStyle = '#1e3a8a';
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.bezierCurveTo(-size * 1.5, -size * 1.8, -size * 2.0, -size * 1.5, -size * 0.8, 0);
+    ctx.bezierCurveTo(-size * 2.0, size * 1.5, -size * 1.5, size * 1.8, 0, 0);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+};
+
+export const drawPhoenixFish = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string
+) => {
+    const time = frameCount * 0.05;
+    ctx.save();
+    
+    // 1. MAJESTIC BIRD-LIKE BODY
+    const bodyGrad = ctx.createLinearGradient(0, -size, 0, size);
+    bodyGrad.addColorStop(0, '#f97316'); // Orange
+    bodyGrad.addColorStop(0.5, '#ef4444'); // Red
+    bodyGrad.addColorStop(1, '#7f1d1d'); // Dark red
+
+    ctx.beginPath();
+    ctx.moveTo(size * 2.0, 0); // Beak
+    ctx.bezierCurveTo(size * 1.5, -size * 1.5, -size * 0.5, -size * 1.2, -size * 1.5, 0);
+    ctx.bezierCurveTo(-size * 0.5, size * 1.2, size * 1.5, size * 1.5, size * 2.0, 0);
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+
+    // 2. FLAMING TAIL FEATHERS (3 trailing streams)
+    for(let i=0; i<3; i++) {
+        const offset = (i - 1) * size * 0.5;
+        const wave = Math.sin(time * 3 + i) * size * 0.4;
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(-size * 1.2, offset);
+        ctx.bezierCurveTo(-size * 3.0, offset + wave, -size * 5.0, offset - wave, -size * 7.0, offset + wave * 2);
+        
+        const fireGrad = ctx.createLinearGradient(-size * 1.2, 0, -size * 7.0, 0);
+        fireGrad.addColorStop(0, '#fde047');
+        fireGrad.addColorStop(0.5, '#f97316');
+        fireGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+        
+        ctx.strokeStyle = fireGrad;
+        ctx.lineWidth = size * (0.8 - i * 0.2);
+        ctx.lineCap = 'round';
+        ctx.shadowBlur = 20; ctx.shadowColor = '#f97316';
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // 3. WING FINS (Large flowing)
+    const drawPhoenixWing = (side: number) => {
+        ctx.save();
+        ctx.translate(size * 0.2, side * size * 0.3);
+        ctx.rotate(side * (0.8 + Math.sin(time * 2) * 0.3));
+        ctx.fillStyle = '#f97316';
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(size * 2.0, side * size * 2.0, -size * 1.0, side * size * 3.0, -size * 0.5, 0);
+        ctx.fill();
+        ctx.restore();
+    };
+    drawPhoenixWing(-1); drawPhoenixWing(1);
+
+    // 4. RADIANT EYE
+    ctx.fillStyle = 'white';
+    ctx.shadowBlur = 10; ctx.shadowColor = 'white';
+    ctx.beginPath(); ctx.arc(size * 1.4, -size * 0.3, size * 0.15, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+};
+
+export const drawOrigamiFish = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string
+) => {
+    ctx.save();
+    
+    // 1. FOLDED PAPER BODY (Purely polygonal)
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 0.5;
+
+    // Main Body Facets
+    const drawFacet = (pts: [number, number][], fill: string) => {
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for(let i=1; i<pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.stroke();
+    };
+
+    // Central body
+    drawFacet([[size*1.5, 0], [0, -size*1.0], [-size*1.5, 0], [0, size*1.0]], '#f8fafc'); // Side
+    drawFacet([[size*1.5, 0], [0, -size*1.0], [size*0.5, 0]], '#e2e8f0'); // Head fold top
+    drawFacet([[size*1.5, 0], [0, size*1.0], [size*0.5, 0]], '#cbd5e1'); // Head fold bottom
+
+    // Tail fold
+    ctx.save();
+    ctx.translate(-size * 1.5, 0);
+    ctx.rotate(Math.sin(frameCount * 0.1) * 0.2);
+    drawFacet([[0,0], [-size*1.2, -size*0.8], [-size*0.8, 0], [-size*1.2, size*0.8]], '#f8fafc');
+    ctx.restore();
+
+    // Fin folds
+    drawFacet([[0, -size*1.0], [-size*0.5, -size*2.0], [size*0.5, -size*1.0]], '#e2e8f0'); // Top fin
+    drawFacet([[0, size*1.0], [-size*0.5, size*2.0], [size*0.5, size*1.0]], '#cbd5e1'); // Bottom fin
+
+    ctx.restore();
+};

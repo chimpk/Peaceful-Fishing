@@ -19,4 +19,10 @@ export const RARE_FISH: FishType[] = [
   { name: 'Cá Kính Ghost Fish', rarity: Rarity.RARE, value: 550, tension: 50, color: '#bae6fd', size: 20, weight: 15, allowedLocations: ['POND', 'CAVE'], preferredBaits: ['bait_natural_3'] },
   // Cá Phát Sáng Hatchet
   { name: 'Cá Phát Sáng Hatchet', rarity: Rarity.RARE, value: 850, tension: 65, color: '#94a3b8', size: 22, weight: 12, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_natural_4'] },
+  // Cá Koi Kohaku
+  { name: 'Cá Koi Kohaku', rarity: Rarity.RARE, value: 1200, tension: 60, color: '#ffffff', size: 45, weight: 10, allowedLocations: ['POND'], preferredBaits: ['bait_natural_2'] },
+  // Cá Ngừ Vây Vàng
+  { name: 'Cá Ngừ Vây Vàng', rarity: Rarity.RARE, value: 1500, tension: 85, color: '#1e3a8a', size: 55, weight: 5, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'] },
+  // Cá Rồng Hang Động
+  { name: 'Cá Rồng Hang Động', rarity: Rarity.RARE, value: 1800, tension: 90, color: '#4c1d95', size: 50, weight: 8, allowedLocations: ['CAVE'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_natural_4'] },
 ];

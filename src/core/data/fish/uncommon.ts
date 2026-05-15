@@ -24,4 +24,10 @@ export const UNCOMMON_FISH: FishType[] = [
   { name: 'Lươn Hang Tối', rarity: Rarity.UNCOMMON, value: 200, tension: 50, color: '#451a03', size: 35, weight: 60, allowedLocations: ['CAVE'], preferredBaits: ['bait_natural_4'] },
   // Cá Vẹt Parrotfish
   { name: 'Cá Vẹt Parrotfish', rarity: Rarity.UNCOMMON, value: 280, tension: 45, color: '#4ade80', size: 25, weight: 65, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'] },
+  // Cá Diếc
+  { name: 'Cá Diếc', rarity: Rarity.UNCOMMON, value: 75, tension: 25, color: '#94a3b8', size: 18, weight: 85, allowedLocations: ['POND'], preferredBaits: ['bait_natural_1'] },
+  // Cá Mè Hoa
+  { name: 'Cá Mè Hoa', rarity: Rarity.UNCOMMON, value: 90, tension: 35, color: '#cbd5e1', size: 35, weight: 70, allowedLocations: ['POND'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_natural_3'] },
+  // Cá Bướm
+  { name: 'Cá Bướm', rarity: Rarity.UNCOMMON, value: 160, tension: 30, color: '#fbbf24', size: 15, weight: 80, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_1'] },
 ];

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import BottomNav from '../layout/BottomNav';
-import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem, ProfileStats } from '../../types';
+import { UIView, GameState, FishType, RodType, BaitType, TackleType, LocationType, TimeOfDay, InventoryItem, Quest, NotificationItem, ProfileStats, WeatherType } from '../../types';
 import { RODS, TACKLES, BAITS, WEATHER_BONUSES } from '../../core/data/gameData';
 import { soundManager } from '../../core/systems/soundManager';
 
@@ -18,7 +18,7 @@ interface GameViewProps {
   ownedTackles: string[];
   location: LocationType;
   timeOfDay: TimeOfDay;
-  weather: 'sunny' | 'rainy' | 'stormy' | 'foggy' | 'meteor_shower' | 'rainbow' | 'aurora' | 'deep_sea_current' | 'crystal_resonance';
+  weather: WeatherType;
   streak: number;
   competitionMode: boolean;
   competitionTimeLeft: number;
@@ -41,6 +41,7 @@ interface GameViewProps {
   dailyMarketBoosts: string[];
   stats?: ProfileStats;
   claimDailyReward?: () => void;
+  onOpenShowroom: () => void;
 }
 
 const GameView: React.FC<GameViewProps> = ({ 
@@ -48,7 +49,7 @@ const GameView: React.FC<GameViewProps> = ({
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
   notifications, epicCatch, quests, startGame, startCompetition, setLocation,
   setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait, handleSelect, ownedRods, ownedTackles,
-  levelData, handleRepair, onOpenShop, dailyMarketBoosts, stats, claimDailyReward
+  levelData, handleRepair, onOpenShop, dailyMarketBoosts, stats, claimDailyReward, onOpenShowroom
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isGearExpanded, setIsGearExpanded] = useState(false);
@@ -188,6 +189,12 @@ const GameView: React.FC<GameViewProps> = ({
                 className="flex-1 bg-white/5 hover:bg-white/10 px-6 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-[0.15em] border border-white/5 transition-all hover:-translate-y-1"
               >
                 CÁCH CHƠI
+              </button>
+              <button 
+                onClick={() => { soundManager.playClick(); onOpenShowroom(); }} 
+                className="flex-1 bg-white/5 hover:bg-white/10 px-6 py-4 rounded-2xl font-bold text-[10px] uppercase tracking-[0.15em] border border-white/5 transition-all hover:-translate-y-1"
+              >
+                TRƯNG BÀY
               </button>
               <button 
                 onClick={() => { soundManager.playClick(); setActiveView(UIView.LEADERBOARD); }} 

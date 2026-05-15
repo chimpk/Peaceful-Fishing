@@ -14,7 +14,8 @@ export const WEATHER_BONUSES = {
   rainbow: { attraction: 2.0, rarity: 2.5, speed: 0.9, tension: 0.8, label: 'Cầu Vồng: ++Cá cắn câu, ++Độ hiếm, Giảm căng dây. May mắn ngập tràn!' },
   aurora: { attraction: 1.5, rarity: 4.0, speed: 1.1, tension: 1.2, label: 'Cực Quang: x4 Độ hiếm. Vẻ đẹp huyền bí của đại dương!' },
   deep_sea_current: { attraction: 0.8, rarity: 3.0, speed: 2.5, tension: 1.3, label: 'Dòng Hải Lưu: x3 Độ hiếm, Cá bơi cực nhanh (+150%), Giảm thu hút.' },
-  crystal_resonance: { attraction: 1.2, rarity: 4.5, speed: 1.0, tension: 1.1, label: 'Cộng Hưởng Tinh Thể: x4.5 Độ hiếm. Tinh thể phát sáng thu hút những loài cá thần bí!' }
+  crystal_resonance: { attraction: 1.2, rarity: 4.5, speed: 1.0, tension: 1.1, label: 'Cộng Hưởng Tinh Thể: x4.5 Độ hiếm. Tinh thể phát sáng thu hút những loài cá thần bí!' },
+  falling_stalactite: { attraction: 1.1, rarity: 4.0, speed: 1.2, tension: 1.3, label: 'Thạch Nhũ Rơi: x4 Độ hiếm. CẢNH BÁO: Thạch nhũ rơi có thể làm hỏng cần câu hoặc làm cá hoảng sợ!' }
 };
 
 export const CHEST_TYPES: FishType[] = [

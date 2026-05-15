@@ -24,4 +24,6 @@ export const EPIC_FISH: FishType[] = [
   { name: 'Cá Linh Hồn', rarity: Rarity.EPIC, value: 9000, tension: 70, color: '#99f6e4', size: 30, weight: 1.5, allowedLocations: ['POND'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_natural_3'] },
   // Cá Thần Tiên Mandarin
   { name: 'Cá Thần Tiên Mandarin', rarity: Rarity.EPIC, value: 8000, tension: 70, color: '#3b82f6', size: 25, weight: 1.8, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'] },
+  // Cá Origami
+  { name: 'Cá Origami', rarity: Rarity.EPIC, value: 2500, tension: 75, color: '#f8fafc', size: 30, weight: 15, allowedLocations: ['POND', 'OCEAN'], preferredBaits: ['bait_natural_3'] },
 ];

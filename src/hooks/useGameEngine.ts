@@ -192,6 +192,17 @@ export const useGameEngine = (props: GameEngineProps) => {
   const eventHandledRef = useRef<string | null>(null);
   const lastSpawnedLocationRef = useRef<LocationType | null>(null);
 
+  const fishPerLocationRef = useRef<Record<LocationType, EnhancedFishInstance[]>>({
+    POND: [],
+    OCEAN: [],
+    CAVE: []
+  });
+  const bubblesPerLocationRef = useRef<Record<LocationType, Particle[]>>({
+    POND: [],
+    OCEAN: [],
+    CAVE: []
+  });
+
   const resetEventState = useCallback(() => {
     eventHandledRef.current = null;
     stunTimer.current = 0;
@@ -960,16 +971,12 @@ export const useGameEngine = (props: GameEngineProps) => {
 
     if (gameState === GameState.CASTING) {
       castProgress.current += 0.025; 
-      if (castProgress.current > 1.5) { 
-        castProgress.current = 0;
-        setGameState(GameState.IDLE); 
-        return; 
-      }
       hookX.current = rodEndX + (targetHookX.current - rodEndX) * castProgress.current;
       const t = castProgress.current; hookY.current = (1 - t) * rodEndY + t * targetHookY.current + (-200 * 4 * t * (1 - t));
       if (frameCount.current % 1 === 0) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*10, y: hookY.current + (Math.random()-0.5)*10, size: 1 + Math.random()*2, speed: 0, opacity: 0.6, life: 10, color: 'rgba(255,255,255,0.4)', type: 'trail' });
       if (castProgress.current >= 1) {
         hookX.current = targetHookX.current; hookY.current = targetHookY.current;
+        castProgress.current = 0;
         createSplash(hookX.current, hookY.current, perfectCastBonus.current ? 2.0 : 1.2); if (perfectCastBonus.current) shakeIntensity.current = 5;
         setGameState(GameState.WAITING); const baseSettle = frenzyActive.current ? 90 + Math.random() * 90 : perfectCastBonus.current ? 120 + Math.random() * 60 : 240 + Math.random() * 240;
         baitSettleTimer.current = baseSettle; baitSettleTotal.current = baseSettle;
@@ -1076,6 +1083,15 @@ export const useGameEngine = (props: GameEngineProps) => {
       if (powerReelCooldown.current > 0) powerReelCooldown.current--;
       const focusMultiplier = focusActive.current ? 0.4 : 1; const powerReelLift = powerReelActive.current ? 1.8 : 1;
       let weatherTension = (skills.weatherExpert > 0 && (WEATHER_BONUSES[weather].tension || 1) > 1) ? 1 + (WEATHER_BONUSES[weather].tension - 1) * 0.5 : (WEATHER_BONUSES[weather].tension || 1);
+      
+      // Special effect for falling stalactites: random tension spikes and shakes
+      if (weather === 'falling_stalactite') {
+        if (frameCount.current % 180 < 30) {
+            weatherTension *= 1.5;
+            shakeIntensity.current = Math.max(shakeIntensity.current, 5);
+        }
+      }
+
       if (isSpacePressed.current) tensionVelocity.current -= finalLift * powerReelLift; else tensionVelocity.current += finalGravity * focusMultiplier * weatherTension;
       tensionVelocity.current *= 0.95; tensionCursor.current += tensionVelocity.current; tensionCursor.current = Math.max(0, Math.min(1, tensionCursor.current));
       
@@ -1246,19 +1262,37 @@ export const useGameEngine = (props: GameEngineProps) => {
 
   useEffect(() => {
     if (location !== lastSpawnedLocationRef.current) {
-      lastSpawnedLocationRef.current = location;
-      spawnInitialFish();
-      const initialBubbles: Particle[] = [];
-      for (let i = 0; i < 20; i++) {
-        initialBubbles.push({ 
-          x: Math.random() * CANVAS_WIDTH, 
-          y: CANVAS_HEIGHT + Math.random() * 100, 
-          size: 1 + Math.random() * 3, 
-          speed: 0.2 + Math.random() * 0.5, 
-          opacity: 0.1 + Math.random() * 0.4 
-        });
+      // 1. Save current state to the PREVIOUS location
+      if (lastSpawnedLocationRef.current) {
+        fishPerLocationRef.current[lastSpawnedLocationRef.current] = [...fishRef.current];
+        bubblesPerLocationRef.current[lastSpawnedLocationRef.current] = [...bubblesRef.current];
       }
-      bubblesRef.current = initialBubbles;
+
+      // 2. Update current location track
+      lastSpawnedLocationRef.current = location;
+
+      // 3. Load or Generate state for the NEW location
+      const savedFish = fishPerLocationRef.current[location];
+      if (savedFish && savedFish.length > 0) {
+        fishRef.current = savedFish;
+        bubblesRef.current = bubblesPerLocationRef.current[location] || [];
+      } else {
+        spawnInitialFish();
+        const initialBubbles: Particle[] = [];
+        for (let i = 0; i < 20; i++) {
+          initialBubbles.push({ 
+            x: Math.random() * CANVAS_WIDTH, 
+            y: CANVAS_HEIGHT + Math.random() * 100, 
+            size: 1 + Math.random() * 3, 
+            speed: 0.2 + Math.random() * 0.5, 
+            opacity: 0.1 + Math.random() * 0.4 
+          });
+        }
+        bubblesRef.current = initialBubbles;
+        // Save initial state
+        fishPerLocationRef.current[location] = [...fishRef.current];
+        bubblesPerLocationRef.current[location] = [...bubblesRef.current];
+      }
     }
   }, [location, spawnInitialFish]);
 

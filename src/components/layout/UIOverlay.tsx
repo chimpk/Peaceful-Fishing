@@ -55,6 +55,7 @@ interface UIOverlayProps {
   useFishAsBait: (timestamp: number) => void;
   claimDailyReward: () => void;
   handleRepair: (type: 'rod' | 'tackle') => void;
+  onOpenShowroom: () => void;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = (props) => {

@@ -140,6 +140,53 @@ export const drawPlasticBag = (
   ctx.restore();
 };
 
+export const drawSeaweed = (
+    ctx: CanvasRenderingContext2D,
+    fish: FishType,
+    frameCount: number,
+    size: number,
+    color: string
+) => {
+    const time = frameCount * 0.05;
+    ctx.save();
+    
+    // Slimy/Drifting movement
+    ctx.rotate(Math.sin(time * 0.4) * 0.15);
+
+    // 1. CORE STEM (Dark green/brown)
+    ctx.strokeStyle = '#064e3b';
+    ctx.lineWidth = size * 0.3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, -size * 1.5);
+    ctx.quadraticCurveTo(Math.sin(time) * size * 0.5, 0, 0, size * 1.5);
+    ctx.stroke();
+
+    // 2. ROTTEN LEAVES (Irregular shapes)
+    ctx.fillStyle = color; // Dark green
+    for(let i=0; i<6; i++) {
+        const ly = -size * 1.2 + i * size * 0.5;
+        const side = i % 2 === 0 ? 1 : -1;
+        const wave = Math.sin(time + i) * size * 0.2;
+        
+        ctx.save();
+        ctx.translate(side * size * 0.2 + wave, ly);
+        ctx.rotate(side * 0.8 + Math.sin(time + i) * 0.3);
+        
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(side * size * 1.2, -size * 0.4, side * size * 1.5, size * 0.6, 0, size * 0.3);
+        ctx.fill();
+        
+        // Holes in rotten leaves
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.beginPath(); ctx.arc(side * size * 0.5, 0, size * 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    ctx.restore();
+};
+
 export const drawBottle = (
   ctx: CanvasRenderingContext2D,
   fish: FishType,

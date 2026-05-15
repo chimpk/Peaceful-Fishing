@@ -172,6 +172,11 @@ export const drawWeatherEffects = (ctx: CanvasRenderingContext2D, frame: number,
     return;
   }
 
+  if (location === 'CAVE' && weather === 'falling_stalactite') {
+    drawFallingStalactites(ctx, frame);
+    return;
+  }
+
   if (weather === 'sunny' || location === 'CAVE') {
     if (rainPool.length > 0) rainPool.length = 0;
     return;
@@ -385,6 +390,72 @@ export const drawCrystalResonance = (ctx: CanvasRenderingContext2D, frame: numbe
         ctx.fill();
         ctx.restore();
     }
+    ctx.restore();
+};
+
+const stalactitePool: { x: number; y: number; speed: number; size: number; state: 'falling' | 'wait'; delay: number }[] = [];
+
+export const drawFallingStalactites = (ctx: CanvasRenderingContext2D, frame: number) => {
+    if (stalactitePool.length === 0) {
+        for (let i = 0; i < 8; i++) {
+            stalactitePool.push({
+                x: Math.random() * CANVAS_WIDTH,
+                y: -100,
+                speed: 8 + Math.random() * 12,
+                size: 15 + Math.random() * 25,
+                state: 'wait',
+                delay: frame + Math.random() * 600
+            });
+        }
+    }
+
+    ctx.save();
+    stalactitePool.forEach(s => {
+        if (s.state === 'wait') {
+            if (frame > s.delay) {
+                s.state = 'falling';
+                s.x = Math.random() * CANVAS_WIDTH;
+            }
+        } else {
+            s.y += s.speed;
+            
+            // Draw stalactite
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            const grad = ctx.createLinearGradient(0, -s.size, 0, s.size);
+            grad.addColorStop(0, '#1f2937');
+            grad.addColorStop(0.8, '#4b5563');
+            grad.addColorStop(1, '#9ca3af');
+            ctx.fillStyle = grad;
+            
+            ctx.beginPath();
+            ctx.moveTo(-s.size * 0.4, -s.size);
+            ctx.lineTo(s.size * 0.4, -s.size);
+            ctx.lineTo(0, s.size);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Highlight
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.restore();
+
+            if (s.y > 200) {
+                // Splash/impact on water surface
+                ctx.beginPath();
+                ctx.ellipse(s.x, 200, s.size * 0.8, s.size * 0.3, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Reset
+                s.y = -100;
+                s.state = 'wait';
+                s.delay = frame + 200 + Math.random() * 500;
+            }
+        }
+    });
     ctx.restore();
 };
 

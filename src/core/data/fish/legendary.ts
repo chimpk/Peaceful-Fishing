@@ -24,4 +24,6 @@ export const LEGENDARY_FISH: FishType[] = [
   { name: 'Cá Mập Goblin', rarity: Rarity.LEGENDARY, value: 38000, tension: 94, color: '#fda4af', size: 60, weight: 0.12, allowedLocations: ['CAVE'], allowedTimes: ['NIGHT'], preferredBaits: ['bait_natural_4'], canBerserk: true },
   // Cá Mác Xanh (Blue Marlin)
   { name: 'Cá Mác Xanh (Blue Marlin)', rarity: Rarity.LEGENDARY, value: 32000, tension: 92, color: '#1e3a8a', size: 80, weight: 0.15, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'], canBerserk: true },
+  // Cá Phượng Hoàng Lửa
+  { name: 'Cá Phượng Hoàng Lửa', rarity: Rarity.LEGENDARY, value: 8500, tension: 120, color: '#f97316', size: 65, weight: 3, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'] },
 ];

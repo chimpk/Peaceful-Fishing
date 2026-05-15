@@ -12,6 +12,7 @@ import { useEnvironment } from './hooks/useEnvironment';
 import { useCompetition } from './hooks/useCompetition';
 import { useGamePersistence } from './hooks/useGamePersistence';
 import { clearSave } from './core/systems/persistence';
+import FishShowroom from './components/Showroom/FishShowroom';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.START);
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [epicCatch, setEpicCatch] = useState<{ fish: FishType; isGolden: boolean } | null>(null);
   const [streak, setStreak] = useState<number>(0);
   const [isBossSpawned, setIsBossSpawned] = useState<boolean>(false);
+  const [showShowroom, setShowShowroom] = useState<boolean>(false);
 
   // Initialize hooks
   const state = useGameState();
@@ -233,7 +235,17 @@ const App: React.FC = () => {
               state.addNotification(`Đã sử dụng ${item.fish.name} làm mồi sống!`, 'success');
             }
           }}
-          claimQuest={state.claimQuest}
+          claimQuest={(questId) => {
+            const quest = state.claimQuest(questId);
+            // Xử lý phần thưởng mồi câu (bait reward) mà useGameState không tự xử lý được
+            if (quest && quest.rewardBaitId && quest.rewardBaitCount) {
+              settings.setBaitCounts(prev => ({
+                ...prev,
+                [quest.rewardBaitId!]: (prev[quest.rewardBaitId!] || 0) + quest.rewardBaitCount!
+              }));
+              state.addNotification(`Nhận được ${quest.rewardBaitCount}x mồi câu từ nhiệm vụ!`, 'success');
+            }
+          }}
           upgradeCapacity={() => {
             const cost = state.inventoryCapacity * 100;
             if (state.gold >= cost) {
@@ -277,8 +289,15 @@ const App: React.FC = () => {
           unlockedFish={state.unlockedFish}
           streak={streak}
           epicCatch={epicCatch}
+          onOpenShowroom={() => setShowShowroom(true)}
         />
       </div>
+
+      {showShowroom && (
+        <FishShowroom 
+          onClose={() => setShowShowroom(false)} 
+        />
+      )}
     </div>
   );
 };

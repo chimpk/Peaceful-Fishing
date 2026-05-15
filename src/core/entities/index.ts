@@ -87,9 +87,10 @@ export const drawFishByModel = (
     
     // Once caught, reveal the true junk form
     if (has('giày')) return Junk.drawOldShoe(ctx, fish, size, finalColor);
-    if (has('lon')) return Junk.drawTinCan(ctx, fish, size, finalColor);
     if (has('túi')) return Junk.drawPlasticBag(ctx, fish, frameCount, size, finalColor);
+    if (has('lon')) return Junk.drawTinCan(ctx, fish, size, finalColor);
     if (has('chai')) return Junk.drawBottle(ctx, fish, size, finalColor);
+    if (has('tảo')) return Junk.drawSeaweed(ctx, fish, frameCount, size, finalColor);
     return Junk.drawTinCan(ctx, fish, size, finalColor); // Fallback
   }
 
@@ -113,7 +114,7 @@ export const drawFishByModel = (
   if (has('thần tiên') || has('mandarin')) return Unique.drawMandarinfish(ctx, fish, frameCount, size, finalColor);
   if (has('phát sáng') || has('hatchet')) return Unique.drawHatchetfish(ctx, fish, frameCount, size, finalColor);
   if (has('rồng') || has('long') || has('leviathan') || has('tượng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor);
-  if (has('phượng hoàng')) return Unique.drawDragon(ctx, fish, frameCount, size, finalColor); 
+  if (has('phượng hoàng')) return Unique.drawPhoenixFish(ctx, fish, frameCount, size, finalColor); 
   if (has('kraken')) return Unique.drawKraken(ctx, fish, frameCount, size, finalColor);
   if (has('bạch tuộc')) return Unique.drawOctopus(ctx, fish, frameCount, size, finalColor);
   if (has('sát thủ')) return Unique.drawOrca(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
@@ -127,16 +128,32 @@ export const drawFishByModel = (
   if (has('cua khổng lồ')) return Unique.drawGiantCrab(ctx, fish, frameCount, size, finalColor);
   if (has('robot')) return Unique.drawRobotFish(ctx, fish, frameCount, size, finalColor);
   if (has('pha lê')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor);
-  if (has('linh hồn')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); 
-  if (has('thiên hà')) return Unique.drawCrystalFish(ctx, fish, frameCount, size, finalColor); 
+  if (has('linh hồn')) return Unique.drawSoulFish(ctx, fish, frameCount, size, finalColor); 
+  if (has('thiên hà')) return Unique.drawGalaxyFish(ctx, fish, frameCount, size, finalColor); 
   if (has('megalodon')) return Sharks.drawShark(ctx, fish, frameCount, size * 1.5, finalColor, wagFreq, wagAmp);
   if (has('vampire') || has('ma cà rồng')) return Unique.drawAnglerFish(ctx, fish, frameCount, size, finalColor);
   if (has('vua') || has('oarfish')) return Unique.drawOarfish(ctx, fish, frameCount, size, finalColor);
 
+  // 6. CLASSIC / REGULAR
+  // Cá Chim (Pomfret/Butterflyfish)
+  if (has('chim')) return Classic.drawPomfret(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  // Cá Rô Phi (Tilapia)
+  if (has('rô phi')) return Classic.drawTilapia(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+
   // 4. ELONGATED (Cá thân dài)
-  // Cá Chình/Lươn/Lăng dùng model Eel (thon trơn, không râu)
-  if (has('chình') || has('lươn') || has('lăng')) {
+  // Lươn Hang Tối (Cave Eel - Model đặc biệt phát quang)
+  if (has('lươn hang tối')) {
+    return Classic.drawCaveEel(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+
+  // Cá Chình/Lươn dùng model Eel (thon trơn, không râu)
+  if (has('chình') || has('lươn')) {
     return Classic.drawEel(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  
+  // Cá Lăng (Hemibagrus - Model Cá da trơn thân dài có râu và vây mỡ)
+  if (has('lăng')) {
+    return Classic.drawHemibagrus(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   }
 
   // Cá Lóc dùng model Snakehead
@@ -149,6 +166,50 @@ export const drawFishByModel = (
     return Classic.drawCatfish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   }
 
-  // 5. CLASSIC (Fallback)
+  // 5. CLASSIC & SPECIFIC NATIVE
+  if (has('cơm')) {
+    return Classic.drawAnchovy(ctx, fish, frameCount, size, finalColor);
+  }
+  if (has('bống')) {
+    return Classic.drawGoby(ctx, fish, frameCount, size, finalColor);
+  }
+  if (has('bướm')) {
+    return Unique.drawButterflyfish(ctx, fish, frameCount, size, finalColor);
+  }
+  if (has('koi')) {
+    return Unique.drawKoi(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('trắm')) {
+    return Classic.drawBlackCarp(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('ngừ')) {
+    return Unique.drawTuna(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('thu')) {
+    return Classic.drawMackerel(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('phượng hoàng')) {
+    return Unique.drawPhoenixFish(ctx, fish, frameCount, size, finalColor);
+  }
+  if (has('origami')) {
+    return Unique.drawOrigamiFish(ctx, fish, frameCount, size, finalColor);
+  }
+  if (has('diếc')) {
+    return Classic.drawCrucian(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('mè hoa')) {
+    return Classic.drawBigheadCarp(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('hồi')) {
+    return Classic.drawSalmon(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('mè') || has('chép')) {
+    return Classic.drawCarpGeneric(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+  if (has('rô')) {
+    return Classic.drawAnabas(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
+  }
+
+  // Fallback
   return Classic.drawClassicFish(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
 };

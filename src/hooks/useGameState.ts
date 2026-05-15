@@ -58,7 +58,8 @@ export const useGameState = () => {
       const isRarer = (fish: FishType, currentRarest: string) => {
         const rarities = [Rarity.JUNK, Rarity.COMMON, Rarity.UNCOMMON, Rarity.RARE, Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC];
         const fishIndex = rarities.indexOf(fish.rarity);
-        const currentRarestIndex = rarities.findIndex(r => r === currentRarest);
+        // 'Chưa có' không thuộc enum Rarity → findIndex trả về -1, fishIndex luôn > -1 → đúng
+        const currentRarestIndex = rarities.indexOf(currentRarest as Rarity);
         return fishIndex > currentRarestIndex;
       };
 
@@ -75,21 +76,35 @@ export const useGameState = () => {
       const xpGain = (xpGains[newFish.rarity] || 10) * (isGolden ? 3 : 1);
       let nextXp = (prev.xp || 0) + xpGain;
       let nextLevel = prev.level || 1;
-      const xpToLevel = Math.floor(800 * Math.pow(1.3, nextLevel - 1));
-      
-      if (nextXp >= xpToLevel) {
+      const levelsGained: number[] = [];
+
+      // While loop: hỗ trợ level-up nhiều cấp trong một lần câu
+      let xpToLevel = Math.floor(800 * Math.pow(1.3, nextLevel - 1));
+      while (nextXp >= xpToLevel) {
         nextXp -= xpToLevel;
         nextLevel++;
+        levelsGained.push(nextLevel);
+        xpToLevel = Math.floor(800 * Math.pow(1.3, nextLevel - 1));
+      }
+
+      if (levelsGained.length > 0) {
         setTimeout(() => {
-          addNotification(`LEVEL UP! Cấp độ mới: ${nextLevel}! +1000 vàng`, 'achievement');
-          setGold(g => g + 1000);
+          const goldReward = levelsGained.length * 1000;
+          addNotification(
+            levelsGained.length > 1
+              ? `LEVEL UP x${levelsGained.length}! Cấp độ mới: ${nextLevel}! +${goldReward} vàng`
+              : `LEVEL UP! Cấp độ mới: ${nextLevel}! +1000 vàng`,
+            'achievement'
+          );
+          setGold(g => g + goldReward);
           soundManager.playLevelUp();
-          
-          if (nextLevel === 15) {
+
+          // Kiểm tra mở kỹ năng theo từng level đã tăng
+          if (levelsGained.includes(15)) {
             setSkills(s => ({ ...s, focus: 1 }));
             addNotification("KỸ NĂNG MỚI: TẬP TRUNG (Phím F) đã mở khóa!", "achievement");
           }
-          if (nextLevel === 20) {
+          if (levelsGained.includes(20)) {
             setSkills(s => ({ ...s, powerReel: 1 }));
             addNotification("KỸ NĂNG MỚI: KÉO MẠNH (Phím G) đã mở khóa!", "achievement");
           }
