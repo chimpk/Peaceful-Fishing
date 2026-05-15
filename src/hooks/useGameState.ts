@@ -1,7 +1,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, NotificationItem, NotificationType } from '../types';
-import { RODS, TACKLES, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from '../core/data/gameData';
+import { InventoryItem, AquariumItem, FishType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, NotificationItem, NotificationType } from '../types';
+import { BAITS, INITIAL_ACHIEVEMENTS } from '../core/data/gameData';
 import { soundManager } from '../core/systems/soundManager';
 
 const SAVE_KEY = 'fishing_frenzy_save_v1';
@@ -30,6 +30,9 @@ export const useGameState = () => {
     deepSeaDiver: 0, weatherExpert: 0, masterAngler: 0 
   });
   const [dailyMarketBoosts, setDailyMarketBoosts] = useState<string[]>([]);
+  const [aquarium, setAquarium] = useState<AquariumItem[]>([]);
+  const [autoSellJunk, setAutoSellJunk] = useState<boolean>(false);
+  const [lastAquariumUpdate, setLastAquariumUpdate] = useState<number>(Date.now());
 
   const lastNotificationRef = useRef<{ message: string; timestamp: number } | null>(null);
 
@@ -52,6 +55,50 @@ export const useGameState = () => {
     }, 4000);
   }, []);
 
+  // Passive Income from Aquarium (Calculated based on time delta)
+  const calculateHourlyRate = useCallback(() => {
+    const rarityIncome: Record<string, number> = {
+        [Rarity.COMMON]: 20,
+        [Rarity.UNCOMMON]: 60,
+        [Rarity.RARE]: 200,
+        [Rarity.EPIC]: 600,
+        [Rarity.LEGENDARY]: 2000,
+        [Rarity.MYTHIC]: 10000
+    };
+    
+    let totalRate = 0;
+    aquarium.forEach(item => {
+        const base = rarityIncome[item.fish.rarity] || 0;
+        totalRate += item.isGolden ? base * 3 : base;
+    });
+    return totalRate;
+  }, [aquarium]);
+
+  useEffect(() => {
+    if (aquarium.length === 0) return;
+    
+    const interval = setInterval(() => {
+        const now = Date.now();
+        const hourlyRate = calculateHourlyRate();
+        
+        // Calculate delta since last update
+        const deltaMs = now - lastAquariumUpdate;
+        const maxDelta = 6 * 60 * 60 * 1000; // 6 hours cap
+        const effectiveDelta = Math.min(deltaMs, maxDelta);
+        
+        // Income = (rate / hour) * (effectiveDelta / ms_in_hour)
+        const income = Math.floor(hourlyRate * (effectiveDelta / (60 * 60 * 1000)));
+
+        if (income > 0) {
+            setGold(prev => prev + income);
+            setStats(prev => ({ ...prev, totalGoldEarned: prev.totalGoldEarned + income }));
+            setLastAquariumUpdate(now);
+        }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [aquarium, lastAquariumUpdate, calculateHourlyRate]);
+
   const updateStatsAndQuests = useCallback((newFish: FishType, isGolden: boolean) => {
     const finalValue = isGolden ? newFish.value * 2 : newFish.value;
     setStats(prev => {
@@ -64,13 +111,13 @@ export const useGameState = () => {
       };
 
       const xpGains: Record<string, number> = {
-        [Rarity.JUNK]: 5,
-        [Rarity.COMMON]: 15,
-        [Rarity.UNCOMMON]: 35,
-        [Rarity.RARE]: 120,
-        [Rarity.EPIC]: 350,
-        [Rarity.LEGENDARY]: 1500,
-        [Rarity.MYTHIC]: 6000
+        [Rarity.JUNK]: 2,
+        [Rarity.COMMON]: 8,
+        [Rarity.UNCOMMON]: 20,
+        [Rarity.RARE]: 50,
+        [Rarity.EPIC]: 120,
+        [Rarity.LEGENDARY]: 350,
+        [Rarity.MYTHIC]: 1000
       };
       
       const xpGain = (xpGains[newFish.rarity] || 10) * (isGolden ? 3 : 1);
@@ -79,21 +126,21 @@ export const useGameState = () => {
       const levelsGained: number[] = [];
 
       // While loop: hỗ trợ level-up nhiều cấp trong một lần câu
-      let xpToLevel = Math.floor(800 * Math.pow(1.3, nextLevel - 1));
+      let xpToLevel = 1000 + (nextLevel - 1) * 500;
       while (nextXp >= xpToLevel) {
         nextXp -= xpToLevel;
         nextLevel++;
         levelsGained.push(nextLevel);
-        xpToLevel = Math.floor(800 * Math.pow(1.3, nextLevel - 1));
+        xpToLevel = 1000 + (nextLevel - 1) * 500;
       }
 
-      if (levelsGained.length > 0) {
+        if (levelsGained.length > 0) {
         setTimeout(() => {
-          const goldReward = levelsGained.length * 1000;
+          const goldReward = levelsGained.length * 250;
           addNotification(
             levelsGained.length > 1
               ? `LEVEL UP x${levelsGained.length}! Cấp độ mới: ${nextLevel}! +${goldReward} vàng`
-              : `LEVEL UP! Cấp độ mới: ${nextLevel}! +1000 vàng`,
+              : `LEVEL UP! Cấp độ mới: ${nextLevel}! +250 vàng`,
             'achievement'
           );
           setGold(g => g + goldReward);
@@ -244,6 +291,71 @@ export const useGameState = () => {
     return value;
   }, [inventory, dailyMarketBoosts, updateEarnGoldQuest, addNotification]);
 
+  const moveToAquarium = useCallback((timestamp: number) => {
+    const item = inventory.find(i => i.timestamp === timestamp);
+    if (!item) return;
+
+    if (item.fish.rarity === Rarity.JUNK) {
+      addNotification("Không thể thả rác vào hồ cá được!", "warning");
+      return;
+    }
+
+    if (aquarium.length >= 10) {
+      addNotification("Hồ cá đã đầy! (Tối đa 10 con)", "warning");
+      return;
+    }
+
+    setAquarium(prev => [...prev, {
+      fish: item.fish,
+      isGolden: item.goldenCount > 0,
+      addedAt: Date.now()
+    }]);
+
+    setInventory(prev => prev.reduce<InventoryItem[]>((arr, i) => {
+      if (i.timestamp !== timestamp) return [...arr, i];
+      const nextCount = i.count - 1;
+      const nextGoldenCount = i.goldenCount > 0 ? i.goldenCount - 1 : 0;
+      if (nextCount > 0) arr.push({ ...i, count: nextCount, goldenCount: nextGoldenCount });
+      return arr;
+    }, []));
+
+    addNotification(`Đã thả ${item.fish.name} vào hồ cá!`, 'success');
+    soundManager.playSuccess?.();
+  }, [inventory, aquarium, addNotification]);
+
+  const returnFromAquarium = useCallback((index: number) => {
+    if (index < 0 || index >= aquarium.length) return;
+    
+    if (inventory.length >= inventoryCapacity) {
+      addNotification("Túi đồ đã đầy! Không thể trả cá về túi.", "warning");
+      return;
+    }
+
+    const item = aquarium[index];
+    
+    // Add back to inventory
+    setInventory(prev => {
+      const existingIndex = prev.findIndex(i => i.fish.name === item.fish.name);
+      if (existingIndex !== -1) {
+        return prev.map((i, idx) => {
+          if (idx !== existingIndex) return i;
+          return {
+            ...i,
+            count: i.count + 1,
+            goldenCount: i.goldenCount + (item.isGolden ? 1 : 0),
+            timestamp: Date.now() // Update timestamp to put it at the top
+          };
+        });
+      }
+      return [{ fish: item.fish, count: 1, goldenCount: item.isGolden ? 1 : 0, timestamp: Date.now() }, ...prev];
+    });
+
+    // Remove from aquarium
+    setAquarium(prev => prev.filter((_, i) => i !== index));
+    addNotification(`Đã thu hồi ${item.fish.name} về túi đồ!`, 'success');
+    soundManager.playClick();
+  }, [aquarium, inventory, inventoryCapacity, addNotification]);
+
   return {
     gold, setGold,
     inventory, setInventory,
@@ -256,11 +368,17 @@ export const useGameState = () => {
     unlockedFish, setUnlockedFish,
     skills, setSkills,
     dailyMarketBoosts, setDailyMarketBoosts,
+    aquarium, setAquarium,
+    autoSellJunk, setAutoSellJunk,
+    lastAquariumUpdate, setLastAquariumUpdate,
+    calculateHourlyRate,
     updateStatsAndQuests,
     updateEarnGoldQuest,
     claimDailyReward,
     sellAllFish,
     sellFish,
+    moveToAquarium,
+    returnFromAquarium,
     claimQuest: (questId: string) => {
       soundManager.playClick();
       const quest = quests.find(q => q.id === questId);

@@ -4,6 +4,10 @@ import { Rarity, FishType, RodType, TackleType, BaitType, Achievement, Quest, Fi
 export const CANVAS_WIDTH = 1100;
 export const CANVAS_HEIGHT = 650;
 export const REEL_BAR_HEIGHT = 350;
+export const BOSS_EXIST_TIME = 3600;
+export const DURABILITY_CHECK_INTERVAL = 30;
+export const BASE_REPAIR_COST_ROD = 50;
+export const BASE_REPAIR_COST_TACKLE = 100;
 
 export const WEATHER_BONUSES = {
   sunny: { attraction: 1.0, rarity: 1.0, speed: 1.0, tension: 1.0, label: 'Trời Đẹp: Chỉ số cơ bản' },
@@ -59,7 +63,7 @@ export const RODS: RodType[] = [
     id: 'rod_2', 
     name: 'Cần Carbon', 
     description: 'Nhẹ và linh hoạt. Chịu được cá dưới 800 vàng.',
-    price: 8000, 
+    price: 12000, 
     lineStrength: 1.8, 
     control: 1.3, 
     maxValue: 800,
@@ -71,7 +75,7 @@ export const RODS: RodType[] = [
     id: 'rod_3', 
     name: 'Cần Thép Titan', 
     description: 'Cực kỳ chắc chắn. Chịu được cá dưới 5001 vàng.',
-    price: 15000, 
+    price: 45000, 
     lineStrength: 2.8, 
     control: 1.6, 
     maxValue: 5000,
@@ -83,7 +87,7 @@ export const RODS: RodType[] = [
     id: 'rod_4', 
     name: 'Cần Huyền Thoại', 
     description: 'Sức mạnh huyền thoại. Có thể câu được cá lớn hơn 5000 vàng.',
-    price: 50000, 
+    price: 180000, 
     lineStrength: 4.5, 
     control: 2.2, 
     maxValue: 1000000,
@@ -106,12 +110,14 @@ export const TACKLES: TackleType[] = [
     rarityText: 'CƠ BẢN',
     count: 1,
     durability: 30,
-    maxDurability: 30
+    maxDurability: 30,
+    tensionStability: 1.0,
+    liftBonus: 1.0
   },
   {
     id: 'tackle_2',
     name: 'Thẻo số 2',
-    description: 'Câu được cá dưới 501 vàng. Tăng sức bền so với thẻo 1.',
+    description: 'Câu được cá dưới 501 vàng. Thanh Tension di chuyển đầm hơn.',
     price: 1000,
     attraction: 180,
     rarityBoost: 1.2,
@@ -119,55 +125,74 @@ export const TACKLES: TackleType[] = [
     rarityText: 'NÂNG CAO',
     count: 0,
     durability: 50,
-    maxDurability: 50
+    maxDurability: 50,
+    tensionStability: 1.15,
+    liftBonus: 1.0
   },
   {
     id: 'tackle_3',
     name: 'Thẻo số 3',
-    description: 'Dùng cho cá dưới 5001 vàng. Phù hợp với nhiều loài cá vừa.',
-    price: 5000,
+    description: 'Dùng cho cá dưới 5001 vàng. Tăng tốc độ kéo cá.',
+    price: 8000,
     attraction: 240,
     rarityBoost: 1.8,
     maxValue: 5000,
     rarityText: 'CHUYÊN NGHIỆP',
     count: 0,
     durability: 80,
-    maxDurability: 80
+    maxDurability: 80,
+    tensionStability: 1.05,
+    liftBonus: 1.25
   },
   {
     id: 'tackle_4',
     name: 'Thẻo số 4',
-    description: 'Cho cá dưới 10001 vàng. Tuyệt vời khi câu cá lớn.',
-    price: 10000,
+    description: 'Cho cá dưới 10001 vàng. Cân bằng giữa sức kéo và sự ổn định.',
+    price: 25000,
     attraction: 280,
     rarityBoost: 2.5,
     maxValue: 10000,
     rarityText: 'CAO CẤP',
     count: 0,
     durability: 120,
-    maxDurability: 120
+    maxDurability: 120,
+    tensionStability: 1.25,
+    liftBonus: 1.15
   },
   {
     id: 'tackle_5',
     name: 'Thẻo số 5',
-    description: 'Dây câu mạnh mẽ, phù hợp cá dưới 50001 vàng.',
-    price: 20000,
+    description: 'Kiệt tác câu cá. Tối ưu hóa mọi thông số kỹ thuật.',
+    price: 75000,
     attraction: 320,
     rarityBoost: 3.5,
     maxValue: 50000,
     rarityText: 'CỰC HẠNG',
     count: 0,
     durability: 200,
-    maxDurability: 200
-  },
+    maxDurability: 200,
+    tensionStability: 1.4,
+    liftBonus: 1.4
+  }
 ];
 
 export const NATURAL_BAITS: BaitType[] = [
   {
+    id: 'bait_free_1',
+    name: 'Bánh mỳ vụn',
+    description: 'Mồi miễn phí luôn có sẵn. Chỉ thu hút cá nhỏ và rác.',
+    price: 0,
+    attraction: 80,
+    rarityBoost: 0.1,
+    rarityText: 'MIỄN PHÍ',
+    count: Infinity,
+    category: 'NATURAL'
+  },
+  {
     id: 'bait_natural_1',
     name: 'Giun đất',
     description: 'Vua của các loại mồi tanh. Câu cá trê, rô phi, chép.',
-    price: 100,
+    price: 600,
     attraction: 150,
     rarityBoost: 1.0,
     rarityText: 'TỰ NHIÊN',
@@ -178,7 +203,7 @@ export const NATURAL_BAITS: BaitType[] = [
     id: 'bait_natural_2',
     name: 'Tôm đồng',
     description: 'Mồi nhạy cho cá rô phi, chép, cá lăng.',
-    price: 250,
+    price: 1800,
     attraction: 200,
     rarityBoost: 1.5,
     rarityText: 'TỰ NHIÊN',
@@ -189,7 +214,7 @@ export const NATURAL_BAITS: BaitType[] = [
     id: 'bait_natural_3',
     name: 'Ốc sên',
     description: 'Mồi chính để câu cá chép, trắm đen.',
-    price: 150,
+    price: 1200,
     attraction: 180,
     rarityBoost: 1.2,
     rarityText: 'TỰ NHIÊN',
@@ -200,7 +225,7 @@ export const NATURAL_BAITS: BaitType[] = [
     id: 'bait_natural_4',
     name: 'Nhái sống',
     description: 'Đặc trị câu cá lóc (cá quả).',
-    price: 200,
+    price: 3500,
     attraction: 220,
     rarityBoost: 1.8,
     rarityText: 'TỰ NHIÊN',
@@ -214,7 +239,7 @@ export const SEA_BAITS: BaitType[] = [
     id: 'bait_sea_1',
     name: 'Tôm biển',
     description: 'Dành cho gần như mọi loại cá nhỏ ở biển.',
-    price: 100,
+    price: 1500,
     attraction: 160,
     rarityBoost: 1.0,
     rarityText: 'BIỂN',
@@ -225,7 +250,7 @@ export const SEA_BAITS: BaitType[] = [
     id: 'bait_sea_2',
     name: 'Mực tươi',
     description: 'Thu hút cá thu và cá ngừ.',
-    price: 200,
+    price: 5000,
     attraction: 250,
     rarityBoost: 2.0,
     rarityText: 'BIỂN',
@@ -236,7 +261,7 @@ export const SEA_BAITS: BaitType[] = [
     id: 'bait_sea_3',
     name: 'Cá mồi',
     description: 'Giành cho các loại cá to dưới 5001 vàng ăn.',
-    price: 500,
+    price: 12000,
     attraction: 350,
     rarityBoost: 3.5,
     rarityText: 'BIỂN',

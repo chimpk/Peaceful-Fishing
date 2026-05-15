@@ -22,7 +22,8 @@ export enum UIView {
   COLLECTION = 'COLLECTION',
   SKILLS = 'SKILLS',
   RESULTS = 'RESULTS',
-  LEADERBOARD = 'LEADERBOARD'
+  LEADERBOARD = 'LEADERBOARD',
+  AQUARIUM = 'AQUARIUM'
 }
 
 export enum Rarity {
@@ -90,6 +91,8 @@ export interface TackleType {
   count?: number;
   durability?: number;    // Mới: Độ bền hiện tại
   maxDurability?: number; // Mới: Độ bền tối đa
+  tensionStability?: number; // Mới: Giúp thanh Tension di chuyển đầm hơn
+  liftBonus?: number;       // Mới: Tăng tốc độ kéo cá
 }
 
 export interface BaitType {
@@ -118,6 +121,12 @@ export interface InventoryItem {
   count: number;
   goldenCount: number;
   timestamp: number;
+}
+
+export interface AquariumItem {
+  fish: FishType;
+  isGolden: boolean;
+  addedAt: number;
 }
 
 export interface ProfileStats {
@@ -175,4 +184,17 @@ export interface NotificationItem {
   message: string;
   type: NotificationType;
   timestamp: number;
+}
+
+export interface Particle {
+  x: number;
+  y: number;
+  size: number;
+  speed: number;
+  opacity: number;
+  vx?: number;
+  vy?: number;
+  color?: string;
+  type?: 'circle' | 'star' | 'trail' | 'ripple';
+  life?: number;
 }

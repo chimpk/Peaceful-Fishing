@@ -111,8 +111,25 @@ export const drawPlayerEquipment = (
         let cpX = (actualRodEndX + hookX) / 2 + shakeX; let cpY = Math.min(actualRodEndY, hookY) - (gameState === GameState.CASTING ? 180 : 30) + shakeY; 
         if (gameState === GameState.REELING) cpY += 80; ctx.quadraticCurveTo(cpX, cpY, hookX + shakeX, hookY + shakeY);
     }
-    ctx.strokeStyle = isLowHealth ? '#ef4444' : (isHighTension ? '#fef08a' : 'rgba(255, 255, 255, 0.4)'); ctx.lineWidth = isHighTension ? 1.8 : 0.8;
-    if (isHighTension) { ctx.shadowBlur = 10; ctx.shadowColor = isLowHealth ? '#ef4444' : 'white'; if (gameState === GameState.REELING) ctx.setLineDash([10, 2]); }
+    
+    // Hardcore Line Visuals: Vibration and Color Shift
+    const healthRatio = Math.max(0, lineHealth / 100);
+    const lineRed = 255;
+    const lineGreen = Math.floor(255 * healthRatio);
+    const lineBlue = Math.floor(255 * healthRatio);
+    
+    ctx.strokeStyle = isLowHealth ? `rgb(${lineRed}, ${lineGreen}, ${lineBlue})` : (isHighTension ? `rgb(255, 255, ${lineBlue})` : 'rgba(255, 255, 255, 0.4)'); 
+    ctx.lineWidth = isHighTension ? (1.8 + (1 - healthRatio) * 2.5) : 0.8;
+    
+    if (isHighTension) { 
+        ctx.shadowBlur = 10 + (1 - healthRatio) * 20; 
+        ctx.shadowColor = isLowHealth ? '#ef4444' : 'white'; 
+        if (gameState === GameState.REELING) {
+            const dashOffset = (frameCount * 0.8) % 20;
+            ctx.setLineDash([10, 2]); 
+            ctx.lineDashOffset = -dashOffset;
+        }
+    }
     ctx.stroke(); ctx.setLineDash([]); ctx.restore();
     if (hookY > 200 && (gameState === GameState.WAITING || gameState === GameState.REELING)) {
         ctx.save(); const rippleSize = 12 + Math.sin(Date.now() * 0.012) * 6; ctx.strokeStyle = `rgba(255, 255, 255, 0.4)`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(hookX, hookY, rippleSize, rippleSize * 0.35, 0, 0, Math.PI * 2); ctx.stroke();

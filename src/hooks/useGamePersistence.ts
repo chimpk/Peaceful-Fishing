@@ -72,6 +72,43 @@ export const useGamePersistence = (
         state.setDailyMarketBoosts(data.dailyMarketBoosts || []);
       }
 
+      // Offline Aquarium Gold Calculation
+      if (data.aquarium && data.aquarium.length > 0 && data.lastAquariumUpdate) {
+          const now = Date.now();
+          const lastUpdate = data.lastAquariumUpdate;
+          const deltaMs = now - lastUpdate;
+          const maxDelta = 6 * 60 * 60 * 1000; // 6 hours cap
+          const effectiveDelta = Math.min(deltaMs, maxDelta);
+
+          const rarityIncome: Record<string, number> = {
+              ['PHỔ THÔNG']: 20,
+              ['KHÔNG PHỔ BIẾN']: 60,
+              ['HIẾM']: 200,
+              ['SỬ THI']: 600,
+              ['HUYỀN THOẠI']: 2000,
+              ['THẦN THOẠI']: 10000
+          };
+
+          let hourlyRate = 0;
+          data.aquarium.forEach((item: any) => {
+              const base = rarityIncome[item.fish.rarity] || 0;
+              hourlyRate += item.isGolden ? base * 3 : base;
+          });
+
+          const offlineIncome = Math.floor(hourlyRate * (effectiveDelta / (60 * 60 * 1000)));
+
+          if (offlineIncome > 0) {
+              state.setGold((g: number) => g + offlineIncome);
+              state.setStats((s: any) => ({ ...s, totalGoldEarned: s.totalGoldEarned + offlineIncome }));
+              state.addNotification(`Hồ cá đã sinh ra ${offlineIncome.toLocaleString()} vàng khi bạn vắng mặt! ${effectiveDelta === maxDelta ? '(Đạt giới hạn 6h)' : ''}`, "success");
+              state.setLastAquariumUpdate(now);
+          } else {
+              state.setLastAquariumUpdate(data.lastAquariumUpdate);
+          }
+      } else {
+          state.setLastAquariumUpdate(Date.now());
+      }
+
       if (data.currentRodId) {
         const rod = RODS.find(r => r.id === data.currentRodId);
         if (rod) {
@@ -136,7 +173,10 @@ export const useGamePersistence = (
       dailyMarketBoosts: state.dailyMarketBoosts,
       currentLocation: env.currentLocation,
       sessionFishCount: comp.sessionFishCount,
-      leaderboard: comp.leaderboard
+      leaderboard: comp.leaderboard,
+      aquarium: state.aquarium,
+      autoSellJunk: state.autoSellJunk,
+      lastAquariumUpdate: state.lastAquariumUpdate
     };
     saveGame(dataToSave);
   }, [state, settings, env, comp, isDataLoaded]);

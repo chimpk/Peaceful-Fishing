@@ -15,11 +15,15 @@ interface InventoryViewProps {
   upgradeCapacity: () => void;
   sellAllFish: () => void;
   useFishAsBait: (timestamp: number) => void;
+  moveToAquarium: (timestamp: number) => void;
+  autoSellJunk: boolean;
+  setAutoSellJunk: (v: boolean) => void;
 }
 
-const InventoryView: React.FC<InventoryViewProps> = ({ 
+export const InventoryView: React.FC<InventoryViewProps> = ({ 
   gold, inventory, inventoryCapacity, quests,
-  setActiveView, sellFish, upgradeCapacity, sellAllFish, useFishAsBait 
+  setActiveView, sellFish, upgradeCapacity, sellAllFish, useFishAsBait, 
+  moveToAquarium, autoSellJunk, setAutoSellJunk
 }) => {
   const [tab, setTab] = useState<'items' | 'upgrade'>('items');
   const [confirmSellTarget, setConfirmSellTarget] = useState<InventoryItem | null>(null);
@@ -28,8 +32,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({
 
   const sortedInventory = [...inventory].sort((a, b) => {
     if (sortOption === 'value') {
-      const valA = a.isGolden ? a.fish.value * 2 : a.fish.value;
-      const valB = b.isGolden ? b.fish.value * 2 : b.fish.value;
+      const valA = a.goldenCount > 0 ? a.fish.value * 2 : a.fish.value;
+      const valB = b.goldenCount > 0 ? b.fish.value * 2 : b.fish.value;
       return valB - valA;
     } else if (sortOption === 'rarity') {
       const rarityOrder = {
@@ -93,6 +97,20 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                 </button>
               </div>
             )}
+
+            {/* QoL Toggle */}
+            <div className="flex items-center justify-between bg-slate-900/40 p-5 rounded-2xl border border-white/5 mb-4">
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">TỰ ĐỘNG BÁN RÁC</span>
+                    <span className="text-[8px] text-slate-500 font-bold uppercase">GIẢM TẢI TÚI ĐỒ</span>
+                </div>
+                <button 
+                  onClick={() => { soundManager.playClick(); setAutoSellJunk(!autoSellJunk); }}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${autoSellJunk ? 'bg-blue-600' : 'bg-slate-700'}`}
+                >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${autoSellJunk ? 'left-7' : 'left-1'}`}></div>
+                </button>
+            </div>
             
             <div className="grid grid-cols-2 gap-5">
                {inventory.length === 0 ? (
@@ -119,8 +137,13 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                       )}
                       <div className="text-yellow-500 font-black text-xs mb-4">{item.fish.value.toLocaleString()} 💰</div>
                       <div className="flex gap-2 w-full mt-auto">
-                        <button onClick={() => { soundManager.playClick(); handleSellClick(item); }} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN LẺ</button>
-                        <button onClick={() => { soundManager.playClick(); useFishAsBait(item.timestamp); }} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">LÀM MỒI</button>
+                        <button onClick={() => { soundManager.playClick(); handleSellClick(item); }} className="flex-1 py-3 bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-white/5 transition-all">BÁN</button>
+                        {item.fish.rarity !== Rarity.JUNK && (
+                          <button onClick={() => { soundManager.playClick(); useFishAsBait(item.timestamp); }} className="flex-1 py-3 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-blue-500/30 transition-all">MỒI</button>
+                        )}
+                        {item.fish.rarity !== Rarity.JUNK && (
+                          <button onClick={() => { soundManager.playClick(); moveToAquarium(item.timestamp); }} className="flex-1 py-3 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 rounded-xl text-[8px] font-black uppercase tracking-widest border border-emerald-500/30 transition-all">HỒ CÁ</button>
+                        )}
                       </div>
                    </div>
                  ))

@@ -197,9 +197,6 @@ export const drawFishByModel = (
   if (has('thu')) {
     return Classic.drawMackerel(ctx, fish, frameCount, size, finalColor, wagFreq, wagAmp);
   }
-  if (has('phượng hoàng')) {
-    return Unique.drawPhoenixFish(ctx, fish, frameCount, size, finalColor);
-  }
   if (has('origami')) {
     return Unique.drawOrigamiFish(ctx, fish, frameCount, size, finalColor);
   }

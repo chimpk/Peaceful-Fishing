@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, WeatherType, NotificationItem } from '../../types';
+import { GameState, InventoryItem, AquariumItem, FishType, RodType, TackleType, BaitType, UIView, ProfileStats, Achievement, Quest, PlayerSkills, LocationType, TimeOfDay, WeatherType, NotificationItem } from '../../types';
 
 // Views
 import GameView from '../views/GameView';
@@ -10,6 +10,7 @@ import ProfileView from '../views/ProfileView';
 import ResultsView from '../views/ResultsView';
 import LeaderboardView from '../views/LeaderboardView';
 import InventoryView from '../views/InventoryView';
+import AquariumView from '../views/AquariumView';
 
 interface UIOverlayProps {
   gameState: GameState;
@@ -56,6 +57,13 @@ interface UIOverlayProps {
   claimDailyReward: () => void;
   handleRepair: (type: 'rod' | 'tackle') => void;
   onOpenShowroom: () => void;
+  aquarium: AquariumItem[];
+  setAquarium: React.Dispatch<React.SetStateAction<AquariumItem[]>>;
+  moveToAquarium: (timestamp: number) => void;
+  returnFromAquarium: (index: number) => void;
+  autoSellJunk: boolean;
+  setAutoSellJunk: (v: boolean) => void;
+  calculateHourlyRate: () => number;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = (props) => {
@@ -117,6 +125,8 @@ const UIOverlay: React.FC<UIOverlayProps> = (props) => {
         return <ResultsView {...props} />;
       case UIView.LEADERBOARD:
         return <LeaderboardView {...props} />;
+      case UIView.AQUARIUM:
+        return <AquariumView {...props} calculateHourlyRate={props.calculateHourlyRate} returnFromAquarium={props.returnFromAquarium} />;
       default:
         return null;
     }

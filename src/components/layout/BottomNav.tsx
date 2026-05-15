@@ -16,6 +16,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeView, setActiveView, quests
     { view: UIView.GAME, label: 'TRANG CHỦ', icon: '🏠' },
     { view: UIView.SHOP, label: 'CỬA HÀNG', icon: '🏪' },
     { view: UIView.INVENTORY, label: 'TÚI ĐỒ', icon: '🎒' },
+    { view: UIView.AQUARIUM, label: 'HỒ CÁ', icon: '🐠' },
     { view: UIView.QUESTS, label: 'NHIỆM VỤ', icon: '📜', badge: unclaimedQuests },
     { view: UIView.PROFILE, label: 'CÁ NHÂN', icon: '👤' },
   ];

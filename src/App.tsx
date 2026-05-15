@@ -1,7 +1,5 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
-import { GameState, InventoryItem, FishType, RodType, TackleType, BaitType, UIView, Rarity, PlayerSkills, LocationType, NotificationType } from './types';
-import { RODS, TACKLES, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from './core/data/gameData';
+import { GameState, InventoryItem, FishType, UIView, Rarity, NotificationType } from './types';
 import GameCanvas from './components/canvas/GameCanvas';
 import UIOverlay from './components/layout/UIOverlay';
 import { soundManager } from './core/systems/soundManager';
@@ -71,6 +69,17 @@ const App: React.FC = () => {
   };
 
   const addFishToInventory = useCallback((fish: FishType, isGolden: boolean) => {
+    // QoL: Auto-sell Junk
+    if (state.autoSellJunk && fish.rarity === Rarity.JUNK) {
+        const val = isGolden ? fish.value * 2 : fish.value;
+        state.setGold(g => g + val);
+        state.addNotification(`Tự động bán ${fish.name} (+${val} vàng)`, 'info');
+        setGameState(GameState.CAUGHT);
+        state.updateStatsAndQuests(fish, isGolden);
+        setTimeout(() => setGameState(GameState.IDLE), 1000);
+        return;
+    }
+
     const hasSlot = state.inventory.some(item => item.fish.name === fish.name);
     if (!hasSlot && state.inventory.length >= state.inventoryCapacity) {
       state.addNotification("Túi đồ đã đầy! Hãy bán bớt cá hoặc nâng cấp túi.", "warning");
@@ -103,7 +112,8 @@ const App: React.FC = () => {
       else if (newStreak >= 3) comboMultiplier = 1.5;
 
       const caveBonus = (env.currentLocation === 'CAVE' && state.skills.deepSeaDiver > 0) ? 1.25 : 1;
-      const finalValue = Math.floor((isGolden ? fish.value * 3 : fish.value) * comboMultiplier * caveBonus);
+      // Hardcore: Golden multiplier reduced to 2x
+      const finalValue = Math.floor((isGolden ? fish.value * 2 : fish.value) * comboMultiplier * caveBonus);
       
       // Update competition score directly inside setStreak to ensure we use the correct finalValue
       if (comp.competitionMode) {
@@ -125,14 +135,31 @@ const App: React.FC = () => {
     setGameState(GameState.CAUGHT);
     state.updateStatsAndQuests(fish, isGolden);
 
-    // Rod breaking logic
+    // 1. Wear and Tear logic (Hardcore)
+    const baseLoss = 1;
+    const rarityFactors: Record<string, number> = {
+      [Rarity.JUNK]: 0.5,
+      [Rarity.COMMON]: 1,
+      [Rarity.UNCOMMON]: 1.5,
+      [Rarity.RARE]: 2.5,
+      [Rarity.EPIC]: 5,
+      [Rarity.LEGENDARY]: 12,
+      [Rarity.MYTHIC]: 25
+    };
+    const weatherFactor = env.weather === 'stormy' ? 3 : 1;
+    const totalLoss = Math.ceil(baseLoss * (rarityFactors[fish.rarity] || 1) * weatherFactor);
+    
+    settings.handleDurabilityChange('rod', totalLoss);
+    settings.handleDurabilityChange('tackle', Math.ceil(totalLoss * 1.5)); // Tackles wear faster
+
+    // 2. Rod breaking logic (Instant break for oversized fish)
     const rodLimit = settings.currentRod.maxValue ?? Infinity;
     if (fish.value > rodLimit && (settings.currentRod.durability || 0) > 0) {
       settings.setCurrentRod(prev => ({ ...prev, durability: 0 }));
       state.addNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy đi sửa chữa.", "warning");
     }
     
-    // Boss spawn logic - only increment if fish was successfully caught and added
+    // 3. Boss spawn logic - only increment if fish was successfully caught and added
     comp.setSessionFishCount(prev => {
       const newCount = prev + 1;
       if (newCount >= 20) {
@@ -236,7 +263,20 @@ const App: React.FC = () => {
           weather={env.weather}
           timeOfDay={env.timeOfDay}
           location={env.currentLocation}
-          setLocation={env.setCurrentLocation}
+          setLocation={(loc) => {
+            if (loc === 'OCEAN' && state.stats.level < 5) {
+              state.addNotification("Yêu cầu Cấp độ 5 để ra Đại Dương!", "warning");
+              soundManager.playError();
+              return;
+            }
+            if (loc === 'CAVE' && state.stats.level < 12) {
+              state.addNotification("Yêu cầu Cấp độ 12 để vào Hang Tối!", "warning");
+              soundManager.playError();
+              return;
+            }
+            env.setCurrentLocation(loc);
+            soundManager.playClick();
+          }}
           skills={state.skills}
           buyItem={settings.buyItem}
           liveBait={settings.liveBait}
@@ -269,23 +309,34 @@ const App: React.FC = () => {
             }
           }}
           upgradeCapacity={() => {
-            const cost = state.inventoryCapacity * 100;
+            // Hardcore: Exponential upgrade cost
+            const currentCap = state.inventoryCapacity;
+            const upgradeIndex = (currentCap - 20) / 5;
+            const cost = Math.floor(2500 * Math.pow(1.8, upgradeIndex));
+            
             if (state.gold >= cost) {
               state.setGold(prev => prev - cost);
               state.setInventoryCapacity(prev => prev + 5);
-              state.addNotification(`Đã nâng cấp túi đồ lên ${state.inventoryCapacity + 5} ô!`, 'success');
+              state.addNotification(`Đã nâng cấp túi đồ lên ${currentCap + 5} ô!`, 'success');
+              soundManager.playPurchase();
             } else {
-              state.addNotification('Không đủ tiền nâng cấp!', 'warning');
+              state.addNotification(`Không đủ vàng nâng cấp! (Cần ${cost} vàng)`, 'warning');
+              soundManager.playError();
             }
           }}
           buySkill={(id) => {
-             const cost = (state.skills[id] + 1) * 2000;
+             // Hardcore: Exponential skill cost
+             const level = state.skills[id];
+             const cost = Math.floor(3000 * Math.pow(2.2, level));
+             
              if (state.gold >= cost) {
                 state.setGold(prev => prev - cost);
                 state.setSkills(prev => ({ ...prev, [id]: prev[id] + 1 }));
                 state.addNotification(`Đã nâng cấp kỹ năng!`, 'success');
+                soundManager.playPurchase();
              } else {
-                state.addNotification('Không đủ tiền nâng cấp!', 'warning');
+                state.addNotification(`Không đủ vàng nâng cấp kỹ năng! (Cần ${cost} vàng)`, 'warning');
+                soundManager.playError();
              }
           }}
           startCompetition={comp.startCompetition}
@@ -312,6 +363,13 @@ const App: React.FC = () => {
           streak={streak}
           epicCatch={epicCatch}
           onOpenShowroom={() => setShowShowroom(true)}
+          aquarium={state.aquarium}
+          setAquarium={state.setAquarium}
+          moveToAquarium={state.moveToAquarium}
+          returnFromAquarium={state.returnFromAquarium}
+          autoSellJunk={state.autoSellJunk}
+          setAutoSellJunk={state.setAutoSellJunk}
+          calculateHourlyRate={state.calculateHourlyRate}
         />
       </div>
 
