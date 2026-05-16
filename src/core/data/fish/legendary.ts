@@ -5,7 +5,7 @@ export const LEGENDARY_FISH: FishType[] = [
   // Cá Kiếm Bạc
   { name: 'Cá Kiếm Bạc', rarity: Rarity.LEGENDARY, value: 2500, tension: 90, color: '#e2e8f0', size: 50, weight: 0.8, allowedLocations: ['OCEAN'], behavior: FishBehavior.LEAPER, preferredBaits: ['bait_sea_3'], canBerserk: true },
   // Cá Mập Trắng
-  { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 3800, tension: 94, color: '#94a3b8', size: 65, weight: 0.5, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
+  { name: 'Cá Mập Trắng', rarity: Rarity.LEGENDARY, value: 3800, tension: 94, color: '#94a3b8', size: 45, weight: 0.1, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_3'], canBerserk: true },
   // Cá Rồng Vàng
   { name: 'Cá Rồng Vàng', rarity: Rarity.LEGENDARY, value: 5000, tension: 88, color: '#fbbf24', size: 45, weight: 0.4, allowedLocations: ['POND'], preferredBaits: ['bait_natural_2'], canBerserk: true },
   // Cá Voi Xanh Con

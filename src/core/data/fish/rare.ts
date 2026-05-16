@@ -10,7 +10,7 @@ export const RARE_FISH: FishType[] = [
   // Cá Ngựa
   { name: 'Cá Ngựa', rarity: Rarity.RARE, value: 300, tension: 40, color: '#facc15', size: 18, weight: 15, allowedLocations: ['OCEAN'], preferredBaits: ['bait_sea_2'] },
   // Cá Mập Con
-  { name: 'Cá Mập Con', rarity: Rarity.RARE, value: 650, tension: 65, color: '#94a3b8', size: 35, weight: 8, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'] },
+  { name: 'Cá Mập Con', rarity: Rarity.RARE, value: 650, tension: 65, color: '#94a3b8', size: 24, weight: 2, allowedLocations: ['OCEAN'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_sea_3'] },
   // Cá Chình Điện
   { name: 'Cá Chình Điện', rarity: Rarity.RARE, value: 950, tension: 75, color: '#4338ca', size: 40, weight: 10, allowedLocations: ['CAVE'], behavior: FishBehavior.AGGRESSIVE, preferredBaits: ['bait_natural_4'] },
   // Cá Mao Tiên

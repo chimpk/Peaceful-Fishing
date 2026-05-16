@@ -54,7 +54,7 @@ export const drawShark = (
 
   // STEP 4: Simplified Textures (Limited to front/mid body to keep tail clean)
   ctx.save();
-  ctx.globalCompositeOperation = 'source-atop';
+  ctx.clip();
   ctx.fillStyle = bellyWhite;
   ctx.beginPath();
   // Start from -size * 3 to keep the tail-end (caudal peduncle) dark

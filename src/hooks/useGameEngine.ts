@@ -1105,7 +1105,7 @@ export const useGameEngine = (props: GameEngineProps) => {
       const tugX = Math.cos(activeFish.current.angle) * (tugFactor.current * 10); const tugY = Math.sin(activeFish.current.angle) * (tugFactor.current * 10);
       Graphics.drawFishTexture(ctx, activeFish.current.type, frameCount.current, true, { x: hookX.current - tugX, y: hookY.current - tugY - jumpOffsetY, angle: activeFish.current.angle, direction: 1 }, 2.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
 
-      const ft = activeFish.current.type.tension; let finalGravity = (0.00045 + (ft / 160000)) / currentRod.control; let finalLift = 0.00135 * currentRod.control;
+      const ft = activeFish.current.type.tension; let finalGravity = ((0.00045 + (ft / 160000)) / currentRod.control) * 4; let finalLift = 0.00135 * currentRod.control;
       if (isBehaviorActive.current) { if (behaviorType.current === 'dive') finalGravity += 0.006; if (behaviorType.current === 'thrash') tensionCursor.current += (Math.random() - 0.5) * 0.035; }
       const isBerserk = activeFish.current.type.canBerserk && reelingProgress.current > 80;
       if (isBerserk) { finalGravity *= 1.45; shakeIntensity.current = Math.max(shakeIntensity.current, 10); if (frameCount.current % 15 < 7) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*40, y: hookY.current + (Math.random()-0.5)*40, size: 3, speed: 0.5, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, life: 20, opacity: 1, color: '#ef4444', type: 'circle' }); }
