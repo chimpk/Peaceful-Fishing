@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { 
   CANVAS_WIDTH, CANVAS_HEIGHT, FISH_TYPES, WEATHER_BONUSES, 
-  LOCATION_DATA, CHEST_TYPES, BOSS_EXIST_TIME, DURABILITY_CHECK_INTERVAL
+  LOCATION_DATA, CHEST_TYPES, BOSS_EXIST_TIME, DURABILITY_CHECK_INTERVAL, BAITS
 } from '../core/data/gameData';
 import * as Graphics from '../core/graphics';
 import { ChestModels } from '../core/entities/ChestModels';
@@ -43,10 +43,12 @@ export interface GameEngineProps {
   isBossSpawned: boolean;
   setIsBossSpawned: (v: boolean) => void;
   onDurabilityChange: (type: 'rod' | 'tackle', amount: number) => void;
+  onBaitConsumed: () => void;
   playerLevel?: number;
   inventoryCount: number;
   inventoryCapacity: number;
   isMobile?: boolean;
+  vfxEnabled: boolean;
   disableInternalLoop?: boolean;
   canvasRef?: RefObject<HTMLCanvasElement | null>;
 }
@@ -74,6 +76,8 @@ interface EnhancedFishInstance {
   stateTimer: number;
   velocity: { x: number, y: number };
   isGolden: boolean;
+  lifespan?: number;
+  isLeaving?: boolean;
 }
 
 export const useGameEngine = (props: GameEngineProps) => {
@@ -83,8 +87,8 @@ export const useGameEngine = (props: GameEngineProps) => {
     weather, skills, location, timeOfDay, streak, onBossDefeated, 
     onSessionReset, onLineBroken, onRodBroken, onCast, addNotification, 
     liveBait, setLiveBait, isBossSpawned, setIsBossSpawned, 
-    onDurabilityChange, playerLevel, inventoryCount, inventoryCapacity,
-    isMobile, disableInternalLoop, canvasRef: propCanvasRef
+    onDurabilityChange, onBaitConsumed, playerLevel, inventoryCount, inventoryCapacity,
+    isMobile, vfxEnabled, disableInternalLoop, canvasRef: propCanvasRef
   } = props;
 
   const internalCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,6 +100,8 @@ export const useGameEngine = (props: GameEngineProps) => {
   
   const hookX = useRef(220);
   const hookY = useRef(120);
+  const rodEndX = 220; 
+  const rodEndY = 120; 
   const targetHookX = useRef(0);
   const targetHookY = useRef(0);
   const castProgress = useRef(0);
@@ -108,6 +114,17 @@ export const useGameEngine = (props: GameEngineProps) => {
   const MAX_VFX_PARTICLES = isMobile ? 50 : 120;
   
   const isSpacePressed = useRef(false);
+  const internalGameState = useRef<GameState>(gameState);
+  
+  // Keep internal state in sync with external prop changes
+  useEffect(() => {
+    internalGameState.current = gameState;
+  }, [gameState]);
+
+  const safeSetGameState = useCallback((newState: GameState) => {
+    internalGameState.current = newState;
+    setGameState(newState);
+  }, [setGameState]);
   
   const tensionCursor = useRef(0.5);
   const tensionVelocity = useRef(0);
@@ -122,6 +139,8 @@ export const useGameEngine = (props: GameEngineProps) => {
   const jumpProgress = useRef(0);
   const isJumping = useRef(false);
   const shakeIntensity = useRef(0);
+  const vfxFlash = useRef(0); // 0 to 1
+  const slowMotionFactor = useRef(1); // 1 = normal, < 1 = slow
   
   const tugFactor = useRef(0);
 
@@ -144,6 +163,7 @@ export const useGameEngine = (props: GameEngineProps) => {
   const bossX = useRef(CANVAS_WIDTH / 2);
   const bossY = useRef(CANVAS_HEIGHT / 2);
   const isBossDefeated = useRef(false);
+  const isChargingRef = useRef(false);
   
   // NEW BOSS MECHANICS STATE
   const bossStance = useRef(100);
@@ -172,6 +192,12 @@ export const useGameEngine = (props: GameEngineProps) => {
   const frenzyActive = useRef(false);
   const frenzyTimer = useRef(0);
   const frenzyNotified = useRef(false);
+
+  // HARDCORE MECHANICS REFS
+  const scareMeter = useRef<Record<string, number>>({});
+  const fightTimer = useRef(0);
+  const thrashActive = useRef(false);
+  const lastThrashTime = useRef(0);
 
   const perfectCastBonus = useRef(false);
 
@@ -217,6 +243,14 @@ export const useGameEngine = (props: GameEngineProps) => {
     stunTimer.current = 0;
     inkAlpha.current = 0;
     torpedoActive.current = false;
+    isBossDefeated.current = false;
+    bossInitialized.current = false;
+    bossHP.current = bossMaxHP.current;
+    bossStance.current = bossStanceMax.current;
+    bossAttackIndicator.current = 0;
+    bossAttackTimer.current = 0;
+    playerHP.current = playerMaxHP.current;
+    isBossDefeated.current = false;
   }, []);
 
   const motionBlurAlpha = useRef(0);     
@@ -275,23 +309,44 @@ export const useGameEngine = (props: GameEngineProps) => {
   }, []);
 
   const checkBaitCompatibility = useCallback((fish: FishType, baitId: string): boolean => {
-    // 1. Bread crumbs: only small/junk
-    if (baitId === 'bait_free_1') {
+    if (fish.isChest) return true; // Always allow chests
+
+    const bait = BAITS.find(b => b.id === baitId);
+    const baitPrice = bait?.price || 0;
+
+    // 1. Junk filtering for medium+ baits
+    if (baitPrice >= 2000 && fish.rarity === Rarity.JUNK) {
+      return false;
+    }
+
+    // 2. Common filtering for premium baits
+    if (baitPrice >= 10000 && (fish.rarity === Rarity.JUNK || fish.rarity === Rarity.COMMON)) {
+      return false;
+    }
+
+    // 3. LOW-TIER GATING: Large fish ignore "cùi" (poor) bait
+    // Bread/Free bait only attracts Junk and Common
+    if (baitPrice === 0 || baitId === 'bait_free_1') {
       return fish.rarity === Rarity.JUNK || fish.rarity === Rarity.COMMON;
     }
     
-    // 2. Large bait (Cá mồi): only rare and above (big fish)
+    // Basic baits (under 1.5k) cannot attract Legendary or Mythic
+    if (baitPrice < 1500 && (fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC)) {
+      return false;
+    }
+
+    // 4. Large bait (Cá mồi): only rare and above (big fish)
     if (baitId === 'bait_sea_3') {
       return fish.rarity !== Rarity.JUNK && fish.rarity !== Rarity.COMMON && fish.rarity !== Rarity.UNCOMMON;
     }
     
-    // 3. Live Frog (Nhái sống): only predators (Snakehead, Catfish, etc.)
+    // 5. Live Frog (Nhái sống): only predators
     if (baitId === 'bait_natural_4') {
       const n = fish.name.toLowerCase().normalize('NFC');
       return n.includes('lóc') || n.includes('trê') || n.includes('mập') || n.includes('lăng') || n.includes('mao tiên');
     }
 
-    // 4. Special Live Bait (catching a fish to use as bait)
+    // 6. Special Live Bait
     if (baitId === 'live_bait') {
       return fish.rarity === Rarity.EPIC || fish.rarity === Rarity.LEGENDARY || fish.rarity === Rarity.MYTHIC;
     }
@@ -333,13 +388,16 @@ export const useGameEngine = (props: GameEngineProps) => {
           if (f.rarity === Rarity.JUNK || f.rarity === Rarity.COMMON) {
             weight *= 0.05;
           }
-          if (f.rarity === Rarity.LEGENDARY || f.rarity === Rarity.MYTHIC) finalBoost += 4.5;
-          if (f.rarity === Rarity.EPIC) finalBoost += 2.0;
+          if (f.rarity === Rarity.LEGENDARY || f.rarity === Rarity.MYTHIC) finalBoost += 1.8;
+          if (f.rarity === Rarity.EPIC) finalBoost += 1.0;
       }
 
       if (f.rarity === Rarity.LEGENDARY || f.rarity === Rarity.MYTHIC) {
-          if (skills.masterAngler > 0) finalBoost += 1.0;
+          if (skills.masterAngler > 0) finalBoost += 0.5;
       }
+
+      // Cap the final boost to avoid extreme pools
+      finalBoost = Math.min(6.0, finalBoost);
 
       // Apply Location penalties/bonuses
       if (location === 'POND') {
@@ -353,10 +411,10 @@ export const useGameEngine = (props: GameEngineProps) => {
       }
 
       // Apply the final additive boost and weather multiplier
-      if (f.rarity === Rarity.RARE) weight *= (1 + (finalBoost - 1) * 0.5) * weatherFactor;
-      if (f.rarity === Rarity.EPIC) weight *= finalBoost * weatherFactor;
-      if (f.rarity === Rarity.LEGENDARY) weight *= (finalBoost * 1.5) * weatherFactor;
-      if (f.rarity === Rarity.MYTHIC) weight *= (finalBoost * 2.0) * weatherFactor;
+      if (f.rarity === Rarity.RARE) weight *= (1 + (finalBoost - 1) * 0.4) * weatherFactor;
+      if (f.rarity === Rarity.EPIC) weight *= (1 + (finalBoost - 1) * 0.6) * weatherFactor;
+      if (f.rarity === Rarity.LEGENDARY) weight *= (1 + (finalBoost - 1) * 0.8) * weatherFactor;
+      if (f.rarity === Rarity.MYTHIC) weight *= (1 + (finalBoost - 1) * 1.0) * weatherFactor;
 
       return { type: f, weight };
     });
@@ -410,6 +468,11 @@ export const useGameEngine = (props: GameEngineProps) => {
     // Hardcore: Golden fish is 1.5% chance instead of 5%
     const isGolden = Math.random() < 0.015;
 
+    let lifespan: number | undefined;
+    if (type.rarity === Rarity.EPIC || type.rarity === Rarity.LEGENDARY || type.rarity === Rarity.MYTHIC) {
+        lifespan = 1800 + Math.random() * 2400; // 30-70 seconds
+    }
+
     return {
       id: Math.random().toString(36).substr(2, 9),
       x: initialDir === 1 ? -150 : CANVAS_WIDTH + 150,
@@ -419,7 +482,8 @@ export const useGameEngine = (props: GameEngineProps) => {
       swimStyle: swimStyles[Math.floor(Math.random() * swimStyles.length)],
       state: 'wandering' as FishAIState, stateTimer: Math.floor(Math.random() * 100),
       velocity: { x: initialDir * baseSpeed, y: 0 },
-      isGolden
+      isGolden,
+      lifespan
     };
   }, [currentBait, currentTackle, getRandomFishType, skills.lucky, weather]);
 
@@ -473,38 +537,9 @@ export const useGameEngine = (props: GameEngineProps) => {
         const lineLimit = currentTackle.maxValue || 300;
         const rodLimit = currentRod.maxValue || 300;
         
-        if (collidingFish.type.value > lineLimit) {
-            onLineBroken();
-            onFishLost("Thẻo bị đứt vì cá quá to!");
-            if (collidingFish.id === 'boss_dummy') {
-                bossFailCount.current++;
-                if (bossFailCount.current >= 2) {
-                    setIsBossSpawned(false);
-                    bossFailCount.current = 0;
-                    addNotification("BOSS đã bỏ đi vì bạn quá yếu!", "warning");
-                }
-            }
-            setGameState(GameState.IDLE);
-            activeFish.current = null;
-            return;
-        }
-
-        if (collidingFish.type.value > rodLimit) {
-            onRodBroken();
-            onFishLost("Cần câu đã gãy vì cá quá nặng!");
-            if (collidingFish.id === 'boss_dummy') {
-                bossFailCount.current++;
-                if (bossFailCount.current >= 2) {
-                    setIsBossSpawned(false);
-                    bossFailCount.current = 0;
-                    addNotification("BOSS đã bỏ đi vì bạn quá yếu!", "warning");
-                }
-            }
-            setGameState(GameState.IDLE);
-            activeFish.current = null;
-            return;
-        }
-
+        // LOGIC CHANGE: Removed instant snap here to allow REELING phase to handle mismatch penalties.
+        // This makes the game feel more fair and allows skilled players to catch slightly larger fish.
+        
         if (collidingFish.id === 'boss_dummy') {
             setGameState(GameState.BOSS_FIGHT);
             const scaledHP = 800 + (playerLevel || 1) * 65; 
@@ -578,20 +613,28 @@ export const useGameEngine = (props: GameEngineProps) => {
       
       if (!isSpacePressed.current) {
         isSpacePressed.current = true;
-        if (gameState === GameState.IDLE) {
+        const currentGS = internalGameState.current;
+        if (currentGS === GameState.IDLE) {
+          // FIX: Don't start charging if the hook is already out (prevents teleportation)
+          const isHookOut = Math.abs(hookX.current - rodEndX) > 10 || Math.abs(hookY.current - rodEndY) > 10;
+          if (isHookOut) {
+              safeSetGameState(GameState.WAITING);
+              return;
+          }
           if (!canStartFishing()) return;
           resetEventState();
-          setGameState(GameState.CHARGING);
+          isChargingRef.current = true;
+          safeSetGameState(GameState.CHARGING);
           chargePower.current = 0;
           chargeDirection.current = 1;
-        } else if (gameState === GameState.WAITING) {
+        } else if (currentGS === GameState.WAITING) {
           // Manual reeling back handled in update
-        } else if (gameState === GameState.NIBBLING) {
+        } else if (currentGS === GameState.NIBBLING) {
            handleHookAction();
-        } else if (gameState === GameState.REELING) {
+        } else if (currentGS === GameState.REELING) {
           tensionVelocity.current -= 0.0035;
           tugFactor.current = 1.0;
-        } else if (gameState === GameState.BOSS_FIGHT) {
+        } else if (currentGS === GameState.BOSS_FIGHT) {
           // If stunned, each press deals damage
           if (bossStunTimer.current > 0) {
             const damage = 10 + (skills.sharpEye * 4) + (currentRod.lineStrength * 5);
@@ -648,7 +691,8 @@ export const useGameEngine = (props: GameEngineProps) => {
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (e.code === 'Space') {
       isSpacePressed.current = false;
-      if (gameState === GameState.CHARGING) {
+      if (gameState === GameState.CHARGING || isChargingRef.current) {
+        isChargingRef.current = false;
         perfectCastBonus.current = chargePower.current >= 95;
         targetHookX.current = 220 + (chargePower.current / 100) * 500;
         targetHookY.current = 250 + (chargePower.current / 100) * 300;
@@ -844,7 +888,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         frenzyTimer.current = 0;
         addNotification('Frenzy kết thúc...', 'info');
       }
-      if (frameCount.current % 60 === 0 && fishRef.current.length < 25) {
+      if (vfxEnabled && frameCount.current % 60 === 0 && fishRef.current.length < 25) {
         fishRef.current.push(spawnSingleFish());
       }
       const frenzyPulse = 0.08 + Math.sin(frameCount.current * 0.12) * 0.04;
@@ -877,7 +921,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         }
     }
 
-    Graphics.drawWaterAndSky(ctx, frameCount.current, weather, location, timeOfDay, prevTimeOfDayRef.current, transitionProgressRef.current, cameraFocusX.current);
+    Graphics.drawWaterAndSky(ctx, frameCount.current, weather, location, timeOfDay, prevTimeOfDayRef.current, transitionProgressRef.current, cameraFocusX.current, vfxEnabled);
     Graphics.drawWeatherEffects(ctx, frameCount.current, weather, location);
 
     if (weather === 'stormy' && location !== 'CAVE') {
@@ -907,14 +951,14 @@ export const useGameEngine = (props: GameEngineProps) => {
     if (location === 'OCEAN' && timeOfDay !== 'NIGHT') Graphics.drawGodRays(ctx, frameCount.current, location, timeOfDay);
     if (location === 'POND' && timeOfDay === 'NIGHT') Graphics.drawAmbientNight(ctx, frameCount.current);
     Graphics.drawComboStreak(ctx, streak, frameCount.current);
-
+    
     bubblesRef.current.forEach(b => { b.y -= b.speed; if (b.y < 200) b.y = CANVAS_HEIGHT + 20; });
     Graphics.drawBubbles(ctx, bubblesRef.current);
 
     VFXSystem.updateParticles(vfxParticlesRef.current);
-    VFXSystem.drawParticles(ctx, vfxParticlesRef.current);
+    if (vfxEnabled) VFXSystem.drawParticles(ctx, vfxParticlesRef.current);
 
-    const pX = 80; const pY = 150; const rodEndX = 220; const rodEndY = 120; 
+    const pX = 80; const pY = 150; 
     if (isSpacePressed.current && (gameState === GameState.REELING || gameState === GameState.WAITING)) reelRotation.current += 0.25;
 
     if (baitSettleTimer.current > 0) baitSettleTimer.current -= dt;
@@ -973,10 +1017,25 @@ export const useGameEngine = (props: GameEngineProps) => {
       const f = fishArray[fishIndex];
       if (currentActiveFish?.id === f.id) continue;
       
+      // Lifespan and Leaving logic
+      if (f.lifespan !== undefined && !currentActiveFish) {
+        f.lifespan -= dt;
+        if (f.lifespan <= 0 && !f.isLeaving) {
+          f.isLeaving = true;
+          f.state = 'wandering';
+          // Move towards the nearest edge
+          f.targetAngle = f.x < CANVAS_WIDTH / 2 ? Math.PI : 0;
+          f.targetY = f.y + (Math.random() - 0.5) * 100; // Some slight vertical drift
+        }
+      }
+
       // Heavy AI state logic only on AI frames
       if (!isAIFrame) {
         // Just move the fish - skip state checks
-        const moveSpeed = f.baseSpeed * (f.state === 'scared' ? 2.8 : f.state === 'interested' ? 1.1 : f.state === 'inspecting' ? 0.2 : 1) * dt;
+        let moveSpeed = f.baseSpeed * (f.state === 'scared' ? 2.8 : f.state === 'interested' ? 1.1 : f.state === 'inspecting' ? 0.2 : 1) * dt;
+        if (f.swimStyle === 'jerky') moveSpeed *= (Math.sin(currentFrame * 0.15) > 0 ? 2.0 : 0.1); 
+        else if (f.swimStyle === 'charger') moveSpeed *= 1.6;
+
         const vx = Math.cos(f.angle) * moveSpeed; const vy = Math.sin(f.angle) * moveSpeed;
         f.velocity = { x: vx, y: vy }; f.x += vx; f.y += vy + (f.targetY - f.y) * 0.015 * dt;
         if (f.x > CANVAS_WIDTH + 200) { f.x = -190; f.direction = 1; } if (f.x < -200) { f.x = CANVAS_WIDTH + 190; f.direction = -1; }
@@ -998,7 +1057,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         // AI Personality: Shy fish are spooked by recent splashes
         const recentSplash = vfxParticlesRef.current.some(p => p.type === 'ripple' && Math.sqrt((p.x - f.x)**2 + (p.y - f.y)**2) < 150 && (p.life || 0) > 40);
         
-        if (f.state !== 'interested' && f.state !== 'scared' && Math.random() < interestChance / 20) {
+        if (f.state !== 'interested' && f.state !== 'scared' && !f.isLeaving && Math.random() < interestChance / 20) {
             // Hardcore selective attraction: Fish ignore baits they don't like
             if (!checkBaitCompatibility(f.type, currentBait.id)) {
                 continue;
@@ -1027,8 +1086,10 @@ export const useGameEngine = (props: GameEngineProps) => {
           }
         }
       } else {
-        if (f.state === 'interested' || f.state === 'scared') { f.state = 'wandering'; f.stateTimer = 0; }
-        if (f.stateTimer <= 0) {
+        if (f.state === 'interested' || f.state === 'scared') { 
+          if (!f.isLeaving) { f.state = 'wandering'; f.stateTimer = 0; }
+        }
+        if (f.stateTimer <= 0 && !f.isLeaving) {
           f.state = Math.random() > 0.8 ? 'inspecting' : 'wandering'; f.stateTimer = 60 + Math.random() * 200;
           if (f.state === 'wandering') {
             const inCenter = f.x > CANVAS_WIDTH * 0.3 && f.x < CANVAS_WIDTH * 0.7;
@@ -1049,11 +1110,26 @@ export const useGameEngine = (props: GameEngineProps) => {
           if (!isSmallFishActive || ![GameState.NIBBLING, GameState.REELING].includes(gameState)) { f.state = 'wandering'; f.targetAngle = Math.random() * Math.PI * 2; }
           else { f.targetAngle = Math.atan2(dy_hook, dx_hook); f.targetY = currentHookY; if (distToHook < 15) (f as any)._shouldEat = true; }
       }
-      f.angle = lerpAngle(f.angle, f.targetAngle, (f.state === 'scared' ? 0.25 : (f.state === 'interested' ? 0.045 : 0.06)) * dt);
+      f.angle = lerpAngle(f.angle, f.targetAngle, (f.isLeaving ? 0.03 : (f.state === 'scared' ? 0.25 : (f.state === 'interested' ? 0.045 : 0.06))) * dt);
       const vx = Math.cos(f.angle) * moveSpeed; const vy = Math.sin(f.angle) * moveSpeed; f.velocity = { x: vx, y: vy }; f.x += vx; f.y += vy + (f.targetY - f.y) * 0.015 * dt;
-      if (f.x > CANVAS_WIDTH + 200) { f.x = -190; f.direction = 1; } if (f.x < -200) { f.x = CANVAS_WIDTH + 190; f.direction = -1; }
+      if (f.x > CANVAS_WIDTH + 200) { 
+          if (f.isLeaving) {
+              fishRef.current = fishRef.current.filter(fi => fi.id !== f.id);
+              fishRef.current.push(spawnSingleFish());
+              continue;
+          }
+          f.x = -190; f.direction = 1; 
+      } 
+      if (f.x < -200) { 
+          if (f.isLeaving) {
+              fishRef.current = fishRef.current.filter(fi => fi.id !== f.id);
+              fishRef.current.push(spawnSingleFish());
+              continue;
+          }
+          f.x = CANVAS_WIDTH + 190; f.direction = -1; 
+      }
       if (f.y < 220) f.y = 220; if (f.y > CANVAS_HEIGHT) f.y = CANVAS_HEIGHT;
-      if ((moveSpeed / dt > 1.5 || ['scared', 'interested'].includes(f.state)) && currentFrame % (f.state === 'scared' ? 2 : 6) === 0) vfxParticlesRef.current.push({ x: f.x - Math.cos(f.angle) * (f.type.size * 0.8), y: f.y - Math.sin(f.angle) * (f.type.size * 0.8), size: 1 + Math.random() * 2, speed: 0, opacity: 0.4, life: 20 + Math.random() * 10, color: 'rgba(255,255,255,0.3)', type: 'circle' });
+      if (vfxEnabled && (moveSpeed / dt > 1.5 || ['scared', 'interested'].includes(f.state)) && currentFrame % (f.state === 'scared' ? 2 : 6) === 0) vfxParticlesRef.current.push({ x: f.x - Math.cos(f.angle) * (f.type.size * 0.8), y: f.y - Math.sin(f.angle) * (f.type.size * 0.8), size: 1 + Math.random() * 2, speed: 0, opacity: 0.4, life: 20 + Math.random() * 10, color: 'rgba(255,255,255,0.3)', type: 'circle' });
       Graphics.drawFishTexture(ctx, f.type, currentFrame, false, { x: f.x, y: f.y, angle: f.angle, direction: 1 }, moveSpeed / dt, f.swimStyle, false, f.isGolden);
       if (f.state === 'interested' && [Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(f.type.rarity)) Graphics.drawAlert(ctx, f.x, f.y, f.type.rarity, frameCount.current);
     }
@@ -1072,8 +1148,11 @@ export const useGameEngine = (props: GameEngineProps) => {
             lungeProgress.current = 0; lungeDelay.current = 30;
         } else if (gameState === GameState.REELING) {
             const lineLimit = currentTackle.maxValue || 300; 
+            const ft = activeFish.current!.type.tension;
+            const durabilityEffectiveness = 0.6 + (currentRod.durability / 100) * 0.4;
             const mismatchPenalty = Math.max(0, (bigFishInstance.type.value - lineLimit) / lineLimit);
-            tensionZoneSize.current = Math.max(0.15, 0.45 - (bigFishInstance.type.tension / 240) - mismatchPenalty * 0.15);
+            const durabilityZonePenalty = (1 - durabilityEffectiveness) * 0.15;
+            tensionZoneSize.current = Math.max(0.1, (0.45 - (ft / 240) - mismatchPenalty * 0.15) * durabilityEffectiveness - durabilityZonePenalty);
             
             // LOGIC FIX: Reset progress when a predator eats the catch
             reelingProgress.current = Math.max(0, reelingProgress.current - 40); 
@@ -1086,14 +1165,23 @@ export const useGameEngine = (props: GameEngineProps) => {
     }
 
     if (highestInterestedRarity && hookInWater) Graphics.drawRareDetectionFlash(ctx, highestInterestedRarity, frameCount.current);
-    if (gameState === GameState.IDLE) { hookX.current = rodEndX; hookY.current = rodEndY; }
+    
+    const currentGS = internalGameState.current;
+    
+    // 1. Reset hook to rod if truly IDLE
+    if (currentGS === GameState.IDLE && !isChargingRef.current && castProgress.current === 0) { 
+        hookX.current = rodEndX; 
+        hookY.current = rodEndY; 
+    }
 
-    if (gameState === GameState.CHARGING) {
-      chargePower.current += 1.8 * chargeDirection.current; if (chargePower.current >= 100) { chargePower.current = 100; chargeDirection.current = -1; } if (chargePower.current <= 0) { chargePower.current = 0; chargeDirection.current = 1; }
+    // 2. Charging Logic
+    if (currentGS === GameState.CHARGING || isChargingRef.current) {
+      chargePower.current += 1.8 * chargeDirection.current; 
+      if (chargePower.current >= 100) { chargePower.current = 100; chargeDirection.current = -1; } 
+      if (chargePower.current <= 0) { chargePower.current = 0; chargeDirection.current = 1; }
       
       ctx.save();
       ctx.translate(pX + 30, pY - 80);
-      // Premium Glow for Charge Bar
       ctx.shadowBlur = 15;
       ctx.shadowColor = chargePower.current >= 95 ? '#fbbf24' : '#60a5fa';
       
@@ -1116,27 +1204,69 @@ export const useGameEngine = (props: GameEngineProps) => {
       hookX.current = rodEndX; hookY.current = rodEndY;
     }
 
-    if (gameState === GameState.CASTING) {
+    // 3. Casting Logic
+    if (currentGS === GameState.CASTING) {
       castProgress.current += 0.025; 
       hookX.current = rodEndX + (targetHookX.current - rodEndX) * castProgress.current;
-      const t = castProgress.current; hookY.current = (1 - t) * rodEndY + t * targetHookY.current + (-200 * 4 * t * (1 - t));
-      if (frameCount.current % 1 === 0) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*10, y: hookY.current + (Math.random()-0.5)*10, size: 1 + Math.random()*2, speed: 0, opacity: 0.6, life: 10, color: 'rgba(255,255,255,0.4)', type: 'trail' });
+      const t = castProgress.current; 
+      hookY.current = (1 - t) * rodEndY + t * targetHookY.current + (-200 * 4 * t * (1 - t));
+      
+      if (vfxEnabled && frameCount.current % 1 === 0) {
+        vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*10, y: hookY.current + (Math.random()-0.5)*10, size: 1 + Math.random() * 2, speed: 0, opacity: 0.6, life: 10, color: 'rgba(255,255,255,0.4)', type: 'trail' });
+      }
+      
       if (castProgress.current >= 1) {
-        hookX.current = targetHookX.current; hookY.current = targetHookY.current;
-        castProgress.current = 0;
-        createSplash(hookX.current, hookY.current, perfectCastBonus.current ? 2.0 : 1.2); if (perfectCastBonus.current) shakeIntensity.current = 5;
-        setGameState(GameState.WAITING); const baseSettle = frenzyActive.current ? 20 + Math.random() * 20 : perfectCastBonus.current ? 30 + Math.random() * 30 : 60 + Math.random() * 60;
-        baitSettleTimer.current = baseSettle; baitSettleTotal.current = baseSettle;
-        if (perfectCastBonus.current && eventHandledRef.current !== 'perfect_cast') { eventHandledRef.current = 'perfect_cast'; addNotification('QUĂNG HOÀN HẢO! +20% Attraction', 'success'); }
+        hookX.current = targetHookX.current; 
+        hookY.current = targetHookY.current;
+        createSplash(hookX.current, hookY.current, perfectCastBonus.current ? 2.0 : 1.2); 
+        if (perfectCastBonus.current) shakeIntensity.current = 5;
+        
+        safeSetGameState(GameState.WAITING); 
+        castProgress.current = 0; // Reset after state change
+        
+        const baseSettle = frenzyActive.current ? 20 + Math.random() * 20 : perfectCastBonus.current ? 30 + Math.random() * 30 : 60 + Math.random() * 60;
+        baitSettleTimer.current = baseSettle; 
+        baitSettleTotal.current = baseSettle;
+        
+        if (perfectCastBonus.current && eventHandledRef.current !== 'perfect_cast') { 
+          eventHandledRef.current = 'perfect_cast'; 
+          addNotification('QUĂNG HOÀN HẢO! +20% Attraction', 'success'); 
+        }
       }
     }
 
-    if (gameState === GameState.WAITING) {
-      if (isSpacePressed.current) {
+    if (currentGS === GameState.WAITING) {
+      // BAIT ATTRACTION PULSE
+      // Every 0.5s, pull nearby fish towards the hook
+      if (frameCount.current % 30 === 0) {
+        const pulseRange = 350 + (currentBait.attraction / 8);
+        fishRef.current.forEach(f => {
+            if (f.state === 'wandering' || f.state === 'inspecting' || f.state === 'interested') {
+                const dx = hookX.current - f.x; const dy = hookY.current - f.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < pulseRange) {
+                    const pullForce = (1 - dist / pulseRange) * 0.015 * (currentBait.attraction / 450);
+                    f.velocity.x += dx * pullForce;
+                    f.velocity.y += dy * pullForce;
+                    if (f.state === 'wandering' && Math.random() < 0.1) f.state = 'inspecting';
+                }
+            }
+        });
+      }
+
+      // Manual reeling back: Added a check for baitSettleTimer to prevent accidental reeling 
+      // immediately after casting if Space is still held down.
+      if (isSpacePressed.current && baitSettleTimer.current < baitSettleTotal.current - 10) {
         const dx = rodEndX - hookX.current; const dy = rodEndY - hookY.current; const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 20) { hookX.current += (dx / dist) * 4.5; hookY.current += (dy / dist) * 4.5; if (frameCount.current % 15 === 0) createSplash(hookX.current, hookY.current, 0.3); }
-        else setGameState(GameState.IDLE);
-      } else hookY.current += Math.sin(frameCount.current * 0.1) * 0.3;
+        if (dist > 20) { 
+          hookX.current += (dx / dist) * 5.5; 
+          hookY.current += (dy / dist) * 5.5; 
+          if (frameCount.current % 15 === 0) createSplash(hookX.current, hookY.current, 0.3); 
+        }
+        else safeSetGameState(GameState.IDLE);
+      } else if (!isSpacePressed.current) {
+        hookY.current += Math.sin(frameCount.current * 0.1) * 0.3;
+      }
       if (baitSettleTimer.current > 0) baitSettleTimer.current--;
       if (isBossBite && bossStrikeTimer.current === 0 && !activeFish.current) {
           const dx = bossLurkingX.current - hookX.current; const dy = bossLurkingY.current - hookY.current; const distToHook = Math.sqrt(dx*dx + dy*dy);
@@ -1149,31 +1279,109 @@ export const useGameEngine = (props: GameEngineProps) => {
         const mouthX = f.x + Math.cos(f.angle) * f.type.size; const mouthY = f.y + Math.sin(f.angle) * f.type.size; const dx = mouthX - hookX.current; const dy = mouthY - hookY.current; return (dx*dx + dy*dy) < 20*20; 
       }) : null);
       if (collidingFish) {
+        // REASONABLE LOGIC: Use bait only when fish actually bites
+        onBaitConsumed();
+
+        // RESET Hardcore states
+        fightTimer.current = 0;
+        thrashActive.current = false;
+        lastThrashTime.current = 0;
+
         activeFish.current = collidingFish; nibbleSide.current = collidingFish.x < hookX.current ? -1 : 1; activeFish.current.angle = 0; activeFish.current.x = hookX.current + 35 * nibbleSide.current; activeFish.current.y = hookY.current + 2; lungeProgress.current = 0; lungeDelay.current = 20 + Math.random() * 30;
-        setGameState(GameState.NIBBLING); nibbleTimer.current = 30 + Math.random() * 40; nibbleCount.current = 0;
-        const rarity = collidingFish.type.rarity; let minN = 1, maxN = 3; if (isBossBite) { minN = 5; maxN = 8; } else if (rarity === Rarity.RARE) { minN = 2; maxN = 4; } else if (rarity === Rarity.EPIC) { minN = 3; maxN = 5; } else if (rarity === Rarity.LEGENDARY) { minN = 4; maxN = 6; } else if (rarity === Rarity.MYTHIC) { minN = 5; maxN = 8; }
-        targetNibbles.current = Math.floor(Math.random() * (maxN - minN + 1)) + minN; isBitingHard.current = false; soundManager.playBite();
+        safeSetGameState(GameState.NIBBLING); nibbleTimer.current = 25 + Math.random() * 30; nibbleCount.current = 0;
+        
+        // Smart AI: Higher rarity = more nibbles & faster teasing
+        const rarity = collidingFish.type.rarity; 
+        let minN = 1, maxN = 3; 
+        if (isBossBite) { minN = 5; maxN = 8; } 
+        else if (rarity === Rarity.RARE) { minN = 2; maxN = 4; } 
+        else if (rarity === Rarity.EPIC) { minN = 3; maxN = 5; } 
+        else if (rarity === Rarity.LEGENDARY) { minN = 4; maxN = 7; } 
+        else if (rarity === Rarity.MYTHIC) { minN = 6; maxN = 10; }
+        
+        targetNibbles.current = Math.floor(Math.random() * (maxN - minN + 1)) + minN; 
+        isBitingHard.current = false; 
+        soundManager.playBite();
+      } else {
+        // Idea 4: Spook Mechanic
+        // If user reels back too aggressively when fish are close, they get scared
+        const isReelingBack = isSpacePressed.current && baitSettleTimer.current < baitSettleTotal.current - 10;
+        if (isReelingBack) {
+            fishRef.current.forEach(f => {
+                if (f.state === 'interested' || f.state === 'inspecting') {
+                    const dx = f.x - hookX.current; const dy = f.y - hookY.current;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 150) {
+                        scareMeter.current[f.id] = (scareMeter.current[f.id] || 0) + 1.2 * dt;
+                        if (scareMeter.current[f.id] > 60) {
+                            f.state = 'scared';
+                            f.stateTimer = 120;
+                            addNotification(`Cá ${f.type.name} đã bị giật mình vì bạn kéo mồi quá mạnh!`, 'warning');
+                        }
+                    }
+                }
+            });
+        }
       }
     }
 
-    if (gameState === GameState.NIBBLING && activeFish.current) {
+    if (currentGS === GameState.NIBBLING && activeFish.current) {
         activeFish.current.angle = 0;
         if (isBitingHard.current) {
             activeFish.current.x = hookX.current; activeFish.current.y = hookY.current + 2;
-            biteWindowTimer.current -= dt; if (biteWindowTimer.current <= 0) { if (eventHandledRef.current === 'fish_lost_window') return; eventHandledRef.current = 'fish_lost_window'; createSplash(hookX.current, hookY.current, 1.0); onFishLost("Hụt rồi! Cá đã sổng mất."); activeFish.current = null; }
+            biteWindowTimer.current -= dt; 
+            
+            if (biteWindowTimer.current <= 0) { 
+                if (eventHandledRef.current === 'fish_lost_window') return; 
+                eventHandledRef.current = 'fish_lost_window'; 
+                createSplash(hookX.current, hookY.current, 1.2); 
+                
+                // Idea 1: Bait Stealing
+                addNotification("MỒI ĐÃ BỊ ĂN MẤT!", "warning");
+                onFishLost("Hụt rồi! Cá đã trộm mất mồi và bơi đi!"); 
+                activeFish.current = null; 
+            }
         } else {
             const side = nibbleSide.current; const retreatDist = 35 * side;
             if (lungeDelay.current > 0) { lungeDelay.current -= dt; activeFish.current.x = hookX.current + retreatDist; }
-            else { lungeProgress.current += 0.035 * dt; const lunge = Math.sin(lungeProgress.current * Math.PI); activeFish.current.x = hookX.current + retreatDist * (1 - lunge); if (lunge > 0.9) { hookX.current += (Math.random() - 0.5) * 0.8; if (frameCount.current % 10 === 0) createSplash(hookX.current, hookY.current, 0.4); } if (lungeProgress.current >= 1) { lungeProgress.current = 0; lungeDelay.current = 60 + Math.random() * 90; } }
+            else { 
+                lungeProgress.current += 0.045 * dt; // Faster lunges for rare fish
+                const lunge = Math.sin(lungeProgress.current * Math.PI); 
+                activeFish.current.x = hookX.current + retreatDist * (1 - lunge); 
+                if (lunge > 0.9) { 
+                    hookX.current += (Math.random() - 0.5) * 1.2; 
+                    if (frameCount.current % 8 === 0) createSplash(hookX.current, hookY.current, 0.5); 
+                } 
+                if (lungeProgress.current >= 1) { lungeProgress.current = 0; lungeDelay.current = 40 + Math.random() * 70; } 
+            }
             activeFish.current.y = hookY.current + 2;
-            nibbleTimer.current -= dt; if (nibbleTimer.current <= 0) { nibbleCount.current++; if (nibbleCount.current >= targetNibbles.current) { isBitingHard.current = true; biteWindowTimer.current = Math.max(40, 70 - (activeFish.current.type.tension / 6)); createSplash(hookX.current, hookY.current, 2.2); soundManager.playBite(); } else { nibbleTimer.current = 35 + Math.random() * 45; createSplash(hookX.current, hookY.current, 0.5); soundManager.playBite(); } }
+            
+            nibbleTimer.current -= dt; 
+            if (nibbleTimer.current <= 0) { 
+                nibbleCount.current++; 
+                if (nibbleCount.current >= targetNibbles.current) { 
+                    isBitingHard.current = true; 
+                    // Smart AI: Tighter windows for Legendary/Mythic
+                    const baseWindow = 65;
+                    const rarityPenalty = (activeFish.current.type.tension / 4);
+                    biteWindowTimer.current = Math.max(25, baseWindow - rarityPenalty); 
+                    
+                    createSplash(hookX.current, hookY.current, 2.5); 
+                    soundManager.playBite(); 
+                    shakeIntensity.current = 5;
+                } else { 
+                    nibbleTimer.current = 25 + Math.random() * 40; 
+                    createSplash(hookX.current, hookY.current, 0.6); 
+                    soundManager.playBite(); 
+                } 
+            }
         }
         hookX.current += (Math.random() - 0.5) * 0.8;
         Graphics.drawFishTexture(ctx, activeFish.current.type, frameCount.current, true, { x: activeFish.current.x, y: activeFish.current.y, angle: activeFish.current.angle, direction: -nibbleSide.current }, 0.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
         if (isBitingHard.current) { ctx.save(); ctx.font = 'bold 60px Arial'; ctx.fillStyle = '#ef4444'; ctx.textAlign = 'center'; ctx.shadowBlur = 20; ctx.shadowColor = 'white'; ctx.fillText('!', hookX.current, hookY.current - 50); ctx.restore(); }
     }
 
-    if (gameState === GameState.REELING && activeFish.current) {
+    if (currentGS === GameState.REELING && activeFish.current) {
       const fishBehavior = activeFish.current.type.behavior;
       if (fishBehavior && fishBehavior !== 'NORMAL') {
         behaviorTimer.current -= dt;
@@ -1192,7 +1400,44 @@ export const useGameEngine = (props: GameEngineProps) => {
       const tugX = Math.cos(activeFish.current.angle) * (tugFactor.current * 10); const tugY = Math.sin(activeFish.current.angle) * (tugFactor.current * 10);
       Graphics.drawFishTexture(ctx, activeFish.current.type, frameCount.current, true, { x: hookX.current - tugX, y: hookY.current - tugY - jumpOffsetY, angle: activeFish.current.angle, direction: 1 }, 2.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
 
-      const ft = activeFish.current.type.tension; let finalGravity = ((0.0004 + (ft / 180000)) / currentRod.control) * 3.5; let finalLift = 0.0014 * currentRod.control;
+      const ft = activeFish.current.type.tension; 
+      
+      // DURABILITY PENALTY: Rod performance scales with durability
+      const durabilityEffectiveness = 0.6 + (currentRod.durability / 100) * 0.4;
+      
+      // IDEA 5: FATIGUE / STAMINA
+      // Every 1 second of fighting increases difficulty by 1.5%
+      fightTimer.current += dt;
+      const fatigueFactor = 1 + (fightTimer.current / 60) * 0.015;
+      
+      let finalGravity = ((0.0008 + (ft / 160000)) / (currentRod.control * durabilityEffectiveness)) * 4.2 * fatigueFactor; 
+      let finalLift = ((0.0005 + (ft / 200000)) / (currentRod.lineStrength * durabilityEffectiveness)) * 3.8 / Math.sqrt(fatigueFactor);
+
+      // VFX: Screen Shake intensity scales with tension
+      if (Math.abs(tensionCursor.current - tensionZone.current) > 0.15) {
+          shakeIntensity.current = Math.max(shakeIntensity.current, Math.abs(tensionCursor.current - tensionZone.current) * 8);
+      }
+
+      // IDEA 3: FISH THRASHING
+      const fishRarity = activeFish.current.type.rarity;
+      if ([Rarity.RARE, Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC].includes(fishRarity)) {
+          if (fightTimer.current - lastThrashTime.current > (300 + Math.random() * 600)) {
+              thrashActive.current = true;
+              lastThrashTime.current = fightTimer.current;
+              soundManager.playClick();
+          }
+          if (thrashActive.current) {
+              const thrashDuration = 45 + (ft / 10);
+              if (fightTimer.current - lastThrashTime.current < thrashDuration) {
+                  tensionCursor.current += (Math.random() - 0.5) * (ft / 2000);
+                  shakeIntensity.current = Math.max(shakeIntensity.current, 12);
+                  if (frameCount.current % 5 === 0) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*50, y: hookY.current + (Math.random()-0.5)*50, size: 4, speed: 1.5, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8, life: 15, opacity: 1, color: '#ffffff', type: 'circle' });
+              } else {
+                  thrashActive.current = false;
+              }
+          }
+      }
+      
       if (isBehaviorActive.current) { if (behaviorType.current === 'dive') finalGravity += 0.006; if (behaviorType.current === 'thrash') tensionCursor.current += (Math.random() - 0.5) * 0.035; }
       const isBerserk = activeFish.current.type.canBerserk && reelingProgress.current > 80;
       if (isBerserk) { finalGravity *= 1.45; shakeIntensity.current = Math.max(shakeIntensity.current, 10); if (frameCount.current % 15 < 7) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*40, y: hookY.current + (Math.random()-0.5)*40, size: 3, speed: 0.5, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, life: 20, opacity: 1, color: '#ef4444', type: 'circle' }); }
@@ -1266,7 +1511,21 @@ export const useGameEngine = (props: GameEngineProps) => {
         if (frameCount.current % DURABILITY_CHECK_INTERVAL === 0) { onDurabilityChange('rod', 0.1 * dt); onDurabilityChange('tackle', 0.2 * dt); }
         if (frameCount.current % 5 === 0) vfxParticlesRef.current.push({ x: (rodEndX + hookX.current)/2, y: (rodEndY + hookY.current)/2, size: 2, speed: 1, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 15, opacity: 0.8, color: '#ef4444', type: 'circle' });
       }
-      if (reelingProgress.current >= 100) { setGameState(GameState.CAUGHT); isJumping.current = true; jumpProgress.current = 0; createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']); onDurabilityChange('rod', 0.5); onDurabilityChange('tackle', 1.0); }      
+      if (reelingProgress.current >= 100) { 
+          setGameState(GameState.CAUGHT); 
+          isJumping.current = true; 
+          jumpProgress.current = 0; 
+          createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']); 
+          onDurabilityChange('rod', 0.5); 
+          onDurabilityChange('tackle', 1.0);
+          
+          // Slow motion for rare fish
+          if (rarity === Rarity.LEGENDARY || rarity === Rarity.MYTHIC) {
+              slowMotionFactor.current = 0.2;
+              vfxFlash.current = 1.0;
+              shakeIntensity.current = 15;
+          }
+      }      
       if (lineHealth.current <= 0) {
         soundManager.playError();
         const rodLimit = currentRod.maxValue || 500;
@@ -1275,8 +1534,10 @@ export const useGameEngine = (props: GameEngineProps) => {
         // LOGIC FIX: Check rod break first. If fish is bigger than rod's max value, rod snaps.
         if (fishValue > rodLimit) {
           onRodBroken();
+          onFishLost("Cần câu đã gãy vì cá quá nặng!");
         } else if (fishValue > lineLimit) {
           onLineBroken();
+          onFishLost("Thẻo bị đứt vì cá quá to!");
         } else {
           onFishLost("Dây câu đã đứt do quá căng!");
         }
@@ -1297,6 +1558,9 @@ export const useGameEngine = (props: GameEngineProps) => {
           const caughtType = activeFish.current.type; const caughtId = activeFish.current.id; const isGolden = activeFish.current.isGolden;
           createSparkles(80, 150, isGolden ? 60 : 30, ['#fbbf24', '#f59e0b', '#ffffff']);
           fishRef.current = fishRef.current.filter(f => f.id !== caughtId); onFishCaught(caughtType, isGolden); activeFish.current = null; isJumping.current = false; fishRef.current.push(spawnSingleFish());
+          
+          // Restore slow motion
+          slowMotionFactor.current = 1.0;
         }
       }
     }
@@ -1441,8 +1705,7 @@ export const useGameEngine = (props: GameEngineProps) => {
       ctx.translate(bossX.current, bossY.current); 
       ctx.rotate(bossAngle.current);
       if (isStunned) {
-        ctx.translate((Math.random()-0.5)*5, (Math.random()-0.5)*5);
-        ctx.filter = 'brightness(1.5) sepia(0.5)';
+        ctx.translate((Math.random()-0.5)*8, (Math.random()-0.5)*8); // Increased shake
       }
       
       const bossSize = 1.8 + (isEnraged ? 0.4 : 0); 
@@ -1471,6 +1734,25 @@ export const useGameEngine = (props: GameEngineProps) => {
 
           addNotification("CHIẾN THẮNG BOSS HUYỀN THOẠI!", 'success');
           setIsBossSpawned(false);
+          
+          // Ensure we have an active fish for the CAUGHT state to process
+          if (!activeFish.current) {
+              activeFish.current = { 
+                id: 'boss_dummy', 
+                type: { 
+                  name: location === 'OCEAN' ? 'KRAKEN VỰC THẲM' : (location === 'CAVE' ? 'BẠCH TUỘC MA' : 'CÁ MẬP CƠ KHÍ'), 
+                  value: 5000, 
+                  weight: 9999, 
+                  rarity: Rarity.MYTHIC, 
+                  size: 100, 
+                  speed: 5.0, 
+                  description: 'Boss huyền thoại', 
+                  color: location === 'OCEAN' ? '#4c1d95' : (location === 'CAVE' ? '#e0f2fe' : '#475569'), 
+                  tension: 90 
+                } 
+              } as any;
+          }
+          
           setGameState(GameState.CAUGHT);
           isJumping.current = true;
           jumpProgress.current = 0;
@@ -1658,6 +1940,8 @@ export const useGameEngine = (props: GameEngineProps) => {
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); window.removeEventListener('blur', handleBlur); };
   }, [handleKeyDown, handleKeyUp]);
 
+
+
   useEffect(() => {
     if (gameState === GameState.BOSS_FIGHT) {
       playerHP.current = 100; playerMaxHP.current = 100;
@@ -1681,7 +1965,7 @@ export const useGameEngine = (props: GameEngineProps) => {
     
     const canvas = canvasRef.current; if (!canvas) return;
     // Enable willReadFrequently for better performance on mobile
-    const ctx = canvas.getContext('2d', { willReadFrequently: false, alpha: false }) as CanvasRenderingContext2D | null;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D | null;
     if (!ctx) return;
     let animId: number;
     let running = true;

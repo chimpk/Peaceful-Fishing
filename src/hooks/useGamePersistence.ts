@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { saveGame, loadGame } from '../core/systems/persistence';
 import { RODS, TACKLES, BAITS, INITIAL_ACHIEVEMENTS, generateDailyQuests, FISH_TYPES } from '../core/data/gameData';
+import { Rarity } from '../types';
 
 export const useGamePersistence = (
   isDataLoaded: boolean,
@@ -83,12 +84,12 @@ export const useGamePersistence = (
           const effectiveDelta = Math.min(deltaMs, maxDelta);
 
           const rarityIncome: Record<string, number> = {
-              ['PHỔ THÔNG']: 20,
-              ['KHÔNG PHỔ BIẾN']: 60,
-              ['HIẾM']: 200,
-              ['SỬ THI']: 600,
-              ['HUYỀN THOẠI']: 2000,
-              ['THẦN THOẠI']: 10000
+              [Rarity.COMMON]: 20,
+              [Rarity.UNCOMMON]: 60,
+              [Rarity.RARE]: 200,
+              [Rarity.EPIC]: 600,
+              [Rarity.LEGENDARY]: 2000,
+              [Rarity.MYTHIC]: 10000
           };
 
           let hourlyRate = 0;
@@ -129,14 +130,16 @@ export const useGamePersistence = (
           });
         }
       }
+      if (data.rodDurabilities) settings.setRodDurabilities(data.rodDurabilities);
+      if (data.tackleDurabilities) settings.setTackleDurabilities(data.tackleDurabilities);
       if (data.currentBaitId) {
         const bait = BAITS.find(b => b.id === data.currentBaitId);
         if (bait) settings.setCurrentBait(bait);
       }
       if (data.ownedTackles) settings.setOwnedTackles(data.ownedTackles);
     } else {
-      state.setGold(1500);
-      state.setStats((s: any) => ({ ...s, totalGoldEarned: 1500 }));
+      state.setGold(500);
+      state.setStats((s: any) => ({ ...s, totalGoldEarned: 500 }));
       state.setQuests(generateDailyQuests());
       state.setLastQuestReset(Date.now());
       const fishNames = FISH_TYPES.map(f => f.name);
@@ -170,6 +173,8 @@ export const useGamePersistence = (
       currentTackleId: settings.currentTackle.id,
       currentTackleDurability: settings.currentTackle.durability,
       currentBaitId: settings.currentBait.id,
+      rodDurabilities: settings.rodDurabilities,
+      tackleDurabilities: settings.tackleDurabilities,
       unlockedFish: state.unlockedFish,
       skills: state.skills,
       dailyMarketBoosts: state.dailyMarketBoosts,

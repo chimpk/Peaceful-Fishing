@@ -106,7 +106,9 @@ export interface BaitType {
   rarityBoost: number;
   rarityText: string;
   count?: number;
-  category: 'NATURAL' | 'SEA';
+  category: 'NATURAL' | 'SEA' | 'SPECIAL';
+  minLevel?: number;
+  requiredLocation?: LocationType;
 }
 
 export interface FishInstance {
@@ -164,8 +166,10 @@ export interface Quest {
   rewardGold: number;
   rewardBaitId?: string;
   rewardBaitCount?: number;
-  type: 'CATCH_TOTAL' | 'CATCH_SPECIFIC' | 'EARN_GOLD';
+  type: 'CATCH_TOTAL' | 'CATCH_SPECIFIC' | 'EARN_GOLD' | 'CATCH_RARITY' | 'CATCH_TREASURE' | 'CATCH_GOLDEN' | 'LOCATION_CATCH';
   fishTarget?: string;
+  rarityTarget?: Rarity;
+  locationTarget?: LocationType;
 }
 
 export interface PlayerSkills {

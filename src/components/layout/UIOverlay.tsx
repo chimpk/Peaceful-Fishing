@@ -64,6 +64,18 @@ interface UIOverlayProps {
   autoSellJunk: boolean;
   setAutoSellJunk: (v: boolean) => void;
   calculateHourlyRate: () => number;
+  settings: {
+    masterVolume: number;
+    musicVolume: number;
+    sfxVolume: number;
+    vfxEnabled: boolean;
+  };
+  setSettings: React.Dispatch<React.SetStateAction<{
+    masterVolume: number;
+    musicVolume: number;
+    sfxVolume: number;
+    vfxEnabled: boolean;
+  }>>;
 }
 
 const UIOverlay: React.FC<UIOverlayProps> = (props) => {

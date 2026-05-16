@@ -3,6 +3,8 @@ import { Rarity, FishType } from '../../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../data/gameData';
 import { drawFishByModel } from '../entities/index';
 
+let cachedRareGrad: { key: string, grad: CanvasGradient } | null = null;
+
 export const drawRareDetectionFlash = (ctx: CanvasRenderingContext2D, rarity: Rarity, frameCount: number) => {
   const pulse = (Math.sin(frameCount * 0.05) + 1) / 2;
   const opacity = 0.05 + pulse * 0.15;
@@ -10,11 +12,21 @@ export const drawRareDetectionFlash = (ctx: CanvasRenderingContext2D, rarity: Ra
   if (rarity === Rarity.EPIC) baseColor = '168, 85, 247';
   if (rarity === Rarity.LEGENDARY) baseColor = '251, 191, 36';
   if (rarity === Rarity.MYTHIC) baseColor = '239, 68, 68';
+  
   ctx.save();
-  const gradient = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 100, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.8);
-  gradient.addColorStop(0, 'rgba(0,0,0,0)');
-  gradient.addColorStop(1, `rgba(${baseColor}, ${opacity})`);
-  ctx.fillStyle = gradient; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); ctx.restore();
+  // Optimization: Reuse gradient object if possible (rarely changes size)
+  const gradKey = `${CANVAS_WIDTH}-${CANVAS_HEIGHT}-${baseColor}`;
+  if (!cachedRareGrad || cachedRareGrad.key !== gradKey) {
+    const gradient = ctx.createRadialGradient(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, 100, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, CANVAS_WIDTH * 0.8);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, `rgba(${baseColor}, 1)`); // Color without alpha for reuse
+    cachedRareGrad = { key: gradKey, grad: gradient };
+  }
+  
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = cachedRareGrad.grad; 
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT); 
+  ctx.restore();
 };
 
 export const drawAlert = (ctx: CanvasRenderingContext2D, x: number, y: number, rarity: Rarity, frameCount: number) => {
@@ -60,7 +72,8 @@ export const drawFishTexture = (
   if (isCaught || isGolden) {
     // Golden Fish Aura: Radiant sparkles and pulse
     const auraPulse = 0.6 + Math.sin(frameCount * 0.1) * 0.4;
-    ctx.shadowBlur = isGolden ? (35 + auraPulse * 20) : 30;
+    // Optimization: Reduced shadowBlur for performance
+    ctx.shadowBlur = isGolden ? (20 + auraPulse * 15) : 15;
     ctx.shadowColor = '#fbbf24';
     
     ctx.save();
@@ -89,11 +102,16 @@ export const drawFishTexture = (
     ctx.restore();
   } else {
     if (rarity === Rarity.MYTHIC || rarity === Rarity.LEGENDARY) {
-        ctx.shadowBlur = Math.min(size * (rarity === Rarity.MYTHIC ? 1.2 : 0.8), 80);
+        // Optimization: Cap shadowBlur to a lower value
+        ctx.shadowBlur = Math.min(size * (rarity === Rarity.MYTHIC ? 0.8 : 0.5), 35);
         ctx.shadowColor = rarity === Rarity.MYTHIC ? '#ff0000' : '#fbbf24';
     } else if (rarity === Rarity.EPIC) {
-        ctx.shadowBlur = Math.min(size * 0.5, 40);
-        ctx.shadowColor = '#a855f7';
+        // Optimization: Use a simple glow fill instead of shadowBlur for Epic
+        ctx.save();
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath(); ctx.arc(0, 0, size * 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
     }
   }
 

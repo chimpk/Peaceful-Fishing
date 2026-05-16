@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import Header from '../layout/Header';
 import BottomNav from '../layout/BottomNav';
-import { UIView, RodType, TackleType, BaitType, Quest, InventoryItem, FishType, ProfileStats } from '../../types';
-import { RODS, TACKLES, NATURAL_BAITS, SEA_BAITS } from '../../core/data/gameData';
+import { UIView, RodType, TackleType, BaitType, Quest, InventoryItem, FishType, ProfileStats, Rarity } from '../../types';
+import { RODS, TACKLES, NATURAL_BAITS, SEA_BAITS, SPECIAL_BAITS } from '../../core/data/gameData';
 import { soundManager } from '../../core/systems/soundManager';
 
 interface ShopViewProps {
@@ -104,46 +104,113 @@ const ShopView: React.FC<ShopViewProps> = ({
               <>
                 <div className="text-[10px] text-blue-400 font-black tracking-widest uppercase opacity-60 mb-2 px-2">MỒI CÂU TỰ NHIÊN</div>
                 <div className="grid grid-cols-1 gap-4 mb-8">
-                  {NATURAL_BAITS.map(bait => (
-                    <div key={bait.id} className="relative bg-slate-900/60 p-6 rounded-[2.5rem] border border-white/5 flex gap-6 items-center group overflow-hidden transition-all hover:border-white/10">
+                  {NATURAL_BAITS.map(bait => {
+                    const isLocked = (bait.minLevel || 1) > playerLevel;
+                    return (
+                    <div key={bait.id} className={`relative bg-slate-900/60 p-6 rounded-[2.5rem] border flex gap-6 items-center group overflow-hidden transition-all ${isLocked ? 'border-white/5 opacity-60 grayscale' : 'border-white/5 hover:border-white/10'}`}>
                       <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl group-hover:bg-green-500/10 transition-all"></div>
                       <div className="w-20 h-20 bg-green-500/10 rounded-3xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0 shadow-inner animate-float">🪱</div>
                       <div className="flex-1 relative z-10">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-black italic text-lg tracking-tight text-white/90">{bait.name}</h4>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[8px] font-black bg-green-900/40 text-green-400 px-2 py-0.5 rounded-full border border-green-500/20">{bait.rarityText}</span>
+                              {bait.price > 0 && (
+                                <span className="text-[7px] font-black opacity-60 uppercase tracking-widest text-slate-400">CÓ: {baitCounts[bait.id] || 0}</span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-[9px] text-slate-500 mb-4 font-medium leading-relaxed">{bait.description}</p>
-                          <button onClick={() => { soundManager.playClick(); buyItem(bait, 'bait'); }} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
-                            MUA x10 ({bait.price.toLocaleString()} 💰)
-                          </button>
-                      </div>
-                      <div className="absolute top-4 right-4 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black border border-white/10 shadow-2xl">
-                          CÓ: {baitCounts[bait.id] || 0}
+                          {isLocked ? (
+                            <div className="w-full py-3 bg-slate-800 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-center border border-white/5">
+                              KHÓA: CẤP {bait.minLevel} 🔒
+                            </div>
+                          ) : bait.price === 0 ? (
+                            <button onClick={() => { soundManager.playClick(); handleSelect(bait, 'bait'); }} className="w-full py-3 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-blue-500 transition-all shadow-lg active:scale-95">
+                              CHỌN LÀM MỒI 🎣
+                            </button>
+                          ) : (
+                            <button onClick={() => { soundManager.playClick(); buyItem(bait, 'bait'); }} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
+                              MUA x10 ({bait.price.toLocaleString()} 💰)
+                            </button>
+                          )}
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
 
                 <div className="text-[10px] text-blue-400 font-black tracking-widest uppercase opacity-60 mb-2 px-2">MỒI CÂU BIỂN</div>
-                <div className="grid grid-cols-1 gap-4">
-                  {SEA_BAITS.map(bait => (
-                    <div key={bait.id} className="relative bg-slate-900/60 p-6 rounded-[2.5rem] border border-white/5 flex gap-6 items-center group overflow-hidden transition-all hover:border-white/10">
+                <div className="grid grid-cols-1 gap-4 mb-8">
+                  {SEA_BAITS.map(bait => {
+                    const isLocked = (bait.minLevel || 1) > playerLevel;
+                    return (
+                    <div key={bait.id} className={`relative bg-slate-900/60 p-6 rounded-[2.5rem] border flex gap-6 items-center group overflow-hidden transition-all ${isLocked ? 'border-white/5 opacity-60 grayscale' : 'border-white/5 hover:border-white/10'}`}>
                       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl group-hover:bg-blue-600/10 transition-all"></div>
                       <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0 shadow-inner animate-float">🦐</div>
                       <div className="flex-1 relative z-10">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-black italic text-lg tracking-tight text-white/90">{bait.name}</h4>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[8px] font-black bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20">{bait.rarityText}</span>
+                              {bait.price > 0 && (
+                                <span className="text-[7px] font-black opacity-60 uppercase tracking-widest text-slate-400">CÓ: {baitCounts[bait.id] || 0}</span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-[9px] text-slate-500 mb-4 font-medium leading-relaxed">{bait.description}</p>
-                          <button onClick={() => { soundManager.playClick(); buyItem(bait, 'bait'); }} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
-                            MUA x10 ({bait.price.toLocaleString()} 💰)
-                          </button>
-                      </div>
-                      <div className="absolute top-4 right-4 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black border border-white/10 shadow-2xl">
-                          CÓ: {baitCounts[bait.id] || 0}
+                          {isLocked ? (
+                            <div className="w-full py-3 bg-slate-800 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-center border border-white/5">
+                              KHÓA: CẤP {bait.minLevel} 🔒
+                            </div>
+                          ) : bait.price === 0 ? (
+                            <button onClick={() => { soundManager.playClick(); handleSelect(bait, 'bait'); }} className="w-full py-3 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-blue-500 transition-all shadow-lg active:scale-95">
+                              CHỌN LÀM MỒI 🎣
+                            </button>
+                          ) : (
+                            <button onClick={() => { soundManager.playClick(); buyItem(bait, 'bait'); }} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
+                              MUA x10 ({bait.price.toLocaleString()} 💰)
+                            </button>
+                          )}
                       </div>
                     </div>
-                  ))}
+                  )})}
+                </div>
+
+                <div className="text-[10px] text-purple-400 font-black tracking-widest uppercase opacity-60 mb-2 px-2">MỒI CÂU ĐẶC BIỆT & GIẢ</div>
+                <div className="grid grid-cols-1 gap-4">
+                  {SPECIAL_BAITS.map(bait => {
+                    const isLocked = (bait.minLevel || 1) > playerLevel;
+                    return (
+                    <div key={bait.id} className={`relative bg-slate-900/60 p-6 rounded-[2.5rem] border flex gap-6 items-center group overflow-hidden transition-all ${isLocked ? 'border-white/5 opacity-60 grayscale' : 'border-white/5 hover:border-white/10'}`}>
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl group-hover:bg-purple-600/10 transition-all"></div>
+                      <div className="w-20 h-20 bg-purple-500/10 rounded-3xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0 shadow-inner animate-float">✨</div>
+                      <div className="flex-1 relative z-10">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-black italic text-lg tracking-tight text-white/90">{bait.name}</h4>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-[8px] font-black bg-purple-900/40 text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/20">{bait.rarityText}</span>
+                              {bait.price > 0 && (
+                                <span className="text-[7px] font-black opacity-60 uppercase tracking-widest text-slate-400">CÓ: {baitCounts[bait.id] || 0}</span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-[9px] text-slate-500 mb-4 font-medium leading-relaxed">{bait.description}</p>
+                          {isLocked ? (
+                            <div className="w-full py-3 bg-slate-800 text-slate-500 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] text-center border border-white/5">
+                              KHÓA: CẤP {bait.minLevel} 🔒
+                            </div>
+                          ) : bait.price === 0 ? (
+                            <button onClick={() => { soundManager.playClick(); handleSelect(bait, 'bait'); }} className="w-full py-3 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-blue-500 transition-all shadow-lg active:scale-95">
+                              CHỌN LÀM MỒI 🎣
+                            </button>
+                          ) : (
+                            <button onClick={() => { soundManager.playClick(); buyItem(bait, 'bait'); }} className="w-full py-3 bg-yellow-500 text-black rounded-xl text-[9px] font-black uppercase tracking-[0.2em] hover:bg-yellow-400 transition-all shadow-lg active:scale-95">
+                              MUA x{bait.count || 10} ({bait.price.toLocaleString()} 💰)
+                            </button>
+                          )}
+                      </div>
+                    </div>
+                  )})}
                 </div>
               </>
             )}
@@ -171,7 +238,7 @@ const ShopView: React.FC<ShopViewProps> = ({
                        <span className="text-slate-400">Túi đồ trống. Hãy câu thêm cá!</span>
                      </div>
                    ) : (
-                     inventory.slice(0, 12).map(item => {
+                     inventory.filter(i => i.fish.rarity !== Rarity.JUNK).slice(0, 12).map(item => {
                        const isEquipped = liveBait?.name === item.fish.name;
                        const rarityColorMap: Record<string, string> = {
                          'RÁC': 'border-slate-600/30 bg-slate-800/40',

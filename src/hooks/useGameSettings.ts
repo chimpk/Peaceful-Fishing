@@ -22,25 +22,25 @@ export const useGameSettings = (gold: number, setGold: React.Dispatch<React.SetS
 
   const handleDurabilityChange = useCallback((type: 'rod' | 'tackle', amount: number) => {
     if (type === 'rod') {
-        setCurrentRod(prev => {
-            const nextDur = Math.max(0, (prev.durability || 100) - amount);
-            if (nextDur <= 0 && prev.durability! > 0) {
-                addNotification(`Cần câu ${prev.name} đã hỏng! Hãy đi sửa chữa.`, 'warning');
-            }
-            setRodDurabilities(d => ({ ...d, [prev.id]: nextDur }));
-            return { ...prev, durability: nextDur };
-        });
+      const nextDur = Math.max(0, (currentRod.durability ?? 100) - amount);
+      if (nextDur !== currentRod.durability) {
+        setCurrentRod(prev => ({ ...prev, durability: nextDur }));
+        setRodDurabilities(d => ({ ...d, [currentRod.id]: nextDur }));
+        if (nextDur <= 0 && (currentRod.durability ?? 0) > 0) {
+            addNotification(`Cần câu ${currentRod.name} đã hỏng! Hãy đi sửa chữa.`, 'warning');
+        }
+      }
     } else {
-        setCurrentTackle(prev => {
-            const nextDur = Math.max(0, (prev.durability || 30) - amount);
-            if (nextDur <= 0 && prev.durability! > 0) {
-                addNotification(`Thẻo ${prev.name} đã hỏng! Hãy đi sửa chữa.`, 'warning');
-            }
-            setTackleDurabilities(d => ({ ...d, [prev.id]: nextDur }));
-            return { ...prev, durability: nextDur };
-        });
+      const nextDur = Math.max(0, (currentTackle.durability ?? 30) - amount);
+      if (nextDur !== currentTackle.durability) {
+        setCurrentTackle(prev => ({ ...prev, durability: nextDur }));
+        setTackleDurabilities(d => ({ ...d, [currentTackle.id]: nextDur }));
+        if (nextDur <= 0 && (currentTackle.durability ?? 0) > 0) {
+            addNotification(`Thẻo ${currentTackle.name} đã hỏng! Hãy đi sửa chữa.`, 'warning');
+        }
+      }
     }
-  }, [addNotification]);
+  }, [currentRod, currentTackle, addNotification]);
 
   const handleRepair = useCallback((type: 'rod' | 'tackle') => {
     if (type === 'rod') {
@@ -146,15 +146,23 @@ export const useGameSettings = (gold: number, setGold: React.Dispatch<React.SetS
     }
   }, [gold, setGold, addNotification, ownedRods, ownedTackles]);
 
-  const handleCast = useCallback(() => {
-    if (liveBait) return; 
-
+  const useBait = useCallback(() => {
+    if (liveBait) {
+      setLiveBait(null);
+      return;
+    }
     setBaitCounts(prev => {
       const currentCount = prev[currentBait.id] || 0;
-    if (currentCount <= 0 || currentBait.price === 0) return prev;
-    return { ...prev, [currentBait.id]: currentCount - 1 };
+      if (currentCount <= 0 || currentBait.price === 0) return prev;
+      return { ...prev, [currentBait.id]: currentCount - 1 };
     });
   }, [currentBait.id, liveBait]);
+
+  const handleCast = useCallback(() => {
+    // NERF: Casting now reduces durability slightly (1 per cast)
+    handleDurabilityChange('rod', 1);
+    handleDurabilityChange('tackle', 2);
+  }, [handleDurabilityChange]);
 
   return {
     currentRod, setCurrentRod,
@@ -164,10 +172,13 @@ export const useGameSettings = (gold: number, setGold: React.Dispatch<React.SetS
     ownedTackles, setOwnedTackles,
     baitCounts, setBaitCounts,
     liveBait, setLiveBait,
+    rodDurabilities, setRodDurabilities,
+    tackleDurabilities, setTackleDurabilities,
     handleDurabilityChange,
     handleRepair,
     handleSelect,
     buyItem,
-    handleCast
+    handleCast,
+    useBait
   };
 };

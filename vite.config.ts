@@ -19,6 +19,24 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        chunkSizeWarningLimit: 1000,
+        rollupOptions: {
+          output: {
+            manualChunks(id) {
+              if (id.includes('node_modules')) {
+                return 'vendor';
+              }
+              if (id.includes('/src/core/')) {
+                return 'game-core';
+              }
+              if (id.includes('/src/components/views/')) {
+                return 'game-views';
+              }
+            }
+          }
+        }
       }
     };
 });

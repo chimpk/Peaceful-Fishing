@@ -43,6 +43,18 @@ interface GameViewProps {
   claimDailyReward?: () => void;
   onOpenShowroom: () => void;
   isMobile?: boolean;
+  settings: {
+    masterVolume: number;
+    musicVolume: number;
+    sfxVolume: number;
+    vfxEnabled: boolean;
+  };
+  setSettings: React.Dispatch<React.SetStateAction<{
+    masterVolume: number;
+    musicVolume: number;
+    sfxVolume: number;
+    vfxEnabled: boolean;
+  }>>;
 }
 
 const GameView: React.FC<GameViewProps> = ({ 
@@ -50,9 +62,11 @@ const GameView: React.FC<GameViewProps> = ({
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
   notifications, epicCatch, quests, startGame, startCompetition, setLocation,
   setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait, handleSelect, ownedRods, ownedTackles,
-  levelData, handleRepair, onOpenShop, dailyMarketBoosts, stats, claimDailyReward, onOpenShowroom, isMobile
+  levelData, handleRepair, onOpenShop, dailyMarketBoosts, stats, claimDailyReward, onOpenShowroom, isMobile,
+  settings, setSettings
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [isGearExpanded, setIsGearExpanded] = useState(false);
   const [showSpacePrompt, setShowSpacePrompt] = useState(true);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -102,7 +116,15 @@ const GameView: React.FC<GameViewProps> = ({
   };
 
   const cycleBait = () => {
-    const availableBaits = BAITS.filter(b => (baitCounts[b.id] || 0) > 0);
+    const playerLevel = levelData.level;
+    const availableBaits = BAITS.filter(b => {
+      const isFree = b.price === 0;
+      const hasCount = (baitCounts[b.id] || 0) > 0;
+      const isLevelOk = (b.minLevel || 1) <= playerLevel;
+      const isLocationOk = !b.requiredLocation || b.requiredLocation === location;
+      return (isFree || hasCount) && isLevelOk && isLocationOk;
+    });
+    
     if (availableBaits.length <= 1) return;
     const currentIndex = availableBaits.findIndex(b => b.id === currentBait.id);
     const nextIndex = (currentIndex + 1) % availableBaits.length;
@@ -265,12 +287,17 @@ const GameView: React.FC<GameViewProps> = ({
 
             {/* Right Side: Gold, Inventory */}
             <div className="flex flex-col items-end gap-2 pointer-events-auto">
-              <div className="bg-slate-950/60 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 shadow-2xl">
-                <div className="text-right">
-                  <div className="text-[8px] text-yellow-500 font-black tracking-widest uppercase leading-none">VÀNG</div>
-                  <div className="text-xl font-black text-white">{gold.toLocaleString()}</div>
+              <div className="flex items-center gap-2">
+                <div className="bg-slate-950/60 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/10 flex items-center gap-3 shadow-2xl">
+                  <div className="text-right">
+                    <div className="text-[8px] text-yellow-500 font-black tracking-widest uppercase leading-none">VÀNG</div>
+                    <div className="text-xl font-black text-white">{gold.toLocaleString()}</div>
+                  </div>
+                  <span className="text-xl">💰</span>
                 </div>
-                <span className="text-xl">💰</span>
+                <button onClick={() => { soundManager.playClick(); setShowSettings(true); }} className="w-10 h-10 bg-slate-950/60 hover:bg-slate-800 glass-panel rounded-xl border border-white/10 flex items-center justify-center text-white transition-all group shadow-2xl">
+                  <span className="text-xl group-hover:rotate-90 transition-transform duration-500">⚙️</span>
+                </button>
               </div>
 
               <div className="flex gap-3 mt-1 pointer-events-auto">
@@ -421,7 +448,7 @@ const GameView: React.FC<GameViewProps> = ({
                  ) : (
                    <>
                      <div className="w-10 h-10 bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">🪱</div>
-                     <div onClick={(e) => { e.stopPropagation(); soundManager.playClick(); cycleBait(); }} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 active:scale-90 transition-all text-[7px] font-black px-1.5 py-1 rounded-full cursor-pointer shadow-lg border border-white/10">x{baitCounts[currentBait.id] || 0}</div>
+                     <div onClick={(e) => { e.stopPropagation(); soundManager.playClick(); cycleBait(); }} className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 active:scale-90 transition-all text-[7px] font-black px-1.5 py-1 rounded-full cursor-pointer shadow-lg border border-white/10">{currentBait.price === 0 ? '∞' : `x${baitCounts[currentBait.id] || 0}`}</div>
                      {isGearExpanded && (
                        <div className="flex flex-col animate-in fade-in slide-in-from-left-2 duration-300">
                          <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest">MỒI CÂU</span>
@@ -433,9 +460,18 @@ const GameView: React.FC<GameViewProps> = ({
                </div>
                {showBaitDropdown && !liveBait && (
                  <div className="absolute top-full left-0 mt-2 w-40 bg-slate-950/95 border border-white/10 rounded-xl p-1 shadow-2xl z-50">
-                   {BAITS.filter(b => (baitCounts[b.id] || 0) > 0).map(bait => (
+                                       {BAITS.filter(b => {
+                      const isFree = b.price === 0;
+                      const hasCount = (baitCounts[b.id] || 0) > 0;
+                      const isLevelOk = (b.minLevel || 1) <= levelData.level;
+                      const isLocationOk = !b.requiredLocation || b.requiredLocation === location;
+                      return (isFree || hasCount) && isLevelOk && isLocationOk;
+                    }).map(bait => (
                      <button key={bait.id} onClick={() => { soundManager.playClick(); handleSelect(bait, 'bait'); setShowBaitDropdown(false); }} className="w-full text-left p-2 hover:bg-white/10 rounded text-[10px] font-black">
-                       {bait.name} (x{baitCounts[bait.id] || 0})
+                       <span>{bait.name}</span>
+                        <span className="text-[8px] opacity-60 bg-white/5 px-1.5 py-0.5 rounded group-hover/item:opacity-100">
+                          {bait.price === 0 ? '∞' : `x${baitCounts[bait.id] || 0}`}
+                        </span>
                      </button>
                    ))}
                  </div>
@@ -551,6 +587,100 @@ const GameView: React.FC<GameViewProps> = ({
                </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Settings Overlay */}
+      {showSettings && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md z-[500] flex items-center justify-center p-6 pointer-events-auto animate-in fade-in duration-300">
+           <div className="bg-slate-900 border border-white/10 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden">
+              {/* Background Glow */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-blue-600/20 blur-[60px] -z-10"></div>
+              
+              <div className="flex justify-between items-center mb-8">
+                 <h2 className="text-xl font-black text-blue-400 tracking-tighter uppercase">⚙️ CÀI ĐẶT HỆ THỐNG</h2>
+                 <button onClick={() => { soundManager.playClick(); setShowSettings(false); }} className="text-slate-500 hover:text-white transition-colors">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                 </button>
+              </div>
+
+              <div className="flex flex-col gap-8">
+                 {/* Audio Section */}
+                 <div className="space-y-6">
+                    <div className="flex items-center gap-2 mb-2">
+                       <span className="text-blue-400">🔊</span>
+                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Âm Thanh</span>
+                    </div>
+
+                    <div className="space-y-4">
+                       <div className="space-y-2">
+                          <div className="flex justify-between text-[9px] font-black uppercase">
+                             <span>Âm lượng tổng</span>
+                             <span className="text-blue-400">{Math.round(settings.masterVolume * 100)}%</span>
+                          </div>
+                          <input 
+                             type="range" min="0" max="1" step="0.01" 
+                             value={settings.masterVolume}
+                             onChange={(e) => setSettings(prev => ({ ...prev, masterVolume: parseFloat(e.target.value) }))}
+                             className="w-full h-1.5 bg-slate-800 rounded-full appearance-none cursor-pointer accent-blue-500"
+                          />
+                       </div>
+
+                       <div className="space-y-2">
+                          <div className="flex justify-between text-[9px] font-black uppercase text-slate-400">
+                             <span>Nhạc nền</span>
+                             <span>{Math.round(settings.musicVolume * 100)}%</span>
+                          </div>
+                          <input 
+                             type="range" min="0" max="1" step="0.01" 
+                             value={settings.musicVolume}
+                             onChange={(e) => setSettings(prev => ({ ...prev, musicVolume: parseFloat(e.target.value) }))}
+                             className="w-full h-1 bg-slate-800 rounded-full appearance-none cursor-pointer accent-slate-400"
+                          />
+                       </div>
+
+                       <div className="space-y-2">
+                          <div className="flex justify-between text-[9px] font-black uppercase text-slate-400">
+                             <span>Hiệu ứng (SFX)</span>
+                             <span>{Math.round(settings.sfxVolume * 100)}%</span>
+                          </div>
+                          <input 
+                             type="range" min="0" max="1" step="0.01" 
+                             value={settings.sfxVolume}
+                             onChange={(e) => setSettings(prev => ({ ...prev, sfxVolume: parseFloat(e.target.value) }))}
+                             className="w-full h-1 bg-slate-800 rounded-full appearance-none cursor-pointer accent-slate-400"
+                          />
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Graphics Section */}
+                 <div className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                       <span className="text-blue-400">✨</span>
+                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đồ họa & Hiệu ứng</span>
+                    </div>
+
+                    <div className="flex justify-between items-center p-3 bg-slate-950/40 rounded-2xl border border-white/5">
+                       <span className="text-[10px] font-black uppercase">Hiệu ứng hạt (VFX)</span>
+                       <button 
+                          onClick={() => setSettings(prev => ({ ...prev, vfxEnabled: !prev.vfxEnabled }))}
+                          className={`w-10 h-5 rounded-full relative transition-colors ${settings.vfxEnabled ? 'bg-blue-600' : 'bg-slate-700'}`}
+                       >
+                          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${settings.vfxEnabled ? 'left-6' : 'left-1'}`}></div>
+                       </button>
+                    </div>
+                 </div>
+
+                 <button 
+                    onClick={() => { soundManager.playClick(); setShowSettings(false); }}
+                    className="w-full py-4 mt-4 bg-gradient-to-r from-blue-700 to-blue-500 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-900/40 hover:scale-[1.02] active:scale-95 transition-all"
+                 >
+                    XÁC NHẬN & ĐÓNG
+                 </button>
+              </div>
+           </div>
         </div>
       )}
     </div>

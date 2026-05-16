@@ -11,7 +11,8 @@ export const drawWaterAndSky = (
   timeOfDay: TimeOfDay = 'DAY',
   prevTimeOfDay: TimeOfDay = 'DAY',
   transition: number = 1, // 0 to 1
-  scrollX: number = CANVAS_WIDTH / 2
+  scrollX: number = CANVAS_WIDTH / 2,
+  vfxEnabled: boolean = true
 ) => {
   const parallaxOffset = (scrollX - CANVAS_WIDTH / 2);
   const getSkyTarget = (t: TimeOfDay) => {
@@ -51,13 +52,13 @@ export const drawWaterAndSky = (
   ctx.save();
   if (location === 'POND') {
     drawHills(ctx, frame, transition, timeOfDay, prevTimeOfDay, parallaxOffset);
-    drawWindParticles(ctx, frame, transition, 'POND');
+    if (vfxEnabled) drawWindParticles(ctx, frame, transition, 'POND');
   } else if (location === 'OCEAN') {
     drawClouds(ctx, frame, transition, timeOfDay, prevTimeOfDay, parallaxOffset);
     drawDistantLighthouse(ctx, frame, transition, timeOfDay);
-    drawWindParticles(ctx, frame, transition, 'OCEAN');
-    if (weather === 'sunny') {
-        drawBirds(ctx, frame);
+    if (vfxEnabled) {
+      drawWindParticles(ctx, frame, transition, 'OCEAN');
+      if (weather === 'sunny') drawBirds(ctx, frame);
     }
   } else if (location === 'CAVE') {
     drawCaveFormations(ctx, frame, transition);
@@ -97,8 +98,10 @@ export const drawWaterAndSky = (
     drawUnderwaterCave(ctx, frame, transition);
   }
 
-  drawBackgroundFish(ctx, frame, location);
-  drawUnderwaterParticles(ctx, frame, location);
+  if (vfxEnabled) {
+    drawBackgroundFish(ctx, frame, location);
+    drawUnderwaterParticles(ctx, frame, location);
+  }
 
 
   // Wave Layers
@@ -108,7 +111,8 @@ export const drawWaterAndSky = (
     ctx.fillStyle = lerpColor(colors[0], colors[1], transition);
     ctx.beginPath();
     ctx.moveTo(0, 200 + offsetY);
-    for (let x = 0; x <= CANVAS_WIDTH; x += 10) {
+    // Optimization: Increased step size from 10 to 40 for faster path calculation
+    for (let x = 0; x <= CANVAS_WIDTH + 40; x += 40) {
       const y = Math.sin((x * frequency) + (frame * 0.02)) * amplitude;
       ctx.lineTo(x, 200 + offsetY + y);
     }
@@ -136,25 +140,23 @@ export const drawWaterAndSky = (
   drawWave(10, 5, 0.01, [wavePrev[0], waveCurr[0]], 0.4);
   drawWave(30, 8, 0.008, [wavePrev[1], waveCurr[1]], 0.3);
 
-  // Surface Ripples
-  ctx.save();
-  ctx.fillStyle = 'white';
-  for (let i = 0; i < 40; i++) {
-     const py = 210 + (i * 9);
-     const speed = 0.5 + (py - 200) * 0.003;
-     const px = ((i * 173 + frame * speed) % (CANVAS_WIDTH + 200)) - 100;
-     const width = 15 + Math.sin(frame * 0.05 + i) * 10 + (py - 200) * 0.15;
-     const alpha = 0.05 + Math.sin(frame * 0.02 + i) * 0.04;
-     
-     if (alpha > 0) {
-       ctx.globalAlpha = alpha;
-       ctx.beginPath();
-       if (ctx.roundRect) ctx.roundRect(px, py, width, 1.5, 1);
-       else ctx.rect(px, py, width, 1.5);
-       ctx.fill();
-     }
+  if (vfxEnabled) {
+    ctx.save();
+    ctx.fillStyle = 'white';
+    for (let i = 0; i < 40; i++) {
+       const py = 210 + (i * 9);
+       const speed = 0.5 + (py - 200) * 0.003;
+       const px = ((i * 173 + frame * speed) % (CANVAS_WIDTH + 200)) - 100;
+       const width = 15 + Math.sin(frame * 0.05 + i) * 10 + (py - 200) * 0.15;
+       const alpha = 0.05 + Math.sin(frame * 0.02 + i) * 0.04;
+       
+       if (alpha > 0) {
+         ctx.globalAlpha = alpha;
+         ctx.fillRect(px, py, width, 1.5);
+       }
+    }
+    ctx.restore();
   }
-  ctx.restore();
 
   drawVignette(ctx);
 };
@@ -367,20 +369,22 @@ export const drawCrystalResonance = (ctx: CanvasRenderingContext2D, frame: numbe
     ctx.fillStyle = `rgba(168, 85, 247, ${pulse})`;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Floating crystals
-    for (let i = 0; i < 15; i++) {
-        const x = (Math.sin(i * 123) * 1000 + frame * 0.5) % CANVAS_WIDTH;
-        const y = (Math.cos(i * 321) * 1000 + Math.sin(frame * 0.01 + i) * 50) % (CANVAS_HEIGHT - 200) + 200;
-        const size = 4 + Math.sin(frame * 0.05 + i) * 2;
-        const alpha = 0.4 + Math.sin(frame * 0.03 + i) * 0.2;
+    // Floating crystals (Reduced count and complexity)
+    for (let i = 0; i < 10; i++) { // Reduced from 15
+        const x = (Math.sin(i * 123) * 1000 + frame * 0.4) % CANVAS_WIDTH;
+        const y = (Math.cos(i * 321) * 1000 + Math.sin(frame * 0.01 + i) * 40) % (CANVAS_HEIGHT - 200) + 200;
+        const size = 3 + Math.sin(frame * 0.05 + i) * 2;
+        const alpha = 0.3 + Math.sin(frame * 0.03 + i) * 0.2;
         
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(frame * 0.02 + i);
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = '#a855f7';
-        ctx.fillStyle = `rgba(192, 132, 252, ${alpha})`;
+        ctx.rotate(frame * 0.015 + i);
         
+        // Glow effect without shadowBlur
+        ctx.fillStyle = `rgba(192, 132, 252, ${alpha * 0.3})`;
+        ctx.beginPath(); ctx.arc(0, 0, size * 3, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = `rgba(192, 132, 252, ${alpha})`;
         ctx.beginPath();
         ctx.moveTo(0, -size * 2);
         ctx.lineTo(size, 0);
@@ -597,8 +601,10 @@ export const drawSunMoon = (ctx: CanvasRenderingContext2D, frame: number, time: 
         const sunColor = time === 'SUNSET' ? '#fbbf24' : '#fef3c7';
         const glowColor = time === 'SUNSET' ? '#f59e0b' : '#fbbf24';
         
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = glowColor;
+        // Sun/Moon glow without shadowBlur
+        ctx.fillStyle = `rgba(${time === 'SUNSET' ? '245, 158, 11' : '251, 191, 36'}, 0.3)`;
+        ctx.beginPath(); ctx.arc(x, y, 50, 0, Math.PI * 2); ctx.fill();
+
         ctx.fillStyle = sunColor;
         ctx.beginPath();
         ctx.arc(x, y, 30, 0, Math.PI * 2);
@@ -661,11 +667,13 @@ export const drawCaveFormations = (ctx: CanvasRenderingContext2D, frame: number,
   for (let i = 0; i < 8; i++) {
     const x = (i * 113) % CANVAS_WIDTH;
     const y = (i * 77) % 180;
-    const size = 3 + Math.sin(frame * 0.05 + i) * 2;
+    const size = 2 + Math.sin(frame * 0.05 + i) * 1.5;
     const hue = 200 + Math.sin(i) * 60;
     ctx.save();
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = `hsla(${hue}, 80%, 60%, 0.8)`;
+    // Fast glow
+    ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.3)`;
+    ctx.beginPath(); ctx.arc(x, y, size * 4, 0, Math.PI * 2); ctx.fill();
+
     ctx.fillStyle = `hsla(${hue}, 80%, 70%, 0.9)`;
     ctx.beginPath();
     ctx.moveTo(x, y - size * 2);

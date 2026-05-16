@@ -6,8 +6,14 @@ class SoundManager {
   private masterGain: GainNode | null = null;
   private isAmbientRunning = false;
   private ambientNodes: { noise?: AudioBufferSourceNode, lfo?: OscillatorNode, filter?: BiquadFilterNode, gain?: GainNode, oscs?: OscillatorNode[] } = {};
-  private currentLocation: LocationType | 'POND' = 'POND';
+  private currentLocation: LocationType = 'POND';
   private musicAudio: HTMLAudioElement | null = null;
+  private ambientInterval: any = null;
+  
+  // Volume settings
+  private masterVol = 0.5;
+  private musicVol = 0.3;
+  private sfxVol = 0.8;
 
   private getCtx(): AudioContext | null {
     if (this.ctx) {
@@ -22,7 +28,7 @@ class SoundManager {
       this.ctx = new AudioContextClass();
       this.masterGain = this.ctx.createGain();
       this.masterGain.connect(this.ctx.destination);
-      this.masterGain.gain.value = 0.3;
+      this.masterGain.gain.value = this.masterVol;
       if (this.ctx.state === 'suspended') {
         this.ctx.resume().catch(() => {});
       }
@@ -30,6 +36,21 @@ class SoundManager {
       // Âm thanh không khả dụng, bỏ qua
     }
     return this.ctx;
+  }
+
+  setVolumes(master: number, music: number, sfx: number) {
+    this.masterVol = master;
+    this.musicVol = music;
+    this.sfxVol = sfx;
+    
+    if (this.masterGain) {
+      this.masterGain.gain.setTargetAtTime(master, (this.ctx?.currentTime || 0), 0.1);
+    }
+    if (this.musicAudio) {
+      this.musicAudio.volume = music * master;
+    }
+    // Ambient gain also needs to scale if we had a dedicated ambient gain, 
+    // but for now it's connected to masterGain which covers it.
   }
 
   playSplash() {
@@ -47,7 +68,7 @@ class SoundManager {
       filter.frequency.setValueAtTime(2000, ctx.currentTime);
       filter.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.4);
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
+      gain.gain.setValueAtTime(0.4 * this.sfxVol, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
       noise.connect(filter);
       filter.connect(gain);
@@ -245,110 +266,6 @@ class SoundManager {
     } catch (e) { /* bỏ qua */ }
   }
 
-  private stopAmbient() {
-    if (this.ambientNodes.noise) {
-      try { this.ambientNodes.noise.stop(); } catch(e) {}
-    }
-    if (this.ambientNodes.lfo) {
-      try { this.ambientNodes.lfo.stop(); } catch(e) {}
-    }
-    if (this.ambientNodes.oscs) {
-      this.ambientNodes.oscs.forEach(osc => {
-        try { osc.stop(); } catch(e) {}
-      });
-    }
-    this.ambientNodes = {};
-    this.isAmbientRunning = false;
-  }
-
-  setAmbientLocation(location: LocationType | 'POND') {
-    this.currentLocation = location;
-    if (this.isAmbientRunning) {
-      this.startAmbient(); // Restart with new location
-    }
-  }
-
-  startAmbient() {
-    try {
-      const ctx = this.getCtx();
-      if (!ctx || !this.masterGain) return;
-      
-      this.stopAmbient(); // Stop previous ambient if any
-      
-      const bufferSize = ctx.sampleRate * 2;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const output = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-          output[i] = Math.random() * 2 - 1;
-      }
-      
-      const noiseSource = ctx.createBufferSource();
-      noiseSource.buffer = buffer;
-      noiseSource.loop = true;
-      this.ambientNodes.noise = noiseSource;
-      
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine';
-      this.ambientNodes.lfo = lfo;
-      
-      const lfoGain = ctx.createGain();
-      lfo.connect(lfoGain);
-      
-      const filter = ctx.createBiquadFilter();
-      this.ambientNodes.filter = filter;
-      lfoGain.connect(filter.frequency);
-      
-      const mainGain = ctx.createGain();
-      this.ambientNodes.gain = mainGain;
-      
-      noiseSource.connect(filter);
-      filter.connect(mainGain);
-      mainGain.connect(this.masterGain);
-      
-      // Cấu hình theo location
-      if (this.currentLocation === 'POND') {
-        // Tiếng dế / côn trùng rỉ rả
-        lfo.frequency.value = 15; // Rung nhanh
-        lfoGain.gain.value = 1000;
-        filter.type = 'bandpass';
-        filter.frequency.value = 4000;
-        mainGain.gain.value = 0.015;
-        
-      } else if (this.currentLocation === 'OCEAN') {
-        // Tiếng sóng biển (white noise slow sweep)
-        lfo.frequency.value = 0.1; // Chậm
-        lfoGain.gain.value = 800;
-        filter.type = 'lowpass';
-        filter.frequency.value = 400;
-        mainGain.gain.value = 0.04;
-        
-      } else if (this.currentLocation === 'CAVE') {
-        // Âm vang trầm hang động
-        lfo.frequency.value = 0.05;
-        lfoGain.gain.value = 200;
-        filter.type = 'lowpass';
-        filter.frequency.value = 150;
-        mainGain.gain.value = 0.05;
-        
-        // Thêm oscillator trầm
-        const caveOsc = ctx.createOscillator();
-        caveOsc.type = 'sine';
-        caveOsc.frequency.value = 55; // Low rumble
-        const caveOscGain = ctx.createGain();
-        caveOscGain.gain.value = 0.05;
-        caveOsc.connect(caveOscGain);
-        caveOscGain.connect(this.masterGain);
-        caveOsc.start();
-        this.ambientNodes.oscs = [caveOsc];
-      }
-      
-      noiseSource.start();
-      lfo.start();
-      
-      this.isAmbientRunning = true;
-    } catch(e) { }
-  }
-
   playCast() {
     try {
       const ctx = this.getCtx();
@@ -500,18 +417,144 @@ class SoundManager {
     } catch (e) { }
   }
 
-  playMusic() {
+  startAmbient(location: LocationType) {
+    try {
+      const ctx = this.getCtx();
+      if (!ctx || !this.masterGain) return;
+      
+      this.stopAmbient();
+      this.currentLocation = location;
+      this.isAmbientRunning = true;
 
+      // 1. Base Ambient Noise (Wind/Waves/Deep Hum)
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      noise.loop = true;
+
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      
+      if (location === 'OCEAN') {
+          // Rushing waves logic
+          filter.type = 'lowpass';
+          filter.frequency.value = 500;
+          gain.gain.value = 0.05;
+          
+          // LFO for wave motion
+          const lfo = ctx.createOscillator();
+          lfo.frequency.value = 0.15; // 6.6 seconds per wave cycle
+          const lfoGain = ctx.createGain();
+          lfoGain.gain.value = 300;
+          lfo.connect(lfoGain);
+          lfoGain.connect(filter.frequency);
+          lfo.start();
+          this.ambientNodes.lfo = lfo;
+      } else if (location === 'POND') {
+          filter.type = 'lowpass';
+          filter.frequency.value = 800;
+          gain.gain.value = 0.02;
+      } else {
+          // Cave rumble
+          filter.type = 'lowpass';
+          filter.frequency.value = 200;
+          gain.gain.value = 0.03;
+      }
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.masterGain);
+      noise.start();
+
+      this.ambientNodes.noise = noise;
+      this.ambientNodes.filter = filter;
+      this.ambientNodes.gain = gain;
+
+      // 2. Periodic Random Sounds (Birds, Frogs, Drips)
+      this.ambientInterval = setInterval(() => {
+          if (!this.isAmbientRunning) return;
+          const rand = Math.random();
+          if (location === 'POND' && rand < 0.3) this.playBirdChirp();
+          if (location === 'POND' && rand > 0.8) this.playFrogCroak();
+          if (location === 'CAVE' && rand < 0.25) this.playCaveDrip();
+      }, 2000);
+
+    } catch (e) { console.error("Ambient audio error:", e); }
+  }
+
+  stopAmbient() {
+    this.isAmbientRunning = false;
+    if (this.ambientInterval) clearInterval(this.ambientInterval);
+    if (this.ambientNodes.noise) { try { this.ambientNodes.noise.stop(); } catch(e){} }
+    if (this.ambientNodes.lfo) { try { this.ambientNodes.lfo.stop(); } catch(e){} }
+    if (this.ambientNodes.oscs) {
+        this.ambientNodes.oscs.forEach(osc => { try { osc.stop(); } catch(e){} });
+    }
+    this.ambientNodes = {};
+  }
+
+  private playBirdChirp() {
+      try {
+          const ctx = this.getCtx(); if (!ctx || !this.masterGain) return;
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          const baseFreq = 2000 + Math.random() * 1000;
+          osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(baseFreq + 500, ctx.currentTime + 0.1);
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.02, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+          osc.connect(gain); gain.connect(this.masterGain);
+          osc.start(); osc.stop(ctx.currentTime + 0.15);
+      } catch(e){}
+  }
+
+  private playFrogCroak() {
+      try {
+          const ctx = this.getCtx(); if (!ctx || !this.masterGain) return;
+          const osc = ctx.createOscillator();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(80 + Math.random() * 20, ctx.currentTime);
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.03, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+          osc.connect(gain); gain.connect(this.masterGain);
+          osc.start(); osc.stop(ctx.currentTime + 0.2);
+      } catch(e){}
+  }
+
+  private playCaveDrip() {
+      try {
+          const ctx = this.getCtx(); if (!ctx || !this.masterGain) return;
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1500 + Math.random() * 500, ctx.currentTime);
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.04, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+          // Add small reverb-like delay
+          const delay = ctx.createDelay(); delay.delayTime.value = 0.1;
+          const fb = ctx.createGain(); fb.gain.value = 0.3;
+          osc.connect(gain); gain.connect(this.masterGain);
+          gain.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(this.masterGain);
+          osc.start(); osc.stop(ctx.currentTime + 0.1);
+      } catch(e){}
+  }
+
+  playMusic() {
     try {
       if (!this.musicAudio) {
-        // Use relative path from root, Vite will handle the base path
         this.musicAudio = new Audio('./nhac_nen.mp3');
         this.musicAudio.loop = true;
-        this.musicAudio.volume = 0.1;
+        this.musicAudio.volume = this.musicVol * this.masterVol;
       }
       
       if (this.musicAudio.paused) {
-        this.musicAudio.play().catch(e => console.warn("Music autoplay blocked or failed:", e));
+        this.musicAudio.play().catch(e => console.warn("Music autoplay blocked:", e));
       }
     } catch (e) {
       console.error("Error playing music:", e);

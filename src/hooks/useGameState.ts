@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { InventoryItem, AquariumItem, FishType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, NotificationItem, NotificationType } from '../types';
+import { InventoryItem, AquariumItem, FishType, UIView, ProfileStats, Achievement, Rarity, Quest, PlayerSkills, NotificationItem, NotificationType, LocationType } from '../types';
 import { BAITS, INITIAL_ACHIEVEMENTS } from '../core/data/gameData';
 import { soundManager } from '../core/systems/soundManager';
 
@@ -33,6 +33,12 @@ export const useGameState = () => {
   const [aquarium, setAquarium] = useState<AquariumItem[]>([]);
   const [autoSellJunk, setAutoSellJunk] = useState<boolean>(false);
   const [lastAquariumUpdate, setLastAquariumUpdate] = useState<number>(Date.now());
+  const [settings, setSettings] = useState({
+    masterVolume: 0.5,
+    musicVolume: 0.3,
+    sfxVolume: 0.8,
+    vfxEnabled: true,
+  });
 
   const lastNotificationRef = useRef<{ message: string; timestamp: number } | null>(null);
 
@@ -92,14 +98,20 @@ export const useGameState = () => {
         if (income > 0) {
             setGold(prev => prev + income);
             setStats(prev => ({ ...prev, totalGoldEarned: prev.totalGoldEarned + income }));
-            setLastAquariumUpdate(now);
+            // Increment last update by the amount of time that was actually "paid out"
+            const timePaidOut = Math.floor(income / hourlyRate * (60 * 60 * 1000));
+            setLastAquariumUpdate(prev => prev + (isNaN(timePaidOut) ? 60000 : timePaidOut));
         }
     }, 60000); // Check every minute
 
     return () => clearInterval(interval);
   }, [aquarium, lastAquariumUpdate, calculateHourlyRate]);
 
-  const updateStatsAndQuests = useCallback((newFish: FishType, isGolden: boolean) => {
+  useEffect(() => {
+    soundManager.setVolumes(settings.masterVolume, settings.musicVolume, settings.sfxVolume);
+  }, [settings.masterVolume, settings.musicVolume, settings.sfxVolume]);
+
+  const updateStatsAndQuests = useCallback((newFish: FishType, isGolden: boolean, location: LocationType) => {
     const finalValue = isGolden ? newFish.value * 2 : newFish.value;
     setStats(prev => {
       const isRarer = (fish: FishType, currentRarest: string) => {
@@ -193,6 +205,23 @@ export const useGameState = () => {
       let newProgress = q.progress;
       if (q.type === 'CATCH_TOTAL') newProgress++;
       if (q.type === 'CATCH_SPECIFIC' && q.fishTarget === newFish.name) newProgress++;
+      
+      // Handle Rarity Quest (rarity >= target rarity)
+      if (q.type === 'CATCH_RARITY' && q.rarityTarget) {
+        const rarities = [Rarity.JUNK, Rarity.COMMON, Rarity.UNCOMMON, Rarity.RARE, Rarity.EPIC, Rarity.LEGENDARY, Rarity.MYTHIC];
+        const fishIndex = rarities.indexOf(newFish.rarity);
+        const targetIndex = rarities.indexOf(q.rarityTarget);
+        if (fishIndex >= targetIndex) newProgress++;
+      }
+
+      // Handle Treasure Quest
+      if (q.type === 'CATCH_TREASURE' && newFish.isChest) newProgress++;
+
+      // Handle Golden Fish Quest
+      if (q.type === 'CATCH_GOLDEN' && isGolden) newProgress++;
+
+      // Handle Location Quest
+      if (q.type === 'LOCATION_CATCH' && q.locationTarget === location) newProgress++;
       
       const completed = newProgress >= q.target;
       if (completed && !q.isCompleted) {
@@ -371,6 +400,7 @@ export const useGameState = () => {
     aquarium, setAquarium,
     autoSellJunk, setAutoSellJunk,
     lastAquariumUpdate, setLastAquariumUpdate,
+    settings, setSettings,
     calculateHourlyRate,
     updateStatsAndQuests,
     updateEarnGoldQuest,

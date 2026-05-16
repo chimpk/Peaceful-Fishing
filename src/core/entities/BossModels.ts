@@ -24,51 +24,40 @@ export const drawAbyssalKraken = (
   ctx.beginPath(); ctx.arc(0, 0, 180, 0, Math.PI * 2); ctx.fill();
 
   // 2. High-Fidelity Tentacles
-  const numTentacles = 8;
+  const numTentacles = 6; // Reduced from 8
   for (let i = 0; i < numTentacles; i++) {
     const angle = (i / numTentacles) * Math.PI * 2 + Math.sin(time * 0.6 + i) * 0.3;
-    const len = size * (2.4 + Math.sin(time * 1.1 + i) * 0.6);
+    const len = size * (2.2 + Math.sin(time * 1.1 + i) * 0.5); // Slightly shorter
     
     ctx.save();
     ctx.rotate(angle);
     
     // Tentacle Path
     const endX = len;
-    const endY = Math.cos(time + i) * size * 0.4;
-    const cp1x = size * 1.2;
-    const cp1y = Math.sin(time * 1.4 + i) * size;
+    const endY = Math.cos(time + i) * size * 0.3;
+    const cp1x = size * 1.1;
+    const cp1y = Math.sin(time * 1.4 + i) * size * 0.8;
 
-    // Tentacle Gradient (Skin tone)
-    const tGrad = ctx.createLinearGradient(0, 0, len, 0);
-    tGrad.addColorStop(0, hpRatio < 0.4 ? '#7f1d1d' : '#4c1d95');
-    tGrad.addColorStop(0.5, hpRatio < 0.4 ? '#b91c1c' : '#6d28d9');
-    tGrad.addColorStop(1, hpRatio < 0.4 ? '#ef4444' : '#8b5cf6');
-
-    ctx.strokeStyle = tGrad;
-    ctx.lineWidth = size * 0.35 * (1 - 0.5 * (len / (size * 3)));
+    // Tentacle Color (Simplified - only one fill instead of gradient if needed, but linear is ok)
+    ctx.strokeStyle = hpRatio < 0.4 ? '#ef4444' : '#8b5cf6';
+    ctx.lineWidth = size * 0.35 * (1 - 0.4 * (len / (size * 3)));
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(size * 0.3, 0);
     ctx.quadraticCurveTo(cp1x, cp1y, endX, endY);
     ctx.stroke();
 
-    // Bioluminescent Suckers
-    const suckerCount = 6;
+    // Bioluminescent Suckers (Reduced count)
+    const suckerCount = 4; // Reduced from 6
     for (let j = 1; j <= suckerCount; j++) {
       const t = j / (suckerCount + 1);
       const sx = size * 0.3 + (len - size * 0.3) * t;
       const sy = cp1y * (1 - t) + endY * t;
-      const sSize = size * 0.12 * (1 - t * 0.6);
+      const sSize = size * 0.1 * (1 - t * 0.5);
       
       const sPulse = (Math.sin(time * 3 + i + j) + 1) / 2;
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.3 + sPulse * 0.7})`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.4 + sPulse * 0.6})`;
       ctx.beginPath(); ctx.arc(sx, sy, sSize, 0, Math.PI * 2); ctx.fill();
-      
-      // Sucker glow
-      if (sPulse > 0.7) {
-        ctx.fillStyle = isAttacking ? 'rgba(239, 68, 68, 0.3)' : 'rgba(167, 139, 250, 0.3)';
-        ctx.beginPath(); ctx.arc(sx, sy, sSize * 2.5, 0, Math.PI * 2); ctx.fill();
-      }
     }
     ctx.restore();
   }
@@ -257,32 +246,31 @@ export const drawGhostOctopus = (
   ctx.fillStyle = sGrad;
   ctx.beginPath(); ctx.arc(0, 0, 160, 0, Math.PI * 2); ctx.fill();
 
-  // 2. Translucent Tendrils with Particle Energy
-  for (let i = 0; i < 10; i++) {
-    const angle = (i / 10) * Math.PI * 2 + Math.sin(time * 0.4 + i) * 0.6;
-    const len = 120 + Math.cos(time * 0.7 + i) * 50;
+  // 2. Translucent Tendrils (Reduced count)
+  for (let i = 0; i < 7; i++) { // Reduced from 10
+    const angle = (i / 7) * Math.PI * 2 + Math.sin(time * 0.4 + i) * 0.5;
+    const len = 110 + Math.cos(time * 0.7 + i) * 40;
     
     ctx.save();
     ctx.strokeStyle = isAttacking ? '#f87171' : '#7dd3fc';
-    ctx.lineWidth = 2 + Math.sin(time + i) * 2;
+    ctx.lineWidth = 1.5 + Math.sin(time + i) * 1.5;
     ctx.lineCap = 'round';
     
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    // Extra wavy spectral path
     ctx.bezierCurveTo(
-      Math.cos(angle - 0.7) * (len * 0.4), Math.sin(angle - 0.7) * (len * 0.4),
-      Math.cos(angle + 0.7) * (len * 0.8), Math.sin(angle + 0.7) * (len * 0.8),
+      Math.cos(angle - 0.5) * (len * 0.4), Math.sin(angle - 0.5) * (len * 0.4),
+      Math.cos(angle + 0.5) * (len * 0.8), Math.sin(angle + 0.5) * (len * 0.8),
       Math.cos(angle) * len, Math.sin(angle) * len
     );
     ctx.stroke();
 
-    // Energy flowing along tendrils
-    const ePos = (time * 2 + i * 0.5) % 1;
+    // Energy flow (Simpler drawing)
+    const ePos = (time * 1.5 + i * 0.5) % 1;
     const ex = Math.cos(angle) * len * ePos;
     const ey = Math.sin(angle) * len * ePos;
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(ex, ey, 3 * (1 - ePos), 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex, ey, 2 * (1 - ePos), 0, Math.PI*2); ctx.fill();
     ctx.restore();
   }
 

@@ -31,10 +31,12 @@ interface GameCanvasProps {
   isBossSpawned: boolean;
   setIsBossSpawned: (v: boolean) => void;
   onDurabilityChange: (type: 'rod' | 'tackle', amount: number) => void;
+  onBaitConsumed: () => void;
   playerLevel?: number;
   inventoryCount: number;
   inventoryCapacity: number;
   isMobile?: boolean;
+  vfxEnabled: boolean;
 }
 
 // Skill button states: ready | active | cooldown

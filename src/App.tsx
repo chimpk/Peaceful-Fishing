@@ -38,9 +38,17 @@ const App: React.FC = () => {
   // Sync ambient sound
   useEffect(() => {
     if (activeView === UIView.GAME) {
-       soundManager.setAmbientLocation(env.currentLocation);
+       soundManager.startAmbient(env.currentLocation);
+       if (env.weather === 'rainy' || env.weather === 'stormy') {
+           soundManager.startRain();
+       } else {
+           soundManager.stopRain();
+       }
+    } else {
+      soundManager.stopAmbient();
+      soundManager.stopRain();
     }
-  }, [env.currentLocation, activeView]);
+  }, [env.currentLocation, env.weather, activeView]);
 
   // Handle gameplay state transitions
   useEffect(() => {
@@ -69,7 +77,7 @@ const App: React.FC = () => {
     setTimeout(() => {
       try { soundManager.playClick(); } catch(e) {}
       try { soundManager.playMusic(); } catch(e) {}
-      try { soundManager.setAmbientLocation(env.currentLocation); } catch(e) {}
+      try { soundManager.startAmbient(env.currentLocation); } catch(e) {}
     }, 10);
   };
 
@@ -80,7 +88,7 @@ const App: React.FC = () => {
         state.setGold(g => g + val);
         state.addNotification(`Tự động bán ${fish.name} (+${val} vàng)`, 'info');
         setGameState(GameState.CAUGHT);
-        state.updateStatsAndQuests(fish, isGolden);
+        state.updateStatsAndQuests(fish, isGolden, env.currentLocation);
         setTimeout(() => setGameState(GameState.IDLE), 1000);
         return;
     }
@@ -138,31 +146,24 @@ const App: React.FC = () => {
     state.setUnlockedFish(prev => !prev.includes(fish.name) ? [...prev, fish.name] : prev);
     state.addNotification(`Bắt được ${isGolden ? 'CÁ VÀNG ' : ''}${fish.name}!`, 'success');
     setGameState(GameState.CAUGHT);
-    state.updateStatsAndQuests(fish, isGolden);
+    state.updateStatsAndQuests(fish, isGolden, env.currentLocation);
 
-    // 1. Wear and Tear logic (Hardcore)
-    const baseLoss = 1;
+    // 1. Wear and Tear logic (Hardcore - NERFED: Durability drops faster)
+    const baseLoss = 2; // Increased from 1
     const rarityFactors: Record<string, number> = {
       [Rarity.JUNK]: 0.5,
-      [Rarity.COMMON]: 1,
-      [Rarity.UNCOMMON]: 1.5,
-      [Rarity.RARE]: 2.5,
-      [Rarity.EPIC]: 5,
-      [Rarity.LEGENDARY]: 12,
-      [Rarity.MYTHIC]: 25
+      [Rarity.COMMON]: 1.2, // Increased
+      [Rarity.UNCOMMON]: 2, // Increased
+      [Rarity.RARE]: 4, // Increased
+      [Rarity.EPIC]: 8, // Increased
+      [Rarity.LEGENDARY]: 18, // Increased
+      [Rarity.MYTHIC]: 40 // Significant nerf for Mythic
     };
-    const weatherFactor = env.weather === 'stormy' ? 3 : 1;
+    const weatherFactor = env.weather === 'stormy' ? 3.5 : 1;
     const totalLoss = Math.ceil(baseLoss * (rarityFactors[fish.rarity] || 1) * weatherFactor);
     
     settings.handleDurabilityChange('rod', totalLoss);
-    settings.handleDurabilityChange('tackle', Math.ceil(totalLoss * 1.5)); // Tackles wear faster
-
-    // 2. Rod breaking logic (Instant break for oversized fish)
-    const rodLimit = settings.currentRod.maxValue ?? Infinity;
-    if (fish.value > rodLimit && (settings.currentRod.durability || 0) > 0) {
-      settings.setCurrentRod(prev => ({ ...prev, durability: 0 }));
-      state.addNotification("Cần câu hiện tại đã gãy vì câu cá quá to! Hãy đi sửa chữa.", "warning");
-    }
+    settings.handleDurabilityChange('tackle', Math.ceil(totalLoss * 1.8)); // Tackles wear even faster now
     
     // 3. Boss spawn logic - only increment if fish was successfully caught and added
     comp.setSessionFishCount(prev => {
@@ -287,10 +288,12 @@ const App: React.FC = () => {
           isBossSpawned={isBossSpawned}
           setIsBossSpawned={setIsBossSpawned}
           onDurabilityChange={settings.handleDurabilityChange}
+          onBaitConsumed={settings.useBait}
           playerLevel={state.stats.level}
           inventoryCount={state.inventory.length}
           inventoryCapacity={state.inventoryCapacity}
           isMobile={isMobile}
+          vfxEnabled={state.settings.vfxEnabled}
         />
 
         <UIOverlay 
@@ -426,6 +429,8 @@ const App: React.FC = () => {
           streak={streak}
           epicCatch={epicCatch}
           onOpenShowroom={() => setShowShowroom(true)}
+          settings={state.settings}
+          setSettings={state.setSettings}
           aquarium={state.aquarium}
           setAquarium={state.setAquarium}
           moveToAquarium={state.moveToAquarium}
