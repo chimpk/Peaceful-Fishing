@@ -99,6 +99,8 @@ export const useGameEngine = (props: GameEngineProps) => {
   const chargeDirection = useRef(1);
   const activeFish = useRef<EnhancedFishInstance | null>(null);
   const frameCount = useRef(0);
+  const lastFrameTime = useRef(0);
+  const MAX_VFX_PARTICLES = 120;
   
   const isSpacePressed = useRef(false);
   
@@ -215,11 +217,13 @@ export const useGameEngine = (props: GameEngineProps) => {
   // Helper functions
 
   const createSplash = useCallback((x: number, y: number, intensity: number = 1) => {
+    if (vfxParticlesRef.current.length >= MAX_VFX_PARTICLES) return;
     vfxParticlesRef.current.push({
         x, y, size: 5, speed: 0, opacity: 1, life: 60, type: 'ripple', color: 'rgba(255,255,255,0.6)'
     });
-
-    for(let i=0; i < 15 * intensity; i++) {
+    // Reduce particle count on mobile (fewer = faster)
+    const count = Math.min(8, Math.floor(8 * intensity));
+    for(let i=0; i < count; i++) {
         vfxParticlesRef.current.push({
             x, y,
             size: 1.5 + Math.random() * 3 * intensity,
@@ -237,7 +241,9 @@ export const useGameEngine = (props: GameEngineProps) => {
 
   const createSparkles = useCallback((x: number, y: number, count = 20, colorSet?: string[]) => {
     const colors = colorSet || ['#fbbf24', '#f59e0b', '#ffffff', '#60a5fa'];
-    for(let i=0; i<count; i++) {
+    const slots = MAX_VFX_PARTICLES - vfxParticlesRef.current.length;
+    const actualCount = Math.min(count, slots, 20); // hard cap at 20 per call
+    for(let i=0; i<actualCount; i++) {
         vfxParticlesRef.current.push({
             x, y,
             size: 4 + Math.random() * 6,
@@ -685,7 +691,13 @@ export const useGameEngine = (props: GameEngineProps) => {
     }
   }, [gameState, setGameState, addNotification, onBossDefeated, onSessionReset, onCast, skills.sharpEye, bossMaxHP]);
 
-  const update = useCallback((ctx: CanvasRenderingContext2D) => {
+  const update = useCallback((ctx: CanvasRenderingContext2D, timestamp: number) => {
+    // Delta-time cap: clamp to 50ms to prevent spiral-of-death on slow devices
+    const delta = Math.min(timestamp - lastFrameTime.current, 50);
+    lastFrameTime.current = timestamp;
+    // Skip frame if tab is in background (delta too large)
+    if (delta < 1) return;
+    
     frameCount.current++;
     
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -919,7 +931,9 @@ export const useGameEngine = (props: GameEngineProps) => {
     } else bossInitialized.current = false;
 
     const fishArray = fishRef.current;
-    const rightSideFishCount = fishArray.reduce((count, fi) => count + (fi.x > CANVAS_WIDTH * 0.7 ? 1 : 0), 0);
+    // Throttle fish AI: update physics every frame but heavy AI logic every 2 frames
+    const isAIFrame = frameCount.current % 2 === 0;
+    const rightSideFishCount = isAIFrame ? fishArray.reduce((count, fi) => count + (fi.x > CANVAS_WIDTH * 0.7 ? 1 : 0), 0) : 0;
     const currentFrame = frameCount.current;
     const currentHookX = hookX.current;
     const currentHookY = hookY.current;
@@ -928,6 +942,19 @@ export const useGameEngine = (props: GameEngineProps) => {
     for (let fishIndex = 0, fishLength = fishArray.length; fishIndex < fishLength; fishIndex++) {
       const f = fishArray[fishIndex];
       if (currentActiveFish?.id === f.id) continue;
+      
+      // Heavy AI state logic only on AI frames
+      if (!isAIFrame) {
+        // Just move the fish - skip state checks
+        const moveSpeed = f.baseSpeed * (f.state === 'scared' ? 2.8 : f.state === 'interested' ? 1.1 : f.state === 'inspecting' ? 0.2 : 1);
+        const vx = Math.cos(f.angle) * moveSpeed; const vy = Math.sin(f.angle) * moveSpeed;
+        f.velocity = { x: vx, y: vy }; f.x += vx; f.y += vy + (f.targetY - f.y) * 0.015;
+        if (f.x > CANVAS_WIDTH + 200) { f.x = -190; f.direction = 1; } if (f.x < -200) { f.x = CANVAS_WIDTH + 190; f.direction = -1; }
+        if (f.y < 220) f.y = 220; if (f.y > CANVAS_HEIGHT) f.y = CANVAS_HEIGHT;
+        Graphics.drawFishTexture(ctx, f.type, currentFrame, false, { x: f.x, y: f.y, angle: f.angle, direction: 1 }, moveSpeed, f.swimStyle, false, f.isGolden);
+        continue;
+      }
+      
       const dx = currentHookX - f.x; const dy = currentHookY - f.y;
       const distSq = dx * dx + dy * dy;
       const lineLimit = currentTackle.maxValue || 300;
@@ -1433,10 +1460,18 @@ export const useGameEngine = (props: GameEngineProps) => {
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    // Enable willReadFrequently for better performance on mobile
+    const ctx = canvas.getContext('2d', { willReadFrequently: false, alpha: false }) as CanvasRenderingContext2D | null;
+    if (!ctx) return;
     let animId: number;
-    const render = () => { update(ctx); animId = window.requestAnimationFrame(render); };
-    render(); return () => window.cancelAnimationFrame(animId);
+    let running = true;
+    const render = (timestamp: number) => {
+      if (!running) return;
+      update(ctx, timestamp);
+      animId = window.requestAnimationFrame(render);
+    };
+    animId = window.requestAnimationFrame(render);
+    return () => { running = false; window.cancelAnimationFrame(animId); };
   }, [update]);
 
   const triggerSkill = useCallback((skillId: 'focus' | 'powerReel') => {

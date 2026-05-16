@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020617">
     <title>Peaceful Fishing - Thần Thoại 2026</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,6 +70,21 @@
         canvas {
             touch-action: none;
             display: block;
+            /* GPU compositing hint - reduces layout recalculation */
+            will-change: transform;
+            image-rendering: pixelated; /* crisp on low-DPI mobile */
+            image-rendering: -webkit-optimize-contrast;
+        }
+
+        /* Prevent elastic scroll on iOS which causes jitter */
+        html, body {
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: auto;
+        }
+
+        /* Prevent callout on long-press (iOS) */
+        * {
+            -webkit-touch-callout: none;
         }
 
         .glass-panel {

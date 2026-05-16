@@ -54,6 +54,8 @@ export interface FishType {
   color: string;
   tension: number;
   size: number;
+  displaySize?: number; // Kích thước thực tế hiển thị (cm)
+  displayWeight?: number; // Cân nặng thực tế hiển thị (kg)
   rarity: Rarity;
   behavior?: FishBehavior;
   canBerserk?: boolean; // Mới: Cá có thể vào trạng thái hung dữ cuối trận

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { GameState, FishType, RodType, TackleType, BaitType, PlayerSkills, LocationType, TimeOfDay, WeatherType, NotificationType } from '../../types';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../../core/data/gameData';
 import { useGameEngine } from '../../hooks/useGameEngine';
@@ -36,6 +36,9 @@ interface GameCanvasProps {
   inventoryCapacity: number;
 }
 
+// Skill button states: ready | active | cooldown
+type SkillState = 'ready' | 'active' | 'cooldown' | 'locked';
+
 const GameCanvas: React.FC<GameCanvasProps> = (props) => {
   const { 
     canvasRef, 
@@ -43,6 +46,11 @@ const GameCanvas: React.FC<GameCanvasProps> = (props) => {
     handlePressEnd,
     triggerSkill
   } = useGameEngine(props);
+
+  const isReeling = props.gameState === GameState.REELING;
+  const hasFocus = props.skills.focus > 0;
+  const hasPowerReel = props.skills.powerReel > 0;
+  const showSkillBar = isReeling && (hasFocus || hasPowerReel);
 
   return (
     <div className="relative w-full h-full">
@@ -68,31 +76,142 @@ const GameCanvas: React.FC<GameCanvasProps> = (props) => {
         onMouseDown={() => { if (props.gameState !== GameState.START) handlePressStart(); }}
         onMouseUp={() => { if (props.gameState !== GameState.START) handlePressEnd(); }}
       />
-      
-      {/* Active Skills UI Overlay */}
-      {props.gameState === GameState.REELING && (
-        <div className="absolute bottom-[110px] right-[20px] flex gap-3 pointer-events-none">
-          {props.skills.focus > 0 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); triggerSkill('focus'); }}
-              className="w-[76px] h-[40px] rounded-lg bg-blue-600/20 border border-blue-400/30 pointer-events-auto active:scale-95 transition-transform overflow-hidden relative group"
-            >
-              <div className="absolute inset-0 bg-blue-500/10 group-hover:bg-blue-500/20"></div>
-              <span className="relative text-[9px] font-black text-white block mt-1">F-FOCUS</span>
-            </button>
+
+      {/* ─── Mobile Skill Buttons ─── */}
+      {showSkillBar && (
+        <div
+          className="absolute flex gap-3 pointer-events-none"
+          style={{
+            bottom: 'clamp(8px, 3vw, 20px)',
+            right: 'clamp(8px, 3vw, 20px)',
+          }}
+        >
+          {hasFocus && (
+            <SkillButton
+              label="TẬP TRUNG"
+              hotkey="F"
+              icon="🧘"
+              color="blue"
+              onActivate={() => triggerSkill('focus')}
+            />
           )}
-          {props.skills.powerReel > 0 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); triggerSkill('powerReel'); }}
-              className="w-[76px] h-[40px] rounded-lg bg-orange-600/20 border border-orange-400/30 pointer-events-auto active:scale-95 transition-transform overflow-hidden relative group"
-            >
-              <div className="absolute inset-0 bg-orange-500/10 group-hover:bg-orange-500/20"></div>
-              <span className="relative text-[9px] font-black text-white block mt-1">G-POWER</span>
-            </button>
+          {hasPowerReel && (
+            <SkillButton
+              label="KÉO MẠNH"
+              hotkey="G"
+              icon="🦾"
+              color="orange"
+              onActivate={() => triggerSkill('powerReel')}
+            />
           )}
         </div>
       )}
     </div>
+  );
+};
+
+// ─── Reusable skill button with ripple feedback ───────────────────────────────
+interface SkillButtonProps {
+  label: string;
+  hotkey: string;
+  icon: string;
+  color: 'blue' | 'orange';
+  onActivate: () => void;
+}
+
+const SkillButton: React.FC<SkillButtonProps> = ({ label, hotkey, icon, color, onActivate }) => {
+  const rippleRef = useRef<HTMLSpanElement>(null);
+
+  const handleTap = (e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation();
+    // Ripple effect
+    if (rippleRef.current) {
+      rippleRef.current.classList.remove('animate-ping');
+      void rippleRef.current.offsetWidth; // reflow
+      rippleRef.current.classList.add('animate-ping');
+    }
+    onActivate();
+  };
+
+  const colorMap = {
+    blue: {
+      bg: 'rgba(30,64,175,0.85)',
+      border: 'rgba(96,165,250,0.6)',
+      glow: '0 0 16px rgba(59,130,246,0.5)',
+      text: '#93c5fd',
+      ripple: 'rgba(96,165,250,0.4)',
+    },
+    orange: {
+      bg: 'rgba(154,52,18,0.85)',
+      border: 'rgba(251,146,60,0.6)',
+      glow: '0 0 16px rgba(249,115,22,0.5)',
+      text: '#fed7aa',
+      ripple: 'rgba(251,146,60,0.4)',
+    },
+  }[color];
+
+  return (
+    <button
+      className="pointer-events-auto relative overflow-hidden active:scale-90 transition-transform select-none"
+      style={{
+        width: 'clamp(68px, 12vw, 88px)',
+        height: 'clamp(68px, 12vw, 88px)',
+        borderRadius: '16px',
+        background: colorMap.bg,
+        border: `2px solid ${colorMap.border}`,
+        boxShadow: colorMap.glow,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '2px',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        cursor: 'pointer',
+        touchAction: 'manipulation',
+      }}
+      onTouchStart={(e) => { e.stopPropagation(); }}
+      onTouchEnd={handleTap}
+      onMouseDown={(e) => { e.stopPropagation(); }}
+      onMouseUp={handleTap}
+    >
+      {/* Ripple overlay */}
+      <span
+        ref={rippleRef}
+        className="absolute inset-0 rounded-2xl opacity-0"
+        style={{ background: colorMap.ripple }}
+      />
+
+      {/* Icon */}
+      <span style={{ fontSize: 'clamp(20px, 4vw, 28px)', lineHeight: 1 }}>{icon}</span>
+
+      {/* Skill name */}
+      <span style={{
+        fontSize: 'clamp(7px, 1.2vw, 10px)',
+        fontWeight: 900,
+        color: '#fff',
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
+        lineHeight: 1.1,
+        textAlign: 'center',
+        padding: '0 4px',
+      }}>
+        {label}
+      </span>
+
+      {/* Hotkey badge */}
+      <span style={{
+        fontSize: 'clamp(7px, 1vw, 9px)',
+        fontWeight: 700,
+        color: colorMap.text,
+        background: 'rgba(0,0,0,0.35)',
+        borderRadius: '4px',
+        padding: '1px 5px',
+        letterSpacing: '0.1em',
+      }}>
+        [{hotkey}]
+      </span>
+    </button>
   );
 };
 

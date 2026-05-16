@@ -50,6 +50,8 @@ export const useGamePersistence = (
       if (data.currentLocation) env.setCurrentLocation(data.currentLocation);
       if (data.sessionFishCount !== undefined) comp.setSessionFishCount(data.sessionFishCount);
       if (data.leaderboard) comp.setLeaderboard(data.leaderboard);
+      if (data.aquarium) state.setAquarium(data.aquarium);
+      if (data.autoSellJunk !== undefined) state.setAutoSellJunk(data.autoSellJunk);
       
       const now = Date.now();
       const today = new Date(now).setHours(0, 0, 0, 0);

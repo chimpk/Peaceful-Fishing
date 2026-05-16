@@ -115,8 +115,8 @@ const FishShowroom: React.FC<FishShowroomProps> = ({ onClose }) => {
                   <p className="description">{selectedFish.description || "Một loài cá tuyệt đẹp vừa được nâng cấp hình ảnh."}</p>
                   <div className="stats-grid">
                     <div className="stat"><span>Giá trị:</span> {selectedFish.value} vàng</div>
-                    <div className="stat"><span>Kích thước:</span> {selectedFish.size}cm</div>
-                    <div className="stat"><span>Cân nặng:</span> {selectedFish.weight}kg</div>
+                    <div className="stat"><span>Kích thước:</span> {selectedFish.displaySize || selectedFish.size}cm</div>
+                    <div className="stat"><span>Cân nặng:</span> {selectedFish.displayWeight || selectedFish.weight}kg</div>
                   </div>
                 </div>
               </div>

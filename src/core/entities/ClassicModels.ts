@@ -226,11 +226,13 @@ export const drawBlackCarp = (
   const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
   ctx.save();
   
-  // 1. ELONGATED CHARCOAL BODY
+  // 1. ELONGATED CHARCOAL BODY (With Iridescent Sheen)
   const bodyGrad = ctx.createLinearGradient(0, -size * 0.7, 0, size * 0.7);
-  bodyGrad.addColorStop(0, '#1e293b'); // Dark slate top
-  bodyGrad.addColorStop(0.5, color);    // Deep charcoal
-  bodyGrad.addColorStop(1, '#0f172a');   // Black bottom
+  bodyGrad.addColorStop(0, '#0f172a'); // Pitch black top
+  bodyGrad.addColorStop(0.3, color);    // Deep charcoal
+  bodyGrad.addColorStop(0.5, lerpColor(color, '#4ade80', 0.1)); // Subtle green iridescence
+  bodyGrad.addColorStop(0.7, color);
+  bodyGrad.addColorStop(1, '#1e293b');   // Slate bottom
 
   ctx.fillStyle = bodyGrad;
   ctx.beginPath();
@@ -239,6 +241,18 @@ export const drawBlackCarp = (
   ctx.bezierCurveTo(size * 1.5, -size * 0.9, -size * 1.2, -size * 0.8, -size * 2.2, 0);
   ctx.bezierCurveTo(-size * 1.2, size * 0.8, size * 1.5, size * 0.9, size * 2.2, 0);
   ctx.fill();
+
+  // Premium Glossy Highlight
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const glossGrad = ctx.createLinearGradient(0, -size * 0.6, 0, 0);
+  glossGrad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+  glossGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = glossGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, -size * 0.3, size * 1.5, size * 0.3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   // 2. LARGE DIAMOND SCALES (Vảy rồng lớn)
   ctx.save();
@@ -845,10 +859,11 @@ export const drawCrucian = (
   const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
   ctx.save();
   
-  // 1. DEEP OVAL BRONZE BODY
+  // 1. DEEP OVAL BRONZE BODY (Iridescent Gold)
   const bodyGrad = ctx.createRadialGradient(size * 0.5, -size * 0.5, size * 0.2, 0, 0, size * 2.2);
-  bodyGrad.addColorStop(0, '#fde68a'); // Golden highlight
+  bodyGrad.addColorStop(0, '#fbbf24'); // Bright gold highlight
   bodyGrad.addColorStop(0.4, color);    // Base bronze/gold
+  bodyGrad.addColorStop(0.7, lerpColor(color, '#f59e0b', 0.4)); // Amber sheen
   bodyGrad.addColorStop(1, '#451a03');   // Dark bottom shadow
 
   ctx.fillStyle = bodyGrad;
@@ -857,6 +872,15 @@ export const drawCrucian = (
   ctx.bezierCurveTo(size * 1.2, -size * 1.6, -size * 1.0, -size * 1.5, -size * 1.6, 0);
   ctx.bezierCurveTo(-size * 1.0, size * 1.5, size * 1.2, size * 1.6, size * 1.6, 0);
   ctx.fill();
+
+  // Glossy Surface
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.ellipse(size * 0.4, -size * 0.5, size * 0.8, size * 0.3, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   // 2. OVERLAPPING GOLDEN SCALES
   ctx.save();
@@ -1013,11 +1037,13 @@ export const drawCarpGeneric = (
   const tailWag = Math.sin(frameCount * wagFreq) * wagAmp;
   ctx.save();
   
-  // 1. DEEP ROUNDED BODY (Carp/Crucian style)
+  // 1. DEEP ROUNDED BODY (Integrated Iridescence)
   const bodyGrad = ctx.createLinearGradient(0, -size * 1.4, 0, size * 1.4);
-  bodyGrad.addColorStop(0, lerpColor(color, '#000', 0.3));
-  bodyGrad.addColorStop(0.5, color);
-  bodyGrad.addColorStop(1, '#f8fafc');
+  bodyGrad.addColorStop(0, lerpColor(color, '#000', 0.4));
+  bodyGrad.addColorStop(0.3, color);
+  bodyGrad.addColorStop(0.5, lerpColor(color, '#fff', 0.25)); // High-gloss mid line
+  bodyGrad.addColorStop(0.7, color);
+  bodyGrad.addColorStop(1, '#e2e8f0');
 
   // Tail
   ctx.save();
@@ -1077,10 +1103,11 @@ export const drawAnabas = (
 
   ctx.save();
   
-  // 1. ROBUST BODY GRADIENT
+  // 1. ROBUST BODY GRADIENT (Slimy Iridescence)
   const bodyGrad = ctx.createLinearGradient(0, -size * 1.3, 0, size * 1.3);
   bodyGrad.addColorStop(0, '#064e3b'); // Dark green top
-  bodyGrad.addColorStop(0.4, color);
+  bodyGrad.addColorStop(0.3, color);
+  bodyGrad.addColorStop(0.5, lerpColor(color, '#ffffff', 0.2)); // Wet highlight
   bodyGrad.addColorStop(0.7, color);
   bodyGrad.addColorStop(1, '#fef3c7'); // Pale belly
 

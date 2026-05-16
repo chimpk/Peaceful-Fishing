@@ -185,8 +185,18 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleResize = () => {
-      const s = Math.min(window.innerWidth / 1100, window.innerHeight / 650);
-      setScale(s);
+      const isMobile = window.innerWidth < 768;
+      let s: number;
+      if (isMobile) {
+        // On portrait mobile: scale to fill width, keep aspect ratio
+        s = Math.min(
+          window.innerWidth / 1100,
+          window.innerHeight / 650
+        );
+      } else {
+        s = Math.min(window.innerWidth / 1100, window.innerHeight / 650);
+      }
+      setScale(Math.max(0.25, s)); // never scale below 25%
     };
     window.addEventListener('resize', handleResize);
     handleResize();
@@ -325,14 +335,27 @@ const App: React.FC = () => {
             }
           }}
           buySkill={(id) => {
-             // Hardcore: Exponential skill cost
+             // Max level caps per skill (must match SkillsTab SKILL_MAX_LEVELS)
+             const SKILL_MAX: Record<string, number> = {
+               sharpEye: 5, fastHands: 5, lucky: 5,
+               focus: 1, powerReel: 1,
+               deepSeaDiver: 3, weatherExpert: 3, masterAngler: 5,
+             };
              const level = state.skills[id];
+             const maxLevel = SKILL_MAX[id] ?? 5;
+             if (level >= maxLevel) {
+               state.addNotification(`Kỹ năng đã đạt cấp tối đa (${maxLevel})!`, 'warning');
+               soundManager.playError();
+               return;
+             }
+             // Hardcore: Exponential skill cost
              const cost = Math.floor(3000 * Math.pow(2.2, level));
              
              if (state.gold >= cost) {
                 state.setGold(prev => prev - cost);
                 state.setSkills(prev => ({ ...prev, [id]: prev[id] + 1 }));
-                state.addNotification(`Đã nâng cấp kỹ năng!`, 'success');
+                const newLevel = level + 1;
+                state.addNotification(`Đã nâng cấp kỹ năng lên Cấp ${newLevel}${newLevel >= maxLevel ? ' (TỐI ĐA)' : ''}!`, 'success');
                 soundManager.playPurchase();
              } else {
                 state.addNotification(`Không đủ vàng nâng cấp kỹ năng! (Cần ${cost} vàng)`, 'warning');
