@@ -42,6 +42,7 @@ interface GameViewProps {
   stats?: ProfileStats;
   claimDailyReward?: () => void;
   onOpenShowroom: () => void;
+  isMobile?: boolean;
 }
 
 const GameView: React.FC<GameViewProps> = ({ 
@@ -49,7 +50,7 @@ const GameView: React.FC<GameViewProps> = ({
   location, timeOfDay, weather, streak, competitionMode, competitionTimeLeft, competitionScore,
   notifications, epicCatch, quests, startGame, startCompetition, setLocation,
   setActiveView, setProfileTab, setShowTutorial, showTutorial, liveBait, handleSelect, ownedRods, ownedTackles,
-  levelData, handleRepair, onOpenShop, dailyMarketBoosts, stats, claimDailyReward, onOpenShowroom
+  levelData, handleRepair, onOpenShop, dailyMarketBoosts, stats, claimDailyReward, onOpenShowroom, isMobile
 }) => {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isGearExpanded, setIsGearExpanded] = useState(false);
@@ -446,8 +447,8 @@ const GameView: React.FC<GameViewProps> = ({
            {gameState === GameState.IDLE && showSpacePrompt && (
              <div className="absolute bottom-32 left-1/2 -translate-x-1/2 bg-black/40 px-6 py-2.5 rounded-2xl border border-white/5 backdrop-blur-md flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-4 duration-1000">
                <div className="flex items-center gap-3">
-                 <span className="bg-white text-black px-1.5 py-0.5 rounded text-[10px] font-black shadow-lg">SPACE</span>
-                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">NHẤN GIỮ ĐỂ QUĂNG CẦN</span>
+                 <span className="bg-white text-black px-1.5 py-0.5 rounded text-[10px] font-black shadow-lg">{isMobile ? 'CHẠM' : 'SPACE'}</span>
+                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">{isMobile ? 'GIỮ ĐỂ QUĂNG CẦN' : 'NHẤN GIỮ ĐỂ QUĂNG CẦN'}</span>
                </div>
              </div>
            )}
@@ -506,7 +507,7 @@ const GameView: React.FC<GameViewProps> = ({
                     <div className="w-48 h-4 bg-slate-800 rounded-full overflow-hidden relative">
                        <div className="absolute inset-y-0 left-0 bg-blue-500 animate-[pulse_1s_ease-in-out_infinite]" style={{ width: '70%' }}></div>
                     </div>
-                    <div className="bg-white text-black px-4 py-2 rounded-xl text-xs font-black shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-bounce">NHẤN GIỮ [SPACE]</div>
+                    <div className="bg-white text-black px-4 py-2 rounded-xl text-xs font-black shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-bounce">{isMobile ? 'NHẤN GIỮ MÀN HÌNH' : 'NHẤN GIỮ [SPACE]'}</div>
                  </div>
                )}
                {tutorialStep === 1 && (
@@ -515,7 +516,7 @@ const GameView: React.FC<GameViewProps> = ({
                        <div className="absolute w-full h-12 bg-green-500/30 top-8 left-0 border-y border-green-500"></div>
                        <div className="w-full h-6 bg-yellow-400 rounded-full absolute transition-all duration-300 animate-[bounce_1.5s_ease-in-out_infinite] left-0"></div>
                     </div>
-                    <div className="bg-white text-black px-4 py-2 rounded-xl text-xs font-black shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-pulse">NHẤN NHẤP [SPACE]</div>
+                    <div className="bg-white text-black px-4 py-2 rounded-xl text-xs font-black shadow-[0_0_20px_rgba(255,255,255,0.3)] animate-pulse">{isMobile ? 'CHẠM LIÊN TỤC' : 'NHẤN NHẤP [SPACE]'}</div>
                  </div>
                )}
                {tutorialStep === 2 && (
@@ -533,8 +534,8 @@ const GameView: React.FC<GameViewProps> = ({
             </div>
 
             <p className="text-sm text-slate-300 h-16 text-center leading-relaxed font-medium">
-              {tutorialStep === 0 && "Giữ phím SPACE để chọn lực quăng. Quăng trúng vùng xanh sẽ nhận được Bonus thả mồi hoàn hảo!"}
-              {tutorialStep === 1 && "Khi cá cắn, hãy nhấp nhả SPACE để giữ thanh lực màu vàng nằm bên trong vùng an toàn màu xanh."}
+               {tutorialStep === 0 && (isMobile ? "Giữ ngón tay trên màn hình để chọn lực quăng. Quăng trúng vùng xanh sẽ nhận được Bonus!" : "Giữ phím SPACE để chọn lực quăng. Quăng trúng vùng xanh sẽ nhận được Bonus thả mồi hoàn hảo!")}
+              {tutorialStep === 1 && (isMobile ? "Khi cá cắn, hãy chạm liên tục để giữ thanh lực màu vàng nằm bên trong vùng an toàn màu xanh." : "Khi cá cắn, hãy nhấp nhả SPACE để giữ thanh lực màu vàng nằm bên trong vùng an toàn màu xanh.")}
               {tutorialStep === 2 && "Sử dụng kỹ năng đặc biệt khi bạn đã học chúng trong Cây Kỹ Năng để dễ dàng bắt cá hiếm hơn."}
             </p>
 

@@ -11,6 +11,8 @@ import { useCompetition } from './hooks/useCompetition';
 import { useGamePersistence } from './hooks/useGamePersistence';
 import { clearSave } from './core/systems/persistence';
 import FishShowroom from './components/Showroom/FishShowroom';
+import { isMobileDevice } from './utils/mobileUtils';
+import MobileOptimizationPrompt from './components/layout/MobileOptimizationPrompt';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.START);
@@ -20,6 +22,9 @@ const App: React.FC = () => {
   const [streak, setStreak] = useState<number>(0);
   const [isBossSpawned, setIsBossSpawned] = useState<boolean>(false);
   const [showShowroom, setShowShowroom] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [showMobilePrompt, setShowMobilePrompt] = useState<boolean>(false);
+  const [isPortrait, setIsPortrait] = useState<boolean>(false);
 
   // Initialize hooks
   const state = useGameState();
@@ -184,28 +189,62 @@ const App: React.FC = () => {
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
+    const mobile = isMobileDevice();
+    setIsMobile(mobile);
+    if (mobile) {
+      setShowMobilePrompt(true);
+    }
+  }, []);
+
+  useEffect(() => {
     const handleResize = () => {
-      const isMobile = window.innerWidth < 768;
+      const portrait = window.innerHeight > window.innerWidth;
+      setIsPortrait(portrait);
+
+      const baseWidth = 1100;
+      const baseHeight = 650;
+      
       let s: number;
-      if (isMobile) {
-        // On portrait mobile: scale to fill width, keep aspect ratio
-        s = Math.min(
-          window.innerWidth / 1100,
-          window.innerHeight / 650
-        );
+      if (window.innerWidth < 1024) {
+        // Mobile/Tablet: try to fit the container
+        const padding = 20;
+        const availableW = window.innerWidth - padding;
+        const availableH = window.innerHeight - padding;
+        s = Math.min(availableW / baseWidth, availableH / baseHeight);
       } else {
-        s = Math.min(window.innerWidth / 1100, window.innerHeight / 650);
+        s = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight);
       }
-      setScale(Math.max(0.25, s)); // never scale below 25%
+      
+      setScale(Math.max(0.2, s));
     };
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
     handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, []);
 
   return (
     <div className="fixed inset-0 w-full h-full bg-slate-950 text-white overflow-hidden font-sans select-none flex items-center justify-center">
       <BubblesBackground />
+
+      {showMobilePrompt && isMobile && (
+        <MobileOptimizationPrompt onDismiss={() => setShowMobilePrompt(false)} />
+      )}
+
+      {isMobile && isPortrait && !showMobilePrompt && (
+        <div className="fixed inset-0 z-[90] bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+           <div className="animate-bounce mb-4">
+              <svg className="w-16 h-16 text-cyan-400 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+           </div>
+           <h3 className="text-xl font-bold text-white">Vui lòng xoay ngang</h3>
+           <p className="text-slate-400 mt-2">Xoay điện thoại để bắt đầu câu cá!</p>
+        </div>
+      )}
       
       <div 
         className="relative z-10 overflow-hidden shrink-0 shadow-2xl"
@@ -251,6 +290,7 @@ const App: React.FC = () => {
           playerLevel={state.stats.level}
           inventoryCount={state.inventory.length}
           inventoryCapacity={state.inventoryCapacity}
+          isMobile={isMobile}
         />
 
         <UIOverlay 

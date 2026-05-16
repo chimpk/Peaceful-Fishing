@@ -46,6 +46,7 @@ export interface GameEngineProps {
   playerLevel?: number;
   inventoryCount: number;
   inventoryCapacity: number;
+  isMobile?: boolean;
   disableInternalLoop?: boolean;
   canvasRef?: RefObject<HTMLCanvasElement | null>;
 }
@@ -83,7 +84,7 @@ export const useGameEngine = (props: GameEngineProps) => {
     onSessionReset, onLineBroken, onRodBroken, onCast, addNotification, 
     liveBait, setLiveBait, isBossSpawned, setIsBossSpawned, 
     onDurabilityChange, playerLevel, inventoryCount, inventoryCapacity,
-    disableInternalLoop, canvasRef: propCanvasRef
+    isMobile, disableInternalLoop, canvasRef: propCanvasRef
   } = props;
 
   const internalCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -104,7 +105,7 @@ export const useGameEngine = (props: GameEngineProps) => {
   const activeFish = useRef<EnhancedFishInstance | null>(null);
   const frameCount = useRef(0);
   const lastFrameTime = useRef(0);
-  const MAX_VFX_PARTICLES = 120;
+  const MAX_VFX_PARTICLES = isMobile ? 50 : 120;
   
   const isSpacePressed = useRef(false);
   
@@ -235,7 +236,8 @@ export const useGameEngine = (props: GameEngineProps) => {
         x, y, size: 5, speed: 0, opacity: 1, life: 60, type: 'ripple', color: 'rgba(255,255,255,0.6)'
     });
     // Reduce particle count on mobile (fewer = faster)
-    const count = Math.min(8, Math.floor(8 * intensity));
+    const baseCount = isMobile ? 4 : 8;
+    const count = Math.min(baseCount, Math.floor(baseCount * intensity));
     for(let i=0; i < count; i++) {
         vfxParticlesRef.current.push({
             x, y,
@@ -255,7 +257,8 @@ export const useGameEngine = (props: GameEngineProps) => {
   const createSparkles = useCallback((x: number, y: number, count = 20, colorSet?: string[]) => {
     const colors = colorSet || ['#fbbf24', '#f59e0b', '#ffffff', '#60a5fa'];
     const slots = MAX_VFX_PARTICLES - vfxParticlesRef.current.length;
-    const actualCount = Math.min(count, slots, 20); // hard cap at 20 per call
+    const mobileCap = isMobile ? 10 : 20;
+    const actualCount = Math.min(count, slots, mobileCap); // hard cap per call
     for(let i=0; i<actualCount; i++) {
         vfxParticlesRef.current.push({
             x, y,
@@ -422,13 +425,14 @@ export const useGameEngine = (props: GameEngineProps) => {
 
   const spawnInitialFish = useCallback(() => {
     const initialFish: EnhancedFishInstance[] = [];
-    for (let i = 0; i < 15; i++) {
+    const count = isMobile ? 8 : 15;
+    for (let i = 0; i < count; i++) {
       const fish = spawnSingleFish();
       fish.x = (Math.random() - 0.2) * (CANVAS_WIDTH * 1.4);
       initialFish.push(fish);
     }
     fishRef.current = initialFish;
-  }, [spawnSingleFish]);
+  }, [spawnSingleFish, isMobile]);
 
   const canStartFishing = useCallback(() => {
     const currentBaitCount = baitCounts[currentBait.id] || 0;

@@ -34,6 +34,7 @@ interface GameCanvasProps {
   playerLevel?: number;
   inventoryCount: number;
   inventoryCapacity: number;
+  isMobile?: boolean;
 }
 
 // Skill button states: ready | active | cooldown
