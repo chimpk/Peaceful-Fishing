@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GameState, InventoryItem, FishType, UIView, Rarity, NotificationType } from './types';
-import PixiGameCanvas from './components/canvas/PixiGameCanvas';
+import GameCanvas from './components/canvas/GameCanvas';
 import UIOverlay from './components/layout/UIOverlay';
 import { soundManager } from './core/systems/soundManager';
 import { BubblesBackground } from './components/layout/BubblesBackground';
@@ -217,7 +217,7 @@ const App: React.FC = () => {
           transition: 'transform 0.1s ease-out'
         }}
       >
-        <PixiGameCanvas 
+        <GameCanvas 
           gameState={gameState}
           setGameState={setGameState}
           onFishCaught={addFishToInventory}
