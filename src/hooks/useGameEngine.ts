@@ -46,6 +46,8 @@ export interface GameEngineProps {
   playerLevel?: number;
   inventoryCount: number;
   inventoryCapacity: number;
+  canvasRef?: React.RefObject<HTMLCanvasElement>;
+  disableInternalLoop?: boolean;
 }
 
 
@@ -83,7 +85,8 @@ export const useGameEngine = (props: GameEngineProps) => {
     onDurabilityChange, playerLevel, inventoryCount, inventoryCapacity 
   } = props;
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = props.canvasRef || internalCanvasRef;
   
   const fishRef = useRef<EnhancedFishInstance[]>([]);
   const bubblesRef = useRef<Particle[]>([]);
@@ -1459,6 +1462,7 @@ export const useGameEngine = (props: GameEngineProps) => {
   }, [gameState, playerLevel]);
 
   useEffect(() => {
+    if (props.disableInternalLoop) return;
     const canvas = canvasRef.current; if (!canvas) return;
     // Enable willReadFrequently for better performance on mobile
     const ctx = canvas.getContext('2d', { willReadFrequently: false, alpha: false }) as CanvasRenderingContext2D | null;
@@ -1510,6 +1514,7 @@ export const useGameEngine = (props: GameEngineProps) => {
     canvasRef,
     handlePressStart,
     handlePressEnd,
-    triggerSkill
+    triggerSkill,
+    update
   };
 };
