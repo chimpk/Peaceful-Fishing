@@ -23,9 +23,9 @@ export const WEATHER_BONUSES = {
 };
 
 export const CHEST_TYPES: FishType[] = [
-  { name: 'Rương Gỗ Cổ', rarity: Rarity.COMMON, value: 150, tension: 45, color: '#78350f', size: 30, weight: 10, isChest: true },
-  { name: 'Rương Bạc Nạm Ngọc', rarity: Rarity.RARE, value: 500, tension: 70, color: '#94a3b8', size: 35, weight: 5, isChest: true },
-  { name: 'Rương Vàng Hoàng Gia', rarity: Rarity.LEGENDARY, value: 2000, tension: 110, color: '#fbbf24', size: 40, weight: 2, isChest: true }
+  { name: 'Rương Gỗ Cổ', rarity: Rarity.COMMON, value: 500, tension: 45, color: '#78350f', size: 30, weight: 10, isChest: true },
+  { name: 'Rương Bạc Nạm Ngọc', rarity: Rarity.RARE, value: 3500, tension: 70, color: '#94a3b8', size: 35, weight: 5, isChest: true },
+  { name: 'Rương Vàng Hoàng Gia', rarity: Rarity.LEGENDARY, value: 25000, tension: 110, color: '#fbbf24', size: 40, weight: 2, isChest: true }
 ];
 
 import { JUNK_FISH } from './fish/junk';

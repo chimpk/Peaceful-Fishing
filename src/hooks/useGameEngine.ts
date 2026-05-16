@@ -10,8 +10,8 @@ import {
   LOCATION_DATA, CHEST_TYPES, BOSS_EXIST_TIME, DURABILITY_CHECK_INTERVAL
 } from '../core/data/gameData';
 import * as Graphics from '../core/graphics';
-import * as BossModels from '../core/entities/BossModels';
 import { ChestModels } from '../core/entities/ChestModels';
+import * as BossModels from '../core/entities/BossModels';
 import { soundManager } from '../core/systems/soundManager';
 import { lerpAngle } from '../utils/math';
 import * as VFXSystem from '../core/systems/VFXSystem';
@@ -135,6 +135,7 @@ export const useGameEngine = (props: GameEngineProps) => {
   const bossExistTimer = useRef(3600);
   const bossFailCount = useRef(0);
   const bossInitialized = useRef(false);
+  const bossAngle = useRef(0);
   const playerHP = useRef(100);
   const playerMaxHP = useRef(100);
   const playerAttackCharge = useRef(0);
@@ -502,7 +503,7 @@ export const useGameEngine = (props: GameEngineProps) => {
 
         if (collidingFish.id === 'boss_dummy') {
             setGameState(GameState.BOSS_FIGHT);
-            const scaledHP = 500 + (playerLevel || 1) * 35; 
+            const scaledHP = 800 + (playerLevel || 1) * 65; 
             bossHP.current = scaledHP;
             bossMaxHP.current = scaledHP;
             playerHP.current = 100;
@@ -521,6 +522,16 @@ export const useGameEngine = (props: GameEngineProps) => {
         setGameState(GameState.REELING);
         reelingProgress.current = 0;
         lineHealth.current = 100;
+        
+        // PERFECT HOOK FEEDBACK
+        const isPerfect = nibbleTimer.current < 20;
+        if (isPerfect) {
+          addNotification("PERFECT HOOK! +25% Tiến độ", "achievement");
+          reelingProgress.current = 25;
+          createSparkles(hookX.current, hookY.current, 30, ['#fbbf24', '#ffffff']);
+        }
+        
+        createSplash(hookX.current, hookY.current, 1.5);
         tensionCursor.current = 0.5;
         tensionVelocity.current = 0;
         isBehaviorActive.current = false;
@@ -530,10 +541,11 @@ export const useGameEngine = (props: GameEngineProps) => {
         
         const sizeMatchRatio = Math.min(1, collidingFish.type.value / lineLimit);
         const mismatchPenalty = 1 - sizeMatchRatio;
-        // Hardcore: Base zone reduced, Sharp Eye nerfed, Tension penalty increased
-        // Control Repurposed: Now increases green zone size by 5% per control unit
-        const controlBonus = (currentRod.control - 1) * 0.05;
-        tensionZoneSize.current = Math.max(0.1, 0.40 - (collidingFish.type.tension / 200) + (skills.sharpEye * 0.02) + controlBonus - mismatchPenalty * 0.2 + (currentBait.attraction / 1500));
+        const controlBonus = (currentRod.control - 1) * 0.08;
+        const skillBonus = (skills.sharpEye * 0.025) + (skills.lucky * 0.01);
+        const baitBonus = (currentBait.attraction / 2000);
+        
+        tensionZoneSize.current = Math.max(0.12, 0.42 - (collidingFish.type.tension / 220) + skillBonus + controlBonus - mismatchPenalty * 0.15 + baitBonus);
         tensionZone.current = 0.5 - tensionZoneSize.current / 2;
 
         willAutoEscape.current = false;
@@ -578,16 +590,16 @@ export const useGameEngine = (props: GameEngineProps) => {
         } else if (gameState === GameState.BOSS_FIGHT) {
           // If stunned, each press deals damage
           if (bossStunTimer.current > 0) {
-            const damage = 5 + (skills.sharpEye * 2);
+            const damage = 10 + (skills.sharpEye * 4) + (currentRod.lineStrength * 5);
             bossHP.current = Math.max(0, bossHP.current - damage);
-            createSparkles(bossX.current, bossY.current, 15, ['#fbbf24', '#ffffff']);
-            shakeIntensity.current = 5;
+            createSparkles(bossX.current, bossY.current, 20, ['#fbbf24', '#ffffff']);
+            shakeIntensity.current = 6;
             soundManager.playClick();
           } else {
             // Blocking/Parrying logic
-            const isParry = bossAttackIndicator.current > 0.8 && bossAttackIndicator.current < 1.05;
+            const isParry = bossAttackIndicator.current > 0.75 && bossAttackIndicator.current < 1.05;
             if (isParry) {
-              bossStance.current = Math.max(0, bossStance.current - 25);
+              bossStance.current = Math.max(0, bossStance.current - 35);
               addNotification("PARRY HOÀN HẢO!", "success");
               createSparkles(bossX.current, bossY.current, 40, ['#ffffff', '#fbbf24']);
               bossAttackIndicator.current = 0;
@@ -674,11 +686,11 @@ export const useGameEngine = (props: GameEngineProps) => {
           // Blocking/Parrying logic: check if we pressed right when indicator is near 1
           const isParry = bossAttackIndicator.current > 0.8 && bossAttackIndicator.current < 1.05;
           if (isParry) {
-            bossStance.current = Math.max(0, bossStance.current - 25);
+            bossStance.current = Math.max(0, bossStance.current - 35);
             addNotification("PARRY HOÀN HẢO!", "success");
             createSparkles(bossX.current, bossY.current, 40, ['#ffffff', '#fbbf24']);
             bossAttackIndicator.current = 0; // Reset attack
-            bossAttackTimer.current = -30; // Delay next attack
+            bossAttackTimer.current = -45; // Delay next attack
             soundManager.playSuccess();
             shakeIntensity.current = 10;
           }
@@ -1054,9 +1066,16 @@ export const useGameEngine = (props: GameEngineProps) => {
             nibbleSide.current = bigFishInstance.x < hookX.current ? -1 : 1; bigFishInstance.x = hookX.current + 35 * nibbleSide.current; bigFishInstance.y = hookY.current + 2;
             lungeProgress.current = 0; lungeDelay.current = 30;
         } else if (gameState === GameState.REELING) {
-            const lineLimit = currentTackle.maxValue || 300; const sizeMatch = Math.min(1, bigFishInstance.type.value / lineLimit); const mismatchPenalty = 1 - sizeMatch;
-            tensionZoneSize.current = Math.max(0.18, 0.48 - (bigFishInstance.type.tension / 220) + (skills.sharpEye * 0.05) - mismatchPenalty * 0.18 + (currentBait.attraction / 1000));
-            tensionCursor.current = Math.random() > 0.5 ? 0.8 : 0.2; shakeIntensity.current = 15;
+            const lineLimit = currentTackle.maxValue || 300; 
+            const mismatchPenalty = Math.max(0, (bigFishInstance.type.value - lineLimit) / lineLimit);
+            tensionZoneSize.current = Math.max(0.15, 0.45 - (bigFishInstance.type.tension / 240) - mismatchPenalty * 0.15);
+            
+            // LOGIC FIX: Reset progress when a predator eats the catch
+            reelingProgress.current = Math.max(0, reelingProgress.current - 40); 
+            lineHealth.current = Math.min(100, lineHealth.current + 20); // Give some health back
+            
+            tensionCursor.current = Math.random() > 0.5 ? 0.8 : 0.2; 
+            shakeIntensity.current = 20;
             const dx = 220 - hookX.current; const dy = 120 - hookY.current; bigFishInstance.angle = Math.atan2(dy, dx);
         }
     }
@@ -1066,7 +1085,30 @@ export const useGameEngine = (props: GameEngineProps) => {
 
     if (gameState === GameState.CHARGING) {
       chargePower.current += 1.8 * chargeDirection.current; if (chargePower.current >= 100) { chargePower.current = 100; chargeDirection.current = -1; } if (chargePower.current <= 0) { chargePower.current = 0; chargeDirection.current = 1; }
-      Graphics.drawPowerBar(ctx, pX + 50, pY - 60, chargePower.current); hookX.current = rodEndX; hookY.current = rodEndY;
+      
+      ctx.save();
+      ctx.translate(pX + 30, pY - 80);
+      // Premium Glow for Charge Bar
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = chargePower.current >= 95 ? '#fbbf24' : '#60a5fa';
+      
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+      ctx.beginPath(); ctx.roundRect(0, 0, 100, 12, 6); ctx.fill();
+      
+      const grad = ctx.createLinearGradient(0, 0, 100, 0);
+      grad.addColorStop(0, '#3b82f6');
+      grad.addColorStop(1, chargePower.current >= 95 ? '#fbbf24' : '#60a5fa');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(0, 0, chargePower.current, 12, 6); ctx.fill();
+      
+      if (chargePower.current >= 95) {
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 10px Arial';
+        ctx.fillText('PERFECT!', 110, 10);
+      }
+      ctx.restore();
+      
+      hookX.current = rodEndX; hookY.current = rodEndY;
     }
 
     if (gameState === GameState.CASTING) {
@@ -1078,7 +1120,7 @@ export const useGameEngine = (props: GameEngineProps) => {
         hookX.current = targetHookX.current; hookY.current = targetHookY.current;
         castProgress.current = 0;
         createSplash(hookX.current, hookY.current, perfectCastBonus.current ? 2.0 : 1.2); if (perfectCastBonus.current) shakeIntensity.current = 5;
-        setGameState(GameState.WAITING); const baseSettle = frenzyActive.current ? 90 + Math.random() * 90 : perfectCastBonus.current ? 120 + Math.random() * 60 : 240 + Math.random() * 240;
+        setGameState(GameState.WAITING); const baseSettle = frenzyActive.current ? 20 + Math.random() * 20 : perfectCastBonus.current ? 30 + Math.random() * 30 : 60 + Math.random() * 60;
         baitSettleTimer.current = baseSettle; baitSettleTotal.current = baseSettle;
         if (perfectCastBonus.current && eventHandledRef.current !== 'perfect_cast') { eventHandledRef.current = 'perfect_cast'; addNotification('QUĂNG HOÀN HẢO! +20% Attraction', 'success'); }
       }
@@ -1145,7 +1187,7 @@ export const useGameEngine = (props: GameEngineProps) => {
       const tugX = Math.cos(activeFish.current.angle) * (tugFactor.current * 10); const tugY = Math.sin(activeFish.current.angle) * (tugFactor.current * 10);
       Graphics.drawFishTexture(ctx, activeFish.current.type, frameCount.current, true, { x: hookX.current - tugX, y: hookY.current - tugY - jumpOffsetY, angle: activeFish.current.angle, direction: 1 }, 2.5, activeFish.current.swimStyle, false, activeFish.current.isGolden);
 
-      const ft = activeFish.current.type.tension; let finalGravity = ((0.00045 + (ft / 160000)) / currentRod.control) * 4; let finalLift = 0.00135 * currentRod.control;
+      const ft = activeFish.current.type.tension; let finalGravity = ((0.0004 + (ft / 180000)) / currentRod.control) * 3.5; let finalLift = 0.0014 * currentRod.control;
       if (isBehaviorActive.current) { if (behaviorType.current === 'dive') finalGravity += 0.006; if (behaviorType.current === 'thrash') tensionCursor.current += (Math.random() - 0.5) * 0.035; }
       const isBerserk = activeFish.current.type.canBerserk && reelingProgress.current > 80;
       if (isBerserk) { finalGravity *= 1.45; shakeIntensity.current = Math.max(shakeIntensity.current, 10); if (frameCount.current % 15 < 7) vfxParticlesRef.current.push({ x: hookX.current + (Math.random()-0.5)*40, y: hookY.current + (Math.random()-0.5)*40, size: 3, speed: 0.5, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, life: 20, opacity: 1, color: '#ef4444', type: 'circle' }); }
@@ -1221,8 +1263,18 @@ export const useGameEngine = (props: GameEngineProps) => {
       }
       if (reelingProgress.current >= 100) { setGameState(GameState.CAUGHT); isJumping.current = true; jumpProgress.current = 0; createSparkles(hookX.current, hookY.current, 40, ['#fbbf24', '#f59e0b', '#ffffff']); onDurabilityChange('rod', 0.5); onDurabilityChange('tackle', 1.0); }      
       if (lineHealth.current <= 0) {
-        const rodLimit = currentRod.maxValue || 300; createSplash(hookX.current, hookY.current, 1.2); for(let i=0; i<10; i++) vfxParticlesRef.current.push({ x: hookX.current, y: hookY.current, size: 2 + Math.random()*4, speed: 0.5, vx: (Math.random()-0.5)*4, vy: 2 + Math.random()*4, opacity: 0.8, life: 40, color: 'rgba(255,255,255,0.4)', type: 'circle' });
-        if (activeFish.current?.type.value > lineLimit) onLineBroken(); else if (activeFish.current?.type.value > rodLimit) onRodBroken(); else onFishLost("Cá đã sổng mất rồi!");
+        soundManager.playError();
+        const rodLimit = currentRod.maxValue || 500;
+        const fishValue = activeFish.current?.type.value || 0;
+        
+        // LOGIC FIX: Check rod break first. If fish is bigger than rod's max value, rod snaps.
+        if (fishValue > rodLimit) {
+          onRodBroken();
+        } else if (fishValue > lineLimit) {
+          onLineBroken();
+        } else {
+          onFishLost("Dây câu đã đứt do quá căng!");
+        }
         activeFish.current = null;
       }
       if (frameCount.current % 8 === 0) soundManager.playReel(Math.abs(tensionCursor.current - tensionZone.current) * 2);
@@ -1296,6 +1348,106 @@ export const useGameEngine = (props: GameEngineProps) => {
         createSparkles(bossX.current, bossY.current, 60, ['#fbbf24', '#ffffff']);
       }
 
+      // ─── Consolidated Boss HUD ───
+      const bW = 450; 
+      const bH = 14; 
+      const bX = (CANVAS_WIDTH - bW) / 2; 
+      const bY = 40;
+      
+      // 1. Boss Health Bar (Using Utility)
+      Graphics.drawBossHealthBarFlash(ctx, bossHP.current, bossMaxHP.current, bX, bW, bH, bY, isEnraged, frameCount.current);
+      
+      // 2. Boss Stance Bar
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.beginPath(); ctx.roundRect(bX, bY + bH + 6, bW, 6, 3); ctx.fill();
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath(); ctx.roundRect(bX, bY + bH + 6, (bossStance.current / bossStanceMax.current) * bW, 6, 3); ctx.fill();
+      
+      // Label
+      ctx.fillStyle = 'white'; 
+      ctx.font = 'bold 14px "Be Vietnam Pro", Arial'; 
+      ctx.textAlign = 'center'; 
+      const bTitle = location === 'POND' ? 'KRAKEN VỰC THẲM' : (location === 'CAVE' ? 'BẠCH TUỘC U LINH' : 'CÁ MẬP CƠ KHÍ'); 
+      ctx.fillText(bTitle, CANVAS_WIDTH/2, bY - 15);
+
+      // 3. Player UI
+      ctx.save();
+      ctx.translate(40, CANVAS_HEIGHT - 70);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)'; 
+      ctx.beginPath(); ctx.roundRect(0, 0, 220, 15, 8); ctx.fill(); 
+      ctx.fillStyle = playerHP.current < 30 ? '#ef4444' : '#22c55e'; 
+      ctx.beginPath(); ctx.roundRect(0, 0, (playerHP.current / playerMaxHP.current) * 220, 15, 8); ctx.fill();
+      ctx.fillStyle = 'white'; ctx.font = 'bold 11px "Be Vietnam Pro", Arial'; ctx.textAlign = 'left'; 
+      ctx.fillText(`MÁU NGƯỜI CHƠI: ${Math.ceil(playerHP.current)}%`, 5, -5);
+      ctx.restore();
+
+      // 4. Attack Indicator & Prompts
+      if (bossAttackIndicator.current > 0) {
+        ctx.save();
+        ctx.translate(bossX.current, bossY.current);
+        // Outer warning ring
+        const ringScale = 1 + (1 - bossAttackIndicator.current) * 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 100 * ringScale, 0, Math.PI * 2);
+        ctx.strokeStyle = bossAttackIndicator.current > 0.8 ? '#ef4444' : '#fbbf24';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
+        // Progress arc
+        ctx.beginPath();
+        ctx.arc(0, 0, 110, -Math.PI/2, -Math.PI/2 + (Math.PI * 2 * bossAttackIndicator.current));
+        ctx.strokeStyle = bossAttackIndicator.current > 0.8 ? '#ef4444' : '#fbbf24';
+        ctx.lineWidth = 8;
+        ctx.stroke();
+        
+        // Text Prompt
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(bossAttackIndicator.current > 0.8 ? 'PARRY!' : 'WATCH OUT!', 0, -130);
+        ctx.restore();
+      }
+
+      if (isStunned) {
+        ctx.save();
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = 'white';
+        ctx.fillText('STUNNED! SPAM SPACE!!!', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 180);
+        ctx.restore();
+      } else if (gameState === GameState.BOSS_FIGHT) {
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.textAlign = 'right';
+        ctx.font = 'bold 11px "Be Vietnam Pro", Arial';
+        ctx.fillText('GIỮ SPACE ĐỂ ĐỠ - BẤM ĐÚNG LÚC ĐỂ PHẢN ĐÒN', CANVAS_WIDTH - 45, CANVAS_HEIGHT - 75);
+      }
+
+      // Calculate Boss Angle & Drawing
+      const prevX = CANVAS_WIDTH / 2 + Math.cos((time - 0.05) * 0.8 * (isEnraged ? 1.5 : 1)) * (150 + (isEnraged ? 50 : 0));
+      const prevY = CANVAS_HEIGHT / 2 + Math.sin((time - 0.05) * 1.2 * (isEnraged ? 1.5 : 1)) * (80 + (isEnraged ? 30 : 0));
+      const dx = bossX.current - prevX;
+      const dy = bossY.current - prevY;
+      if (!isStunned) bossAngle.current = lerpAngle(bossAngle.current, Math.atan2(dy, dx), 0.1);
+
+      // Draw Boss
+      ctx.save(); 
+      ctx.translate(bossX.current, bossY.current); 
+      ctx.rotate(bossAngle.current);
+      if (isStunned) {
+        ctx.translate((Math.random()-0.5)*5, (Math.random()-0.5)*5);
+        ctx.filter = 'brightness(1.5) sepia(0.5)';
+      }
+      
+      const bossSize = 1.8 + (isEnraged ? 0.4 : 0); 
+      ctx.scale(bossSize, bossSize);
+      const isAttacking = bossAttackIndicator.current > 0;
+      if (location === 'POND') BossModels.drawAbyssalKraken(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isAttacking);
+      else if (location === 'OCEAN') BossModels.drawMechaSharkBoss(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isAttacking);
+      else BossModels.drawGhostOctopus(ctx, frameCount.current, bossHP.current, bossMaxHP.current, isAttacking);
+      ctx.restore();
+
       // Check Player Death
       if (playerHP.current <= 0) {
         setGameState(GameState.GAMEOVER);
@@ -1323,91 +1475,7 @@ export const useGameEngine = (props: GameEngineProps) => {
           if (onSessionReset) onSessionReset();
         }, 500);
       }
-
-      // Draw Boss
-      ctx.save(); 
-      ctx.translate(bossX.current, bossY.current); 
-      if (isStunned) {
-        ctx.translate((Math.random()-0.5)*5, (Math.random()-0.5)*5);
-        ctx.filter = 'brightness(1.5) sepia(0.5)';
-      }
-      
-      const bossSize = 1.8 + (isEnraged ? 0.4 : 0); 
-      ctx.scale(bossSize, bossSize);
-      if (location === 'OCEAN') BossModels.drawAbyssalKraken(ctx, frameCount.current, bossHP.current, bossMaxHP.current, bossAttackIndicator.current > 0);
-      else if (location === 'CAVE') BossModels.drawGhostOctopus(ctx, frameCount.current, bossHP.current, bossMaxHP.current, bossAttackIndicator.current > 0);
-      else BossModels.drawMechaSharkBoss(ctx, frameCount.current, bossHP.current, bossMaxHP.current, bossAttackIndicator.current > 0);
-      ctx.restore();
-
-      // Draw Attack Indicator (The Ring)
-      if (bossAttackIndicator.current > 0 && !isStunned) {
-        ctx.save();
-        ctx.translate(bossX.current, bossY.current);
-        
-        // Background ring
-        ctx.beginPath();
-        ctx.arc(0, 0, 100, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.lineWidth = 10;
-        ctx.stroke();
-
-        // Shrinking warning ring
-        const ringScale = 1 + (1 - bossAttackIndicator.current) * 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, 100 * ringScale, 0, Math.PI * 2);
-        ctx.strokeStyle = bossAttackIndicator.current > 0.8 ? '#ef4444' : '#fbbf24';
-        ctx.lineWidth = 5;
-        ctx.stroke();
-        
-        // Text Prompt
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(bossAttackIndicator.current > 0.8 ? 'PARRY!' : 'WATCH OUT!', 0, -120);
-        ctx.restore();
-      }
-
-      // Draw UI
-      const barW = 450; 
-      const barH = 14; 
-      const barX = (CANVAS_WIDTH - barW) / 2; 
-      Graphics.drawBossHealthBarFlash(ctx, bossHP.current, bossMaxHP.current, barX, barW, barH, 40, isEnraged, frameCount.current);
-      
-      // Stance Bar
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.roundRect(barX, 58, barW, 6, 3);
-      ctx.fill();
-      ctx.fillStyle = '#fbbf24';
-      ctx.roundRect(barX, 58, (bossStance.current / bossStanceMax.current) * barW, 6, 3);
-      ctx.fill();
-
-      ctx.fillStyle = 'white'; 
-      ctx.font = 'bold 14px "Be Vietnam Pro"'; 
-      ctx.textAlign = 'center'; 
-      const bossTitle = location === 'OCEAN' ? 'KRAKEN VỰC THẲM' : (location === 'CAVE' ? 'BẠCH TUỘC MA' : 'CÁ MẬP CƠ KHÍ'); 
-      ctx.fillText(`${bossTitle}`, CANVAS_WIDTH/2, 30);
-
-      // Player UI
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.8)'; 
-      ctx.roundRect(40, CANVAS_HEIGHT - 70, 220, 15, 8); ctx.fill(); 
-      ctx.fillStyle = playerHP.current < 30 ? '#ef4444' : '#22c55e'; 
-      ctx.roundRect(40, CANVAS_HEIGHT - 70, (playerHP.current / playerMaxHP.current) * 220, 15, 8); ctx.fill();
-      ctx.fillStyle = 'white'; ctx.font = 'bold 11px "Be Vietnam Pro"'; ctx.textAlign = 'left'; 
-      ctx.fillText(`MÁU NGƯỜI CHƠI: ${Math.ceil(playerHP.current)}%`, 45, CANVAS_HEIGHT - 75);
-
-      if (isStunned) {
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 30px Arial';
-        ctx.textAlign = 'center';
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = 'white';
-        ctx.fillText('STUNNED! SPAM SPACE!!!', CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 150);
-      } else {
-        ctx.fillStyle = 'white';
-        ctx.textAlign = 'right';
-        ctx.font = 'bold 11px "Be Vietnam Pro"';
-        ctx.fillText('GIỮ SPACE ĐỂ ĐỠ - BẤM ĐÚNG LÚC ĐỂ PHẢN ĐÒN', CANVAS_WIDTH - 45, CANVAS_HEIGHT - 75);
-      }
+      if (frameCount.current % 8 === 0) soundManager.playReel(0.5);
     }
 
     if (inkAlpha.current > 0) {
@@ -1439,6 +1507,33 @@ export const useGameEngine = (props: GameEngineProps) => {
     ctx.fillStyle = `rgba(0, 0, 0, ${vignetteAlpha})`;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.restore();
+
+    // ENVIRONMENTAL HAZARDS (Hardcore Gameplay)
+    if (frameCount.current % 15 === 0) {
+      // 1. Lightning Strike (Stormy)
+      if (weather === 'stormy' && Math.random() < 0.015 && [GameState.WAITING, GameState.NIBBLING, GameState.REELING].includes(gameState)) {
+        addNotification("SÉT ĐÁNH! Cần câu bị nhiễu điện!", "warning");
+        shakeIntensity.current = 25;
+        if (gameState === GameState.REELING) {
+          lineHealth.current = Math.max(0, lineHealth.current - 15);
+          tensionCursor.current = Math.random();
+        }
+        createSparkles(hookX.current, hookY.current - 100, 50, ['#ffffff', '#60a5fa', '#fde047']);
+      }
+
+      // 2. Falling Stalactite (Cave)
+      if (location === 'CAVE' && Math.random() < 0.01 && [GameState.WAITING, GameState.NIBBLING, GameState.REELING].includes(gameState)) {
+        addNotification("THẠCH NHŨ RƠI! Cẩn thận!", "warning");
+        shakeIntensity.current = 20;
+        if (activeFish.current && Math.random() < 0.3) {
+          addNotification("Cá đã bị hoảng sợ và chạy mất!", "info");
+          activeFish.current = null;
+          setGameState(GameState.IDLE);
+        } else {
+          onDurabilityChange('rod', 5);
+        }
+      }
+    }
 
     if (motionBlurAlpha.current > 0.01) {
         ctx.save(); 
@@ -1560,8 +1655,6 @@ export const useGameEngine = (props: GameEngineProps) => {
 
   useEffect(() => {
     if (gameState === GameState.BOSS_FIGHT) {
-      const scaledHP = 100 + ((playerLevel || 1) - 1) * 30;
-      bossHP.current = scaledHP; bossMaxHP.current = scaledHP;
       playerHP.current = 100; playerMaxHP.current = 100;
       bossAttackTimer.current = 0; playerAttackCharge.current = 0;
       bossX.current = CANVAS_WIDTH / 2; bossY.current = CANVAS_HEIGHT / 2;
